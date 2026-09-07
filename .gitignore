@@ -1,0 +1,30 @@
+# Abhängigkeiten / Build-Ausgaben
+node_modules/
+dist/
+build/
+out/
+target/
+coverage/
+.angular/
+
+# Umgebung & Secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editoren & Betriebssystem
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+
+# Claude Code: persönliche Einstellungen bleiben lokal,
+# .claude/settings.json und .claude/context/ werden committet
+.claude/settings.local.json

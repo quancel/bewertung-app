@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "agent-team-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "quancel/agent-team-marketplace"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "agent-team@agent-team-marketplace": true
+  }
+}
