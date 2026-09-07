@@ -1,13 +1,28 @@
 {
-  "extraKnownMarketplaces": {
-    "agent-team-marketplace": {
-      "source": {
-        "source": "github",
-        "repo": "quancel/agent-team-marketplace"
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Task|Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/log-agent-run.py\" 2>/dev/null || true",
+            "timeout": 15,
+            "statusMessage": "Protokolliere Agent-Aufruf"
+          }
+        ]
       }
-    }
-  },
-  "enabledPlugins": {
-    "agent-team@agent-team-marketplace": true
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/log-agent-run.py\" 2>/dev/null || true",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
   }
 }
