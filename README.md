@@ -22,21 +22,28 @@ Fachliche Domäne und Technologie-Stack sind bewusst noch offen und werden
 
 ```
 .claude/
-  agents/                 6 Rollen           ← generiert, siehe Sync
+  agents/                 6 Rollen                        ← generiert
   commands/
-    orchestrate.md        /orchestrate       ← generiert, siehe Sync
-    lauf-analyse.md       /lauf-analyse
-  agent-team/             Regelwerk + Vorlagen ← generiert, siehe Sync
+    orchestrate.md        /orchestrate                    ← generiert
+    lauf-analyse.md       /lauf-analyse                   ← generiert
+  agent-team/                                             ← generiert
+    rules/                Handoff-Schema, Präzedenz, Reihenfolge
+    context-templates/    Vorlagen (nicht die echten Projektdateien)
+    scripts/
+      log-agent-run.py    Hook: protokolliert jeden Subagent-Aufruf
+      runs-report.py      verdichtet .claude/runs/ zu einer Übersicht
     VENDORED.md           Herkunft und Stand der Kopie
+    GENERATED-COMMANDS    welche Befehle der Sync erzeugt hat
   context/                Projektgedächtnis: Context-Map, ADRs, Learnings,
                           Code- und Design-Konventionen (noch nicht befüllt)
   runs/                   Protokoll jedes Durchlaufs (entsteht zur Laufzeit)
   scripts/
     sync-agent-team.sh    Agent-Team aus dem Marketplace-Repo übernehmen
-    log-agent-run.py      Hook: protokolliert jeden Subagent-Aufruf
-    runs-report.py        verdichtet .claude/runs/ zu einer Übersicht
   settings.json           Hooks für das Durchlauf-Protokoll
 CLAUDE.md                 Arbeitsanweisung für Claude Code in diesem Repo
+
+Alles mit „← generiert" kommt aus dem Marketplace-Repo und wird beim
+nächsten Sync ersetzt.
 ```
 
 ## Agent-Team aktualisieren
@@ -46,8 +53,10 @@ CLAUDE.md                 Arbeitsanweisung für Claude Code in diesem Repo
 ```
 
 Holt den aktuellen Stand aus `quancel/agent-team-marketplace` und **ersetzt
-`.claude/agents/` und `.claude/agent-team/` vollständig**. Änderungen am
-Regelwerk gehören deshalb ins Marketplace-Repo, nicht hierher.
+`.claude/agents/` und `.claude/agent-team/` vollständig**; in
+`.claude/commands/` entfernt er genau die Dateien des letzten Laufs, ein
+repo-eigener Befehl daneben bleibt. Änderungen am Regelwerk gehören deshalb
+ins Marketplace-Repo, nicht hierher.
 
 Beim Kopieren wird `${CLAUDE_PLUGIN_ROOT}/` auf `.claude/agent-team/`
 umgeschrieben — ohne das fänden die Agents ihre Regel- und Vorlagendateien
@@ -61,7 +70,7 @@ Jeder Subagent-Aufruf landet automatisch in `.claude/runs/<datum>_<session>/`
 
 ```
 /lauf-analyse
-python3 .claude/scripts/runs-report.py --last 3
+python3 .claude/agent-team/scripts/runs-report.py --last 3
 ```
 
 Der Hook wird beim Session-Start geladen: nach Änderungen an

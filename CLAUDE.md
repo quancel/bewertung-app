@@ -34,8 +34,9 @@ Agents selbst geladen.
 
 ## Herkunft der Agents — generiert, nicht von Hand pflegen
 
-`.claude/agents/`, `.claude/commands/orchestrate.md` und
-`.claude/agent-team/` sind **Kopien** aus dem Plugin-Repo
+`.claude/agents/`, die Befehle in `.claude/commands/` und
+`.claude/agent-team/` (Regelwerk, Vorlagen, Skripte) sind **Kopien** aus dem
+Plugin-Repo
 `quancel/agent-team-marketplace`, erzeugt von:
 
 ```bash
@@ -43,9 +44,12 @@ Agents selbst geladen.
 ./.claude/scripts/sync-agent-team.sh --from <pfad-zum-marketplace-klon>
 ```
 
-Der Sync **ersetzt `.claude/agents/` und `.claude/agent-team/` vollständig**.
-Änderungen am Regelwerk gehören deshalb ins Marketplace-Repo und kommen von
-dort zurück — direkt hier editiert sind sie beim nächsten Sync weg.
+Der Sync **ersetzt `.claude/agents/` und `.claude/agent-team/` vollständig**
+und entfernt in `.claude/commands/` genau die Dateien, die der letzte Lauf
+erzeugt hat (Liste in `.claude/agent-team/GENERATED-COMMANDS`) — ein
+repo-eigener Befehl daneben bleibt unangetastet. Änderungen am Regelwerk
+gehören deshalb ins Marketplace-Repo und kommen von dort zurück — direkt
+hier editiert sind sie beim nächsten Sync weg.
 Herkunft und Stand stehen in `.claude/agent-team/VENDORED.md`.
 
 Der Sync schreibt beim Kopieren `${CLAUDE_PLUGIN_ROOT}/` auf
@@ -62,9 +66,9 @@ Plugin und Repo-Kopie gleichzeitig aktiv, gäbe es jede Rolle zweimal.
 ## Durchlauf-Protokoll: `.claude/runs/`
 
 Jeder Subagent-Aufruf wird automatisch mitgeschrieben — per Hook
-(`.claude/settings.json` → `.claude/scripts/log-agent-run.py`), nicht durch
-eine Zusammenfassung, die das Modell schreiben muss. Je Session ein
-Verzeichnis `.claude/runs/<datum>_<session>/`:
+(`.claude/settings.json` → `.claude/agent-team/scripts/log-agent-run.py`),
+nicht durch eine Zusammenfassung, die das Modell schreiben muss. Je Session
+ein Verzeichnis `.claude/runs/<datum>_<session>/`:
 
 | Datei | Inhalt |
 |-------|--------|
@@ -75,9 +79,15 @@ Verzeichnis `.claude/runs/<datum>_<session>/`:
 Auswertung mit `/lauf-analyse` oder direkt:
 
 ```bash
-python3 .claude/scripts/runs-report.py            # alle Durchläufe
-python3 .claude/scripts/runs-report.py --last 3
+python3 .claude/agent-team/scripts/runs-report.py            # alle Durchläufe
+python3 .claude/agent-team/scripts/runs-report.py --last 3
 ```
+
+Hook-Skript, Report und beide Befehle stammen aus dem Plugin und werden
+mitsynchronisiert; nur der `hooks`-Block in `.claude/settings.json` gehört
+dem Repo. Das Plugin bringt für den Plugin-Betrieb ein eigenes
+`hooks/hooks.json` mit — hier greift es nicht, weil die Rollen als
+Projekt-Agents laufen.
 
 Das Protokoll wird **mitcommittet** — es ist der Zweck der Sache, Durchläufe
 später vergleichen zu können. Wer das nicht will, nimmt `.claude/runs/` in

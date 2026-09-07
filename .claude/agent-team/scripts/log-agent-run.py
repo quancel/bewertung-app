@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Protokolliert jeden Agent-Team-Durchlauf nach .claude/runs/.
+"""Protokolliert jeden Agent-Team-Durchlauf im Ziel-Repo unter .claude/runs/.
 
-Haengt als Hook an zwei Ereignissen (siehe .claude/settings.json):
+Haengt als Hook an zwei Ereignissen (siehe ../hooks/hooks.json):
 
   PostToolUse (Task|Agent)  ein Subagent-Aufruf ist fertig -> Ein- und
                             Ausgabe vollstaendig wegschreiben
@@ -11,6 +11,11 @@ Warum ein Hook und nicht "der Orchestrator schreibt eine Zusammenfassung":
 Eine Zusammenfassung entsteht nur, wenn das Modell daran denkt — und der
 Durchlauf, der schiefging, ist genau der, bei dem es das nicht tut. Der Hook
 laeuft unabhaengig davon.
+
+**Geschrieben wird immer ins Ziel-Repo, nie neben dieses Skript.** Im
+Plugin-Betrieb liegt es im Plugin-Cache; wuerde es sich ueber __file__
+verorten, landete das Protokoll dort statt im Projekt. Das Ziel-Repo kommt
+deshalb aus CLAUDE_PROJECT_DIR, sonst aus dem cwd des Hook-Payloads.
 
 Grundregel: Dieses Skript darf eine Session nie stoeren. Jeder Fehler wird
 verschluckt, der Exit-Code ist immer 0.
@@ -22,9 +27,12 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
-RUNS = REPO / ".claude" / "runs"
 MAX_CHARS = 200_000  # Kappung pro Feld, damit ein Ausreisser das Repo nicht sprengt
+
+
+def runs_base(payload):
+    root = os.environ.get("CLAUDE_PROJECT_DIR") or payload.get("cwd") or os.getcwd()
+    return Path(root) / ".claude" / "runs"
 
 
 def now():
@@ -38,9 +46,9 @@ def clip(text):
     return text
 
 
-def run_dir(session_id):
+def run_dir(base, session_id):
     short = re.sub(r"[^A-Za-z0-9_-]", "", str(session_id))[-12:] or "unbekannt"
-    d = RUNS / f"{datetime.now(timezone.utc):%Y-%m-%d}_{short}"
+    d = base / f"{datetime.now(timezone.utc):%Y-%m-%d}_{short}"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -121,7 +129,7 @@ def append_index(d, line):
     if not idx.exists():
         idx.write_text(
             f"# Durchlauf-Protokoll {d.name}\n\n"
-            "Automatisch erzeugt von `.claude/scripts/log-agent-run.py`.\n"
+            "Automatisch erzeugt vom `agent-team`-Hook `log-agent-run.py`.\n"
             "Je Zeile ein Ereignis; die vollstaendigen Ein-/Ausgaben liegen in\n"
             "den JSON-Dateien daneben.\n\n"
             "| Zeit (UTC) | Nr. | Rolle | task_id | status | offene Fragen | Datei |\n"
@@ -132,10 +140,10 @@ def append_index(d, line):
         fh.write(line + "\n")
 
 
-def on_tool(payload):
+def on_tool(base, payload):
     ti = payload.get("tool_input") or {}
     role = ti.get("subagent_type") or ti.get("agent_type") or payload.get("tool_name") or "unbekannt"
-    d = run_dir(payload.get("session_id"))
+    d = run_dir(base, payload.get("session_id"))
     n = next_index(d)
     text = response_text(payload.get("tool_response"))
     objs = handoffs(text)
@@ -163,8 +171,8 @@ def on_tool(payload):
                     f"{fragen or '—'} | `{n:03d}-{safe_role}.json` |")
 
 
-def on_prompt(payload):
-    d = run_dir(payload.get("session_id"))
+def on_prompt(base, payload):
+    d = run_dir(base, payload.get("session_id"))
     prompt = str(payload.get("prompt", ""))
     with (d / "prompts.md").open("a", encoding="utf-8") as fh:
         fh.write(f"\n## {now()}\n\n```\n{clip(prompt)}\n```\n")
@@ -178,16 +186,16 @@ def main():
         payload = json.load(sys.stdin)
     except Exception:
         return
+    base = runs_base(payload)
     try:
-        event = payload.get("hook_event_name")
-        if event == "UserPromptSubmit":
-            on_prompt(payload)
+        if payload.get("hook_event_name") == "UserPromptSubmit":
+            on_prompt(base, payload)
         else:
-            on_tool(payload)
+            on_tool(base, payload)
     except Exception as exc:  # nie die Session blockieren
         try:
-            (RUNS / "hook-errors.log").parent.mkdir(parents=True, exist_ok=True)
-            with (RUNS / "hook-errors.log").open("a", encoding="utf-8") as fh:
+            base.mkdir(parents=True, exist_ok=True)
+            with (base / "hook-errors.log").open("a", encoding="utf-8") as fh:
                 fh.write(f"{now()} {type(exc).__name__}: {exc}\n")
         except Exception:
             pass

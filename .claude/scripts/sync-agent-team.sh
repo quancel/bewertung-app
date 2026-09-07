@@ -50,13 +50,39 @@ SRC_REF="$(git -C "$SRC" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unbekan
 
 # Generierte Verzeichnisse vollstaendig ersetzen, damit geloeschte
 # Upstream-Dateien nicht als Leichen zurueckbleiben.
+MANIFEST=".claude/agent-team/GENERATED-COMMANDS"
+
+# Commands liegen in einem Ordner, der auch repo-eigene Befehle enthalten
+# darf. Deshalb nicht den Ordner loeschen, sondern genau die Dateien, die
+# der letzte Sync erzeugt hat — so verschwindet ein oben geloeschter Befehl,
+# ohne dass ein eigener mit drangeht.
+if [ -f "$MANIFEST" ]; then
+  while read -r name; do
+    [ -n "$name" ] && rm -f ".claude/commands/$name"
+  done < "$MANIFEST"
+fi
+
 rm -rf .claude/agent-team .claude/agents
 mkdir -p .claude/agent-team .claude/agents .claude/commands
 
 cp -R "$PLUGIN/rules" .claude/agent-team/rules
 cp -R "$PLUGIN/context-templates" .claude/agent-team/context-templates
 cp "$PLUGIN/agents/"*.md .claude/agents/
-cp "$PLUGIN/commands/orchestrate.md" .claude/commands/orchestrate.md
+
+# Die Hook- und Auswertungsskripte des Plugins. Sie kommen mit, damit die
+# Repo-Kopie nicht hinter dem Plugin zurueckbleibt; eingebunden werden sie
+# ueber den hooks-Block in .claude/settings.json (hooks/hooks.json des
+# Plugins gilt nur im Plugin-Betrieb).
+if [ -d "$PLUGIN/scripts" ]; then
+  cp -R "$PLUGIN/scripts" .claude/agent-team/scripts
+fi
+
+: > "$MANIFEST"
+for c in "$PLUGIN/commands/"*.md; do
+  [ -e "$c" ] || continue
+  cp "$c" ".claude/commands/$(basename "$c")"
+  basename "$c" >> "$MANIFEST"
+done
 
 # Der eine Eingriff: Plugin-Pfade -> Repo-Pfade.
 REWRITTEN=0
@@ -101,9 +127,17 @@ Platzhalter-Ersetzung greift nur bei Plugin-Agents, nicht bei Projekt-Agents
 unter \`.claude/agents/\`. Ohne das Umschreiben laeden die Agents ihre Regel-
 und Vorlagendateien nicht und arbeiten stillschweigend ohne Regelwerk weiter.
 
-Sonst ist nichts veraendert: \`rules/\` und \`context-templates/\` sind
-unveraenderte Kopien, \`commands/orchestrate.md\` ebenfalls (es enthaelt
-keine plugin-internen Pfade).
+Sonst ist nichts veraendert: \`rules/\`, \`context-templates/\` und
+\`scripts/\` sind unveraenderte Kopien, die Dateien aus \`commands/\`
+ebenfalls (sie enthalten laut Pfad-Konvention keine plugin-internen Pfade).
+
+## Was hier NICHT herkommt
+
+\`.claude/context/\` (das echte Projektgedaechtnis), \`.claude/settings.json\`
+und \`.claude/scripts/sync-agent-team.sh\` gehoeren dem Ziel-Repo und werden
+vom Sync nicht angefasst. Die Liste der zuletzt erzeugten Befehle steht in
+\`GENERATED-COMMANDS\` — daran erkennt der naechste Lauf, welche Dateien in
+\`.claude/commands/\` ihm gehoeren.
 EOF
 
 echo "OK — agent-team aus $SRC_REF ($SRC_COMMIT) uebernommen, $REWRITTEN Pfade umgeschrieben."

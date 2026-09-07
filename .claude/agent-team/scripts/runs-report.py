@@ -1,20 +1,37 @@
 #!/usr/bin/env python3
-"""Verdichtet .claude/runs/ zu einer Uebersicht.
+"""Verdichtet die Durchlauf-Protokolle des Ziel-Repos zu einer Uebersicht.
 
-  python3 .claude/scripts/runs-report.py            # alle Durchlaeufe
-  python3 .claude/scripts/runs-report.py --last 5   # nur die juengsten 5
-  python3 .claude/scripts/runs-report.py <dir>      # ein bestimmter Durchlauf
+  python3 <pfad>/runs-report.py            # alle Durchlaeufe
+  python3 <pfad>/runs-report.py --last 5   # nur die juengsten 5
+  python3 <pfad>/runs-report.py <dir>      # ein bestimmter Durchlauf
+
+Gesucht wird .claude/runs/ im Ziel-Repo (CLAUDE_PROJECT_DIR, sonst vom
+Arbeitsverzeichnis aufwaerts) — nicht neben diesem Skript, das im
+Plugin-Ordner liegen kann.
 
 Zweck: die Rohdaten sind vollstaendig, aber viele Dateien. Diese Uebersicht
 ist der Einstieg — welche Rollen liefen wie oft, wo blockierte etwas, wo
 gingen Fragen an den Nutzer. Fuer Details dann die genannten JSON-Dateien.
 """
 import json
+import os
 import sys
 from collections import Counter
 from pathlib import Path
 
-RUNS = Path(__file__).resolve().parents[2] / ".claude" / "runs"
+
+def find_runs():
+    env = os.environ.get("CLAUDE_PROJECT_DIR")
+    if env and (Path(env) / ".claude" / "runs").exists():
+        return Path(env) / ".claude" / "runs"
+    here = Path.cwd().resolve()
+    for d in [here, *here.parents]:
+        if (d / ".claude" / "runs").exists():
+            return d / ".claude" / "runs"
+    return here / ".claude" / "runs"
+
+
+RUNS = find_runs()
 
 
 def load(d):
@@ -78,7 +95,7 @@ def report(d):
         if not all(q.get(f) for f in ("frage", "optionen", "warum", "annahme"))
     ]
     if unvollstaendig:
-        print(f"  ! Unvollstaendige user_questions (Formfehler laut Schema): "
+        print("  ! Unvollstaendige user_questions (Formfehler laut Schema): "
               + ", ".join(f"{r} [{f}]" for f, r in unvollstaendig))
 
 

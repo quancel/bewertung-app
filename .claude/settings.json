@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/log-agent-run.py\" 2>/dev/null || true",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/agent-team/scripts/log-agent-run.py\" 2>/dev/null || true",
             "timeout": 15,
             "statusMessage": "Protokolliere Agent-Aufruf"
           }
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/log-agent-run.py\" 2>/dev/null || true",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/agent-team/scripts/log-agent-run.py\" 2>/dev/null || true",
             "timeout": 15
           }
         ]
