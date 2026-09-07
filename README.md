@@ -13,6 +13,10 @@ Cloud-Sessions, die keine Plugins installieren.
 /orchestrate <Feature-Beschreibung>
 ```
 
+Der ausformulierte Erstauftrag für diese App liegt in
+[`docs/feature-request-bewertungs-app.md`](docs/feature-request-bewertungs-app.md)
+— den Block dort vollständig kopieren.
+
 `product-owner` zerlegt den Request, `architekt` legt Struktur und
 Konventionen fest, die Leads implementieren, `product-owner` nimmt ab.
 Fachliche Domäne und Technologie-Stack sind bewusst noch offen und werden
