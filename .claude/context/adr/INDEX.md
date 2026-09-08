@@ -13,10 +13,13 @@
 > Eine Zeile pro ADR. Keine Zusammenfassung des Inhalts — der Titel muss
 > reichen, um zu entscheiden, ob das ADR relevant ist.
 
-**Stand: 2026-09-08** — acht ADRs. 0001–0003 beim Einordnen von
+**Stand: 2026-09-08** — zwölf ADRs. 0001–0003 beim Einordnen von
 PO-2026-09-07-010, 0004–0006 beim Einordnen von PO-2026-09-07-001
 (Gerätespeicher), 0007–0008 beim Einordnen von PO-2026-09-07-002 (erste
-Formaterweiterung).
+Formaterweiterung), 0009 beim Einordnen von PO-2026-09-07-003 (erste
+Anzeigeeinstellung), 0010 beim Einordnen von PO-2026-09-07-011
+(Grundnavigation), 0011–0012 beim Einordnen von PO-2026-09-07-012
+(zweispaltiges Grundlayout).
 
 | ADR | Titel | Bounded Context | Status | Datum |
 |-----|-------|-----------------|--------|-------|
@@ -28,6 +31,10 @@ Formaterweiterung).
 | [0006](0006-anzeigeeinstellungen-getrennt-vom-bestand.md) | Anzeigeeinstellungen sind Gerätezustand, nicht Bestandsinhalt | orte, tags, datensicherung, app-shell | accepted | 2026-09-08 |
 | [0007](0007-achsenwert-modell-null-statt-null.md) | Achsenwert-Modell — „nicht bewertet" ist ein ausdrücklich gespeichertes `null`, die Gesamtnote wird nie gespeichert | bewertungen, orte, datensicherung | accepted | 2026-09-08 |
 | [0008](0008-feldbesitz-und-ableitungen-ueber-context-grenzen.md) | Feldbesitz und Ableitungen über Context-Grenzen im Ort-Datensatz | orte, bewertungen, tags, medien, datensicherung | accepted | 2026-09-08 |
+| [0009](0009-ansichtszustand-der-ortsliste.md) | Ansichtszustand der Ortsliste gehört dem Context `orte` — und Gerätezustand darf eine Voreinstellung haben | orte, tags, datensicherung | accepted | 2026-09-08 |
+| [0010](0010-app-rahmen-chrome-grenze-und-routenbesitz.md) | App-Rahmen — Grenze der Navigationschrome, Routenbesitz und eine Meldung an zwei Orten | app-shell, orte | accepted | 2026-09-08 |
+| [0011](0011-master-detail-als-geteilter-baustein.md) | Master-Detail als geteilter Baustein — ein Adressraum, eine Bereichsansicht | app-shell, orte, karte | accepted | 2026-09-08 |
+| [0012](0012-breitenlogik-am-container-statt-am-viewport.md) | Breitenabhängige Layouts richten sich nach ihrem Container, nicht nach dem Viewport | app-shell, orte, medien, karte, bewertungen, tags | accepted | 2026-09-08 |
 
 **Status-Werte** wörtlich wie im ADR selbst: `proposed` · `accepted` ·
 `superseded by ADR-NNNN`.

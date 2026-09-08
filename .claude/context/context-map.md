@@ -7,7 +7,8 @@
 > kein Design-Dokument — Details gehören in ADRs unter `adr/`.
 
 - **Stand**: 2026-09-08, angelegt beim Einordnen von PO-2026-09-07-010,
-  fortgeschrieben beim Einordnen von PO-2026-09-07-001 (Gerätespeicher).
+  fortgeschrieben beim Einordnen von PO-2026-09-07-001 (Gerätespeicher) und
+  von PO-2026-09-07-011/-012 (App-Rahmen und zweispaltiges Layout).
 
 **Es gibt genau ein Artefakt**: ein clientseitiges Vue-Bundle ohne
 Backend-Dienst (ADR-0001). Ein „Bounded Context" ist hier deshalb ein
@@ -71,7 +72,15 @@ vollständiges Sequenzdiagramm.
   Feature zu importieren — die Regel „`app-shell` importiert nicht aus
   `features/`" bliebe sonst nicht haltbar.
 - **`app-shell` wird von niemandem importiert.** Der Weg dorthin führt über
-  `src/shared/` und die globalen Stylesheets.
+  `src/shared/` und die globalen Stylesheets. Konkret ab -011/-012: Was
+  `app-shell` **und** ein Feature brauchen, liegt in `src/shared/ui/` —
+  `AdresseOhneZiel.vue` (Sammelroute in `app/` + Detailansicht in `orte`,
+  ADR-0010) und `MasterDetail.vue` (zustandsloser Zweispalter, ab -012 von
+  `orte`, ab -006 von `karte` genutzt, ADR-0011).
+- **Der App-Rahmen kennt nur `persistence/` und `shared/`.** Er verzweigt auf
+  die beiden Sperrzustände aus `src/persistence/` und rendert sonst
+  Navigation und `<router-view>`; die Bereichsansichten dahinter gehören den
+  Features (ADR-0010).
 
 ## Externe Abhängigkeiten (kein eigener Dienst dahinter)
 
@@ -93,7 +102,13 @@ Drei erlaubte Netz-Zwecke, jeder mit definiertem Ausfallpfad (ADR-0001):
   einen App-Rahmen an, und weder -011 noch -012 fassen Persistenz- oder
   Zustandsschicht an. PO-2026-09-07-001 registriert lediglich die beiden
   Routen `/orte` und `/orte/:ortId`, damit -011 sie einfangen kann, statt sie
-  umzubauen.
+  umzubauen. **-012 ist seit dem Schnitt vom 2026-09-08 ein
+  Grundlagen-Paket** (Platz 5, vor -003/-004/-005/-006), kein Nachrüster:
+  Werkzeugleiste, Bilder-Raster und Karte bauen in die dort festgelegte
+  Spaltenbreite hinein.
+- **Der Adressraum ist ab -011 eingefroren.** -012 führt keine Adresse ein,
+  -007 liefert genau diesen Satz offline aus. Änderungen an `path`/`name`
+  einer bestehenden Route brauchen ein eigenes ADR (ADR-0010/0011).
 - **Kartenstil und Tile-Anbieter sind offen** — laut `design-concept.md`
   bewusst als Architektur-/Lizenzentscheidung dem Architekten zugewiesen,
   fällig mit PO-2026-09-07-006.

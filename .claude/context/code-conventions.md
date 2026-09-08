@@ -14,7 +14,8 @@
 
 - **Modus**: `vorgegeben` (Greenfield, festgelegt in **ADR-0002**; kein
   Anwendungscode vorhanden, geprüft 2026-09-08)
-- **Zuletzt geprüft**: 2026-09-08
+- **Zuletzt geprüft**: 2026-09-08 (beim Einordnen von PO-2026-09-07-011 und
+  -012; Stand im Repo: PO-2026-09-07-010 gebaut, -001 in Arbeit)
 
 **Stapel**: Vue 3 · TypeScript · Vite · Pinia · vue-router. Ein Projekt, ein
 Bundle, kein Monorepo. **Kein Backend** (ADR-0001).
@@ -88,7 +89,11 @@ src/
   `persistence/` in ein `model/*.types.ts` dreht die Richtung um und ist ein
   Fehler.
 - **Nach `shared/` erst ab zwei Nutzern**, nicht vorsorglich. `app/` enthält
-  nur Einmaliges.
+  nur Einmaliges. Bausteine, die `app/` **und** ein Feature brauchen, liegen
+  deshalb von Anfang an in `src/shared/ui/` — es gibt keinen anderen Weg
+  dorthin: `app-shell` importiert nicht aus `features/`, und `features/`
+  importiert nicht aus `app/`. Betrifft heute `AdresseOhneZiel.vue`
+  (ADR-0010) und `MasterDetail.vue` (ADR-0011).
 - **`components/` kennt keinen Store**, bekommt alles über Props und meldet
   über Emits zurück. `views/` sind die einzige Stelle, die Stores anbindet.
 - **Rohwerte nur in `styles/tokens.css`.** In Feature-Stylesheets kein
@@ -142,10 +147,49 @@ src/
   Bereiche und die Sammelroute für unbekannte Adressen; es benennt bestehende
   Adressen nicht um (PO-2026-09-07-012 verlangt ausdrücklich, dass die
   Detailadresse unverändert bleibt).
+  **Routen bleiben flach**, ein Eintrag je Adresse, keine Elternroute als
+  Layout-Träger (ADR-0010/0011). Die Sammelroute `/:pfad(.*)*` steht als
+  **letzter** Eintrag. `path` und `name` einer einmal angelegten Route werden
+  nie geändert — ab PO-2026-09-07-007 ist der Adressraum offline
+  ausgeliefert.
+- **Bereichsansicht je Bereich**: Beide Routen eines Bereichs
+  (`/<bereich>` und `/<bereich>/:<id>`) zeigen auf **dieselbe**
+  Bereichsansicht in `src/features/<context>/views/` (`Ortebereich.vue` ab
+  PO-2026-09-07-012). Sie liest den Parameter aus der Route und entscheidet
+  über `MasterDetail`, was zu sehen ist. Kein zweiter „ausgewählt"-Zustand
+  neben `route.params` (ADR-0011).
 - **Neues Feld im gespeicherten Format**: Typ nach
   `src/features/<context>/model/`, Aufnahme in den Gesamtbestand in
   `src/persistence/schema.ts` — **plus** `SCHEMA_VERSION` +1,
   Migrationsschritt und Fixture (siehe unten).
+
+## Layout und Breitenlogik (ADR-0010 · ADR-0011 · ADR-0012)
+
+- **Der App-Rahmen ist eine Komponente, keine Route.** `App.vue` verzweigt
+  vor dem `<router-view>`: Sperrzustand aus `src/persistence/` →
+  vollflächige Meldung ohne Rahmen; sonst Rahmen (Skip-Link,
+  Bereichsnavigation, `<main id="main-content">`) um das `<router-view>`.
+  Kein `route.meta`-Flag für die Chrome-Frage, kein `<keep-alive>` um das
+  `<router-view>`.
+- **Breitenabhängige Layouts fragen ihren Container ab, nicht das Fenster**
+  (ADR-0012): eigener Block setzt `container-type: inline-size`, Umbrüche als
+  `@container (min-width: …)`. Kein `container-name` als Contract zwischen
+  Contexts. `@media` bleibt nur für den Layoutwechsel des Rahmens selbst und
+  für Nicht-Breiten-Abfragen (`prefers-reduced-motion`).
+- **Spalten in Grid/Flex bekommen `min-width: 0`.** Sonst hält
+  `min-width: auto` die Spalte auf Inhaltsbreite auf, und die
+  Container-Abfrage misst eine Breite, die es nie gibt.
+- **Custom Properties funktionieren nicht in `@media`/`@container`.** Dort
+  steht die Zahl wörtlich (`1024px`), mit Kommentar auf den Tokennamen.
+  `var(--breakpoint-lg)` in einer Bedingung trifft stillschweigend nie zu.
+- **Layoutmaße sind Tokens**: Container-Höchstbreite (1120px), Breite der
+  Nav-Rail, Breite der Listen-Spalte, Höhe der Bottom-Tab-Leiste gehören nach
+  `styles/tokens.css` — kein freier Pixelwert in einem Feature-Stylesheet.
+- **Icons werden je Paket nachgezogen, nicht auf Vorrat.** Neue Icons als SVG
+  nach `src/assets/icons/<deutscher-kurzname>.svg` plus Wrapper
+  `src/shared/ui/icons/Icon<Name>.vue` — gleiche Bauform wie die drei aus
+  PO-2026-09-07-010. Lucide Outline bleibt die Quelle, das CDN-Verbot gilt
+  unverändert.
 
 ## Persistenz und Formatversion (ADR-0003)
 
