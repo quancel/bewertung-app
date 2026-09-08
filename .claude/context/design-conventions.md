@@ -20,6 +20,10 @@ Verknüpfung des Tag-Filters; Gruppe D (007/009) ergänzt den
 Update-Hinweis der Offline-Auslieferung und Export/Import. Runde 2 von 011
 ergänzt Navigation, Zurück-Verhalten und die projektweite
 Navigationschrome-Regel; 012 ergänzt das Master-Detail-Pattern ab `lg`.
+Eine gemeinsame Nachtrags-Runde von 003/004 (nach dem Schnitt-Wechsel, der
+012 vor 003/004 einordnet) zieht die Werkzeugleiste auf die ~400px schmale
+Listen-Spalte nach: zwei Zeilen bleiben in jeder Breite zwei Zeilen, die
+Zurücksetzen-Aktion des Tag-Filters wandert an einen festen rechten Rand.
 
 - **Zuletzt kuratiert**: 2026-09-08
 
@@ -93,13 +97,24 @@ Eigenschaft.
 
 ## Listen: Sortieren, Filtern, Gruppierung
 
-- **Eine Werkzeugleiste, zwei Zeilen, nie zwei konkurrierende Leisten.**
-  Zeile 1: links Sortier-Chip (Kriterium als Text) + angehängter
-  Icon-Button für die Richtung (eigener Tap); rechts die Trefferzahl
-  („12 Orte" / „4 von 12 Orten") — eine gemeinsame Stelle für Sortierung
-  und Filter. Zeile 2 (nur wenn Tags existieren): horizontal scrollbare
-  Tag-Pill-Leiste mit Zurücksetzen-Aktion bei aktivem Filter. Ab `lg`
-  rücken beide Zeilen nebeneinander in eine gemeinsame Kopfzeile.
+- **Eine Werkzeugleiste, zwei Zeilen, nie zwei konkurrierende Leisten — in
+  jeder Breite.** Zeile 1: links Sortier-Chip (Kriterium als Text) +
+  angehängter Icon-Button für die Richtung (eigener Tap); rechts die
+  Trefferzahl („12 Orte" / „4 von 12 Orten") — eine gemeinsame Stelle für
+  Sortierung und Filter. Zeile 2 (nur wenn Tags existieren): links fest
+  der UND/ODER-Umschalter (nicht scrollend), Mitte die horizontal
+  scrollbare Tag-Pill-Leiste, rechts bei aktivem Filter fest die
+  Zurücksetzen-Aktion (ebenfalls nicht scrollend) — zwei feste Anker,
+  dazwischen scrollt ausschließlich die Pill-Leiste. Die zwei Zeilen
+  bleiben **immer** zwei Zeilen und rücken in keiner Breite zu einer
+  zusammen: unterhalb der Master-Detail-Grenze nimmt die Liste die volle
+  Fensterbreite ein, ab der Grenze sitzt dieselbe Leiste unverändert in
+  der ~400px schmalen Listen-Spalte (siehe „Master-Detail" unten) —
+  richtet sich nach der Spaltenbreite, nicht nach der Fensterbreite, und
+  die Spaltenbreite ändert sich nicht mit dem Fenster. (Eine frühere,
+  breiten-umschaltende Variante mit einer gemeinsamen Kopfzeile ab `lg`
+  ist überholt und ersatzlos gestrichen — sie ging von einer vollen
+  Fensterbreite aus, die es seit der Zweispaltigkeit nicht mehr gibt.)
 - **Sortieren bei > 4 Kriterien: Sheet statt Auswahlfeld.** Sortier-Chip
   öffnet ein Sheet (Radius 16px, 240 ms), Kriterien gruppiert unter
   „Allgemein" (Bezeichnung, Zuletzt geändert, Gesamtnote) und
@@ -136,14 +151,24 @@ Eigenschaft.
   in allen Fällen bedienbar, Werte weiterhin von Hand eintragbar.
 - **Verknüpfungs-Umschalter (UND/ODER) für Mehrfachfilter**: fester,
   nicht scrollender Segment-Control (zwei Tap-Ziele, gleiche Höhe wie die
-  Pills, Radius 999px) am Anfang der scrollbaren Filter-Pill-Leiste —
-  bleibt immer sichtbar und bedienbar, auch bei null oder einem aktiven
-  Filter (kein Ein-/Ausblenden, kein Zustandssprung beim ersten Filter-Tap).
-  Aktiver Modus ist über die Hervorhebung im Umschalter selbst ablesbar,
-  nicht über die Pills — die sehen in beiden Modi gleich aus. Die
-  Verknüpfung ist eine Anzeigeeinstellung wie die Sortierung: überdauert
-  Navigation/Neuladen, wird vom Zurücksetzen des Filters nicht
-  mitgelöscht.
+  Pills, Radius 999px) fest am linken Rand von Zeile 2, außerhalb der
+  scrollbaren Filter-Pill-Leiste — bleibt immer sichtbar und bedienbar,
+  auch bei null oder einem aktiven Filter (kein Ein-/Ausblenden, kein
+  Zustandssprung beim ersten Filter-Tap). Aktiver Modus ist über die
+  Hervorhebung im Umschalter selbst ablesbar, nicht über die Pills — die
+  sehen in beiden Modi gleich aus. Die Verknüpfung ist eine
+  Anzeigeeinstellung wie die Sortierung: überdauert Navigation/Neuladen,
+  wird vom Zurücksetzen des Filters nicht mitgelöscht.
+- **Zurücksetzen-Aktion des Tag-Filters** (nur bei aktivem Filter): sitzt
+  spiegelbildlich zum Umschalter fest am **rechten** Rand von Zeile 2,
+  ebenfalls außerhalb der scrollenden Pill-Leiste — dazwischen scrollt
+  ausschließlich die Pill-Leiste selbst. Icon-only („×", `aria-label`
+  „Filter zurücksetzen") statt Textlink, folgt derselben Optik wie
+  Tag-Entfernen und Achse-Zurücksetzen (Wiedererkennung statt neuem
+  Muster). Diese feste Randplatzierung gilt einheitlich für jede Breite —
+  bei genügend Raum (volle Fensterbreite unterhalb der Master-Detail-
+  Grenze) ebenso wie in der ~400px schmalen Listen-Spalte, wo sie sonst
+  bei mehreren aktiven Tags nur durch Scrollen erreichbar wäre.
 
 ## Karte
 
