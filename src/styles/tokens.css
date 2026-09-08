@@ -1,0 +1,91 @@
+/**
+ * Rohwert-Tokens — die einzige Quelle für Farb-, Spacing-, Typo-, Radius- und
+ * Motion-Werte. Werte kommen 1:1 aus .claude/context/design-concept.md.
+ *
+ * Diese Ebene wird NICHT direkt aus Komponenten oder Feature-Stylesheets
+ * referenziert (Ausnahme: mehrstufige Tonleitern wie Bewertungsbalken, die
+ * eine Wertespanne statt einer Bedeutung ausdrücken). Komponenten binden an
+ * die semantische Ebene in semantic.css.
+ *
+ * Light-only: genau ein Wertesatz, kein [data-theme], keine
+ * prefers-color-scheme-Abfrage.
+ */
+
+:root {
+  /* Farbe — Primär */
+  --color-primary-50: #e9f5f2;
+  --color-primary-600: #0f6e60;
+  --color-primary-700: #0a554a;
+
+  /* Farbe — Akzent (ausschließlich Kartenpin/-auswahl) */
+  --color-accent-500: #c2643c;
+
+  /* Farbe — Status */
+  --color-success: #15803d;
+  --color-warning: #b45309;
+  --color-danger: #b42318;
+
+  /* Farbe — Neutral (grünlich getönt) */
+  --color-neutral-0: #ffffff;
+  --color-neutral-50: #f7f8f7;
+  --color-neutral-100: #eef0ef;
+  --color-neutral-200: #dfe3e1;
+  --color-neutral-300: #c3c9c6;
+  --color-neutral-500: #6b7570;
+  --color-neutral-700: #3c4340;
+  --color-neutral-900: #1a1f1d;
+
+  /* Typografie */
+  --font-family-sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI',
+    Roboto, sans-serif;
+
+  --font-size-12: 12px;
+  --font-size-14: 14px;
+  --font-size-16: 16px;
+  --font-size-18: 18px;
+  --font-size-20: 20px;
+  --font-size-24: 24px;
+  --font-size-30: 30px;
+  --font-size-36: 36px;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  --line-height-body: 1.5;
+  --line-height-heading: 1.25;
+
+  /* Spacing — Basiseinheit 4px */
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-48: 48px;
+  --space-64: 64px;
+
+  /* Radien */
+  --radius-8: 8px;
+  --radius-12: 12px;
+  --radius-16: 16px;
+  --radius-full: 999px;
+
+  /* Fokusring-Geometrie (Farbe kommt aus semantic.css) */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+
+  /* Motion */
+  --duration-120: 120ms;
+  --duration-180: 180ms;
+  --duration-240: 240ms;
+  --ease-out: ease-out;
+  --ease-in: ease-in;
+
+  /* Breakpoints (als Referenzwerte; Media-Queries können keine Custom
+     Properties auswerten, sie stehen hier dennoch als dokumentierte Quelle) */
+  --breakpoint-sm: 480px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+}

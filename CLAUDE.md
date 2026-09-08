@@ -128,6 +128,19 @@ daneben.
 
 ## Build, Test, Lint
 
-Noch nichts eingerichtet — es gibt keinen Code. Sobald der `architekt` die
-Struktur festgelegt und der erste Lead geliefert hat, gehören die
-tatsächlichen Befehle hierher.
+Ein Vite-Projekt (Vue 3, TypeScript, Pinia, vue-router; siehe
+`.claude/context/code-conventions.md`). Vor allen Befehlen einmal
+`npm install`.
+
+| Zweck | Befehl |
+|-------|--------|
+| Dev-Server | `npm run dev` |
+| Typecheck | `npm run typecheck` |
+| Lint | `npm run lint` (Fix: `npm run lint:fix`) |
+| Produktions-Build | `npm run build` (führt Typecheck + `vite build` aus) |
+| Build-Vorschau lokal | `npm run preview` |
+
+Es gibt noch **keine Test-Runner-Konfiguration** (kein Vitest/Playwright
+eingerichtet) — bislang existieren keine `*.spec.ts`-Dateien, die einen
+brauchen würden. Das erste Paket mit Testbedarf (persistierte Migrationen,
+ADR-0003) richtet den Runner ein und ergänzt diese Zeile.

@@ -1,0 +1,27 @@
+/**
+ * Semantische Token-Ebene — darüber beziehen Komponenten ihre Farben.
+ *
+ * Namen sind bindend (Vorgabe des Architekten, PO-2026-09-07-010) — keine
+ * Aliasse erfinden, alle Folgepakete binden namentlich daran.
+ *
+ * Primär-, Akzent- und Statusfarben (--color-primary-*, --color-accent-500,
+ * --color-success/-warning/-danger) tragen ihre Bedeutung bereits im Namen
+ * und werden von Komponenten direkt referenziert — nur die neutrale
+ * Farbskala läuft ausschließlich über diese Aliasse, damit ein späteres
+ * Dark-Theme nur hier ansetzen müsste.
+ */
+
+:root {
+  --surface: var(--color-neutral-0);
+  --surface-muted: var(--color-neutral-50);
+  --surface-sunken: var(--color-neutral-100);
+
+  --text: var(--color-neutral-900);
+  --text-muted: var(--color-neutral-500);
+  --text-on-primary: var(--color-neutral-0);
+
+  --border: var(--color-neutral-200);
+  --border-strong: var(--color-neutral-300);
+
+  --focus-ring: var(--color-primary-600);
+}
