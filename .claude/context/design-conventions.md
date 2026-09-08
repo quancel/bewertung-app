@@ -15,9 +15,11 @@
 Entstanden aus der Design-Schleife: Gruppe A (010/001/002) legt Tokens,
 Zustände und Formulare an; Gruppe B (003/004) ergänzt Sortieren/Filtern;
 Runde 2 von 002 klärt Wert 0 vs. „nicht bewertet"; Gruppe C (005/006/008)
-ergänzt Karte, Bilder, Ortssuche.
+ergänzt Karte, Bilder, Ortssuche; Runde 2 von 004 klärt die UND/ODER-
+Verknüpfung des Tag-Filters; Gruppe D (007/009) ergänzt den
+Update-Hinweis der Offline-Auslieferung und Export/Import.
 
-- **Zuletzt kuratiert**: 2026-09-07
+- **Zuletzt kuratiert**: 2026-09-08
 
 ## Zustände
 
@@ -30,9 +32,10 @@ unten und für die beiden Karten-Leerzustände, siehe „Karte").
 |---------|------------|------|
 | Leer (kein Datensatz) | Rein typografisch, kein Bild (design-concept.md: bis auf weiteres ohne Illustration); kurzer Satz + eine Primär-Aktion, zentriert. Beispiel: „Noch keine Orte eingetragen" + „Ort hinzufügen". | 2026-09-07 |
 | Leer (gefiltert, kein Treffer) | Gleiches Muster wie oben, andere Aussage (aktive Auswahl führt zu keinem Treffer) und andere Aktion („Filter zurücksetzen"). | 2026-09-07 |
-| Lädt | Rein lokale Lesevorgänge zeigen **keinen** Ladezustand — gilt als synchron schnell genug. Skeleton/Spinner erst ab spürbar > 400 ms (z. B. Import/Export, viele Bilder). | 2026-09-07 |
-| Fehler | Kaum Feld-Validierung nötig, da fast alles optional; Werte außerhalb eines Bereichs werden geklemmt statt abgelehnt. Echte Fehler (Speicherzugriff, unbekannte Datenversion) als ruhige, nicht-modale Inline-/Vollflächen-Meldung in `--color-danger`, nie als Modal. | 2026-09-07 |
-| Erfolg | Autosave hat **keine** sichtbare Bestätigung — Persistenz gilt als sofort und selbstverständlich. Toast nur bei seltenen, expliziten Aktionen (z. B. Export/Import). | 2026-09-07 |
+| Lädt | Rein lokale Lesevorgänge zeigen **keinen** Ladezustand — gilt als synchron schnell genug. Skeleton/Spinner erst ab spürbar > 400 ms (z. B. Import/Export, viele Bilder). Bei einer expliziten, netzabhängigen Aktion (Export/Import mit vielen Bildern, Ortssuche) wandert der Ladezustand in das auslösende Element selbst (Button-Inhalt wechselt zu Spinner + Kurztext, bleibt an Ort und Stelle) — kein Vollflächen-Overlay. | 2026-09-08 |
+| Fehler | Kaum Feld-Validierung nötig, da fast alles optional; Werte außerhalb eines Bereichs werden geklemmt statt abgelehnt. Echte Fehler (Speicherzugriff, unbekannte Datenversion, beschädigte/fremde Import-Datei) als ruhige, nicht-modale Inline-/Vollflächen-Meldung in `--color-danger`, nie als Modal. | 2026-09-07 |
+| Warnung | Nur bei angekündigten, noch nicht eingetretenen Aktionen mit drohendem Datenverlust (Speichermangel beim Bild-Hinzufügen, „Bestand ersetzen" beim Import) — auslösendes/bestätigendes Element in `--color-warning`, nicht `--color-danger`. Unterscheidet sich von „Fehler": hier ist noch nichts schiefgelaufen, es wird nur vor einer Folge gewarnt, die der Nutzer selbst auslösen würde. | 2026-09-08 |
+| Erfolg | Autosave hat **keine** sichtbare Bestätigung — Persistenz gilt als sofort und selbstverständlich. Toast nur bei seltenen, expliziten Aktionen (z. B. Export/Import, ein bereitstehendes App-Update). | 2026-09-08 |
 | Leeres Feld (regulär) | Ein leeres, aber vorgesehenes Feld (Adresse, eine nicht bewertete Achse) ist normal, kein Fehler: Label bleibt, Wert-Slot zeigt „noch nichts eingetragen" / „Noch nicht bewertet" auf `--surface-muted`/`--text-muted`, Radius 8px, kein Icon. In Listenzeilen wird ein fehlender optionaler Wert normalerweise ganz weggelassen — **Ausnahme:** aktives Sortierkriterium (siehe „Listen" unten). | 2026-09-07 |
 
 ## Interaktion & Animation
@@ -129,6 +132,16 @@ Eigenschaft.
   Text — kein Icon, keine Warn-/Fehlerfarbe. Kein Netz, kein Treffer und
   Suchfehler/Zeitüberschreitung sind drei verschiedene Texte. Feld bleibt
   in allen Fällen bedienbar, Werte weiterhin von Hand eintragbar.
+- **Verknüpfungs-Umschalter (UND/ODER) für Mehrfachfilter**: fester,
+  nicht scrollender Segment-Control (zwei Tap-Ziele, gleiche Höhe wie die
+  Pills, Radius 999px) am Anfang der scrollbaren Filter-Pill-Leiste —
+  bleibt immer sichtbar und bedienbar, auch bei null oder einem aktiven
+  Filter (kein Ein-/Ausblenden, kein Zustandssprung beim ersten Filter-Tap).
+  Aktiver Modus ist über die Hervorhebung im Umschalter selbst ablesbar,
+  nicht über die Pills — die sehen in beiden Modi gleich aus. Die
+  Verknüpfung ist eine Anzeigeeinstellung wie die Sortierung: überdauert
+  Navigation/Neuladen, wird vom Zurücksetzen des Filters nicht
+  mitgelöscht.
 
 ## Karte
 
@@ -150,10 +163,12 @@ Eigenschaft.
 
 ## Bilder
 
-- Speichermangel beim Hinzufügen ist der **einzige** Anwendungsfall von
-  `--color-warning`. Darstellung: manuell schließbarer Banner im
-  Detailbereich (kein Modal, kein Auto-Dismiss — die Bedingung besteht
-  fort, bis der Nutzer reagiert), Icon + Text, sagt konkret was zu tun ist.
+- Speichermangel beim Hinzufügen ist im Bilder-Kontext der Anwendungsfall
+  von `--color-warning` (siehe „Zustände" → Warnung für die allgemeine
+  Regel; ein zweiter Fall ist „Bestand ersetzen" beim Import).
+  Darstellung: manuell schließbarer Banner im Detailbereich (kein Modal,
+  kein Auto-Dismiss — die Bedingung besteht fort, bis der Nutzer
+  reagiert), Icon + Text, sagt konkret was zu tun ist.
 - Leeres Bilder-Raster: kein Platzhaltertext — die „Bild
   hinzufügen"-Aktion (Primär-Button) steht immer sichtbar und erklärt den
   Zustand selbst.
@@ -184,6 +199,3 @@ Eigenschaft.
 - Farbcodierung der vier Bewertungsachsen — weiterhin offen
   (design-concept.md), erst bei einem künftigen Achsen-Diagramm neu
   bewerten.
-- Verknüpfung mehrerer aktiver Tag-Filter (UND/ODER) — reine
-  Verhaltensfrage, nicht in den `acceptance_criteria` von
-  PO-2026-09-07-004 festgelegt, siehe `design_open_questions` dort.
