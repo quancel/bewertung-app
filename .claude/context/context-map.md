@@ -47,9 +47,17 @@ vollständiges Sequenzdiagramm.
   Speichertechnik und die Formatversion bekannt sind.
 - **`orte` besitzt die Aggregatwurzel.** `bewertungen`, `tags` und `medien`
   hängen an einer Ort-ID und dürfen den `orte`-Store über dessen öffentliches
-  API **lesend** nutzen. Das ist die **einzige** erlaubte
-  Feature-zu-Feature-Beziehung, und sie zeigt ausschließlich in Richtung
-  `orte`. Kein Rückweg: `orte` importiert aus keinem der drei.
+  API nutzen. Das ist die **einzige** erlaubte Feature-zu-Feature-Beziehung,
+  und sie zeigt ausschließlich in Richtung `orte`. Kein Rückweg: `orte`
+  importiert aus keinem der drei.
+- **`useOrteStore` ist der einzige Besitzer des Ort-Datensatzes im
+  Arbeitsspeicher** (ADR-0008). `bewertungen` (-002) und `tags` (-004)
+  bearbeiten Felder darin über sein öffentliches API und haben **keinen
+  eigenen Store**; nur `medien` (-005) bekommt einen, weil es einen eigenen
+  Object Store hat. Was die Ortsliste von diesen Feldern zeigt oder auswertet
+  (Gesamtnote, Achsenwert, Tag-Filter), liegt als reine Funktion in
+  `src/shared/lib/` und als Darstellungsbaustein in `src/shared/ui/` — nicht
+  im besitzenden Feature.
 - **`karte` liest Koordinaten aus `orte`** und schreibt nichts zurück; das
   Nachtragen von Koordinaten läuft über die Ort-Bearbeitung in `orte`.
 - **`datensicherung` arbeitet auf dem gesamten Bestand über
@@ -89,11 +97,14 @@ Drei erlaubte Netz-Zwecke, jeder mit definiertem Ausfallpfad (ADR-0001):
 - **Kartenstil und Tile-Anbieter sind offen** — laut `design-concept.md`
   bewusst als Architektur-/Lizenzentscheidung dem Architekten zugewiesen,
   fällig mit PO-2026-09-07-006.
-- **Verhalten bei mehreren gleichzeitig geöffneten Tabs ist offen.** Nach
-  ADR-0005 gewinnt der zuletzt geschriebene vollständige Datensatz; ein Tab
-  mit veraltetem Stand kann Änderungen eines anderen still überschreiben.
-  Frage beim Nutzer angemeldet (2026-09-08), bis dahin bewusst nichts
-  unternommen.
-- **Verhalten bei nicht verfügbarer IndexedDB** (Privatmodus, blockierter
-  Speicher) ist offen — Frage beim Nutzer angemeldet (2026-09-08). Bis dahin:
-  vollflächige Meldung, kein Schreibversuch.
+- **Mehrere gleichzeitig geöffnete Tabs werden bewusst nicht abgefangen**
+  (Nutzerentscheidung 2026-09-08, GESETZT). Nach ADR-0005 gewinnt der zuletzt
+  geschriebene vollständige Datensatz; ein Tab mit veraltetem Stand kann
+  Änderungen eines anderen still überschreiben. Kein `BroadcastChannel`, keine
+  Schreibsperre — der Mechanismus würde sonst nirgends gebraucht. Nachrüstbar
+  ohne Datenmigration, Ort der Änderung wäre `src/persistence/`.
+- **Nicht verfügbarer Gerätespeicher** (Privatmodus, blockierte IndexedDB):
+  vollflächige Meldung, kein Schreibversuch, App nicht benutzbar
+  (Nutzerentscheidung 2026-09-08, GESETZT). Gleiches Muster wie die Meldung
+  zur unbekannten, neueren Formatversion — es soll kein Bestand entstehen,
+  der sich anfühlt, als wäre er gesichert.

@@ -66,12 +66,14 @@ Schließen von Tab oder Browser während des Tippens.
   Feldwechsel). Das ist tragbar, weil Ort-Datensätze klein sind und
   Binärdaten nach ADR-0004 gar nicht darin liegen.
 - Negativ/Trade-off: Punkt 1 macht **mehrere gleichzeitig geöffnete Tabs**
-  zum offenen Risiko: Der Store eines Tabs kennt Änderungen des anderen
-  nicht und überschreibt sie beim nächsten vollständigen Schreibvorgang
-  still. In diesem Paket wird dagegen nichts unternommen (offene Frage an den
-  Nutzer, Stand 2026-09-08). Wird das später anders entschieden, ist der Ort
-  der Änderung die Persistenzschicht (Benachrichtigung über
-  `BroadcastChannel`), nicht die Features.
+  zum bewusst hingenommenen Risiko: Der Store eines Tabs kennt Änderungen des
+  anderen nicht und überschreibt sie beim nächsten vollständigen
+  Schreibvorgang still. **Dagegen wird nichts unternommen — vom Nutzer am
+  2026-09-08 so entschieden**, weil der Mechanismus sonst nirgends gebraucht
+  würde und die Lage (ein Nutzer, ein Gerät, kein Sync) sie selten macht.
+  Wird das später anders entschieden, ist der Ort der Änderung die
+  Persistenzschicht (Benachrichtigung über `BroadcastChannel`), nicht die
+  Features; eine Datenmigration braucht es dafür nicht.
 - Betrifft künftig: **-002** (Achsen, Kommentare), **-004** (Tags) und
   **-005** (Bilder) schreiben über denselben Weg und führen keine eigenen
   Auslöser, keine Entprellung und keinen eigenen Fehlerpfad ein. **-007**

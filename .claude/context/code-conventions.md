@@ -63,15 +63,30 @@ src/
 - **Ein Feature importiert nicht aus einem anderen Feature.** Einzige
   Ausnahme: `bewertungen`, `tags`, `medien` dürfen den `orte`-Store **lesend**
   über sein öffentliches API nutzen — nur in diese Richtung (context-map.md).
+- **Der Ort-Datensatz hat genau einen Besitzer im Arbeitsspeicher:
+  `useOrteStore`** (ADR-0008). Contexts, die Felder darin bearbeiten
+  (`bewertungen`, `tags`), führen dafür **keinen eigenen Store** und rufen
+  die Persistenzschicht nicht selbst auf — sie schreiben über das öffentliche
+  API des `orte`-Stores. Einen eigenen Store hat nur, wer einen eigenen
+  Object Store hat (`medien` ab -005).
+- **Was die Ortsliste anzeigt, darf nicht aus einem Feature kommen**
+  (ADR-0008): reine Ableitungen auf Ort-Feldern (Gesamtnote, Tag-Prädikat)
+  liegen in `src/shared/lib/`, dort genutzte Darstellungsbausteine in
+  `src/shared/ui/`. Typen fließen über `persistence/schema.ts`, nie über
+  einen Feature-zu-Feature-Import.
 - **Nur `persistence/` spricht mit dem Gerätespeicher.** Kein
   `localStorage`/`indexedDB` in Komponenten, Stores oder Composables. Auch
   kein zweiter Speicherweg „nur für Kleinigkeiten" — Anzeigeeinstellungen
   laufen ebenfalls über `persistence/` (ADR-0006).
 - **`model/*.types.ts` importiert nichts.** Diese Dateien sind reine
-  Typmodule. `persistence/schema.ts` importiert aus ihnen (um den Bestandstyp
-  zusammenzusetzen), Features importieren aus `persistence/` — die Richtung
-  bleibt dadurch zyklenfrei. Ein Import von `persistence/` in ein
-  `model/*.types.ts` dreht sie um und ist ein Fehler.
+  Typmodule und enthalten **nur den Anteil ihres eigenen Contexts**
+  (`orte.types.ts` → `OrtStammdaten`, `bewertungen.types.ts` →
+  `Bewertungen`). `persistence/schema.ts` setzt daraus den kanonischen
+  Datensatztyp **`OrtDatensatz`** zusammen; Stores und Views arbeiten mit
+  diesem. Damit kommt `orte` an die Bewertungsfelder, ohne aus
+  `features/bewertungen/` zu importieren (ADR-0008). Ein Import von
+  `persistence/` in ein `model/*.types.ts` dreht die Richtung um und ist ein
+  Fehler.
 - **Nach `shared/` erst ab zwei Nutzern**, nicht vorsorglich. `app/` enthält
   nur Einmaliges.
 - **`components/` kennt keinen Store**, bekommt alles über Props und meldet
@@ -164,6 +179,26 @@ src/
   „Ergänzen" aus -009 führt zwei Geräte zusammen).
 - **Löschen kaskadiert in einer Transaktion**; eine leere Datenbank ist kein
   alter Bestand, sondern ein Erststart.
+- **Zwei Zustände sperren die App vollflächig und verbieten jeden
+  Schreibzugriff** — nicht nur den auf den Bestand: eine unbekannte, neuere
+  `SCHEMA_VERSION` und ein nicht verfügbarer Gerätespeicher (Privatmodus,
+  blockierte IndexedDB; Nutzerentscheidung 2026-09-08). Beide kommen aus
+  `src/persistence/`, nicht aus einem Feature-Store, und tragen dieselbe
+  Bauform: vollflächig, nicht schließbar, ohne Navigationschrome (-011/-012
+  fassen sie nicht ein), kein automatischer Löschen-/Zurücksetzen-Knopf.
+
+### Migrationsschritte: Benennung und Typisierung
+
+- **Dateinummer = Zielversion.** `migrations/002-bewertungen.ts` führt von
+  v1 nach v2. Damit ist am Dateinamen ablesbar, welche Version sie erzeugt.
+- **Ein Migrationsschritt importiert nichts aus `schema.ts`.** Er deklariert
+  seine Eingangs- und Ausgangsform lokal (nur die Felder, die er anfasst).
+  Sonst zieht eine spätere Schemaänderung rückwirkend die Bedeutung eines
+  bereits veröffentlichten Schrittes um — genau das, was ADR-0003 Punkt 4
+  ausschließt.
+- **Jedes Paket, das `SCHEMA_VERSION` erhöht, hinterlässt ein Fixture seines
+  neuen Formats** (`__fixtures__/vN-bestand.json`). Es ist das „alte Format"
+  des nächsten Pakets. Ein bereits vorhandenes Fixture wird nie geändert.
 
 ### Lesen und Schreiben (ADR-0005)
 
