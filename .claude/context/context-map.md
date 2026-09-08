@@ -6,7 +6,8 @@
 > Halte sie kompakt (Faustregel: < 100 Zeilen). Sie ist ein Register,
 > kein Design-Dokument — Details gehören in ADRs unter `adr/`.
 
-- **Stand**: 2026-09-08, angelegt beim Einordnen von PO-2026-09-07-010.
+- **Stand**: 2026-09-08, angelegt beim Einordnen von PO-2026-09-07-010,
+  fortgeschrieben beim Einordnen von PO-2026-09-07-001 (Gerätespeicher).
 
 **Es gibt genau ein Artefakt**: ein clientseitiges Vue-Bundle ohne
 Backend-Dienst (ADR-0001). Ein „Bounded Context" ist hier deshalb ein
@@ -30,6 +31,12 @@ identisch mit dem `bounded_context` im Handoff (ADR-0002).
 (einziger Zugriff auf den Gerätespeicher, Formatversion und Migrationskette,
 ADR-0003) und `src/shared/` (zustandslose UI-Bausteine, ab zwei Nutzern).
 
+`src/persistence/` entsteht mit PO-2026-09-07-001: **IndexedDB über `idb`**,
+Object Stores `meta` · `orte` · `einstellungen` (`bilder` ab -005),
+IDB-Datenbankversion strikt getrennt von der `SCHEMA_VERSION` (ADR-0004),
+Schreibmodell nach ADR-0005. Sie ist damit ab -001 kein offener Punkt mehr,
+sondern eine benutzbare Schnittstelle für alle Feature-Contexts.
+
 ## Schnittstellen zwischen Contexts
 
 Nur die Beziehungen, die für Routing-Entscheidungen relevant sind — kein
@@ -48,6 +55,13 @@ vollständiges Sequenzdiagramm.
 - **`datensicherung` arbeitet auf dem gesamten Bestand über
   `src/persistence/`**, nicht über die einzelnen Feature-Stores. Sonst wäre
   eine vollständige Sicherung von der Ladereihenfolge der Features abhängig.
+  Der Store `einstellungen` gehört **nicht** zum Bestand und wird weder
+  exportiert noch importiert (ADR-0006).
+- **Der Zustand „Bestand hat eine zu neue Formatversion" kommt aus
+  `src/persistence/`**, nicht aus dem `orte`-Store. So können `app-shell`
+  (-011) und das zweispaltige Layout (-012) darauf verzweigen, ohne aus einem
+  Feature zu importieren — die Regel „`app-shell` importiert nicht aus
+  `features/`" bliebe sonst nicht haltbar.
 - **`app-shell` wird von niemandem importiert.** Der Weg dorthin führt über
   `src/shared/` und die globalen Stylesheets.
 
@@ -65,12 +79,21 @@ Drei erlaubte Netz-Zwecke, jeder mit definiertem Ausfallpfad (ADR-0001):
 
 - **Kein Backend, keine API-Contracts, keine Events** (ADR-0001). Es gibt in
   diesem Projekt keine `backend_contract`-Felder und keinen `backend-lead`.
-- **Keine gemeinsame Grundnavigation registriert.** Ein elftes Paket dafür
-  wird gerade geschnitten; bis dahin legt kein Paket eigenmächtig einen
-  App-Rahmen oder eine Navigationsstruktur an.
+- **Grundnavigation und App-Rahmen gehören PO-2026-09-07-011**, die
+  Zweispaltigkeit ab großen Breiten PO-2026-09-07-012. Beides sind
+  Layout-Belange, keine Datenbelange: Kein Paket vor -011 legt eigenmächtig
+  einen App-Rahmen an, und weder -011 noch -012 fassen Persistenz- oder
+  Zustandsschicht an. PO-2026-09-07-001 registriert lediglich die beiden
+  Routen `/orte` und `/orte/:ortId`, damit -011 sie einfangen kann, statt sie
+  umzubauen.
 - **Kartenstil und Tile-Anbieter sind offen** — laut `design-concept.md`
   bewusst als Architektur-/Lizenzentscheidung dem Architekten zugewiesen,
   fällig mit PO-2026-09-07-006.
-- **Die Speichertechnik ist offen** und fällt mit PO-2026-09-07-001. Gesetzt
-  ist nur die Untergrenze aus ADR-0003: Sie muss Binärdaten in unbegrenzter
-  Zahl tragen (Bilder aus PO-2026-09-07-005).
+- **Verhalten bei mehreren gleichzeitig geöffneten Tabs ist offen.** Nach
+  ADR-0005 gewinnt der zuletzt geschriebene vollständige Datensatz; ein Tab
+  mit veraltetem Stand kann Änderungen eines anderen still überschreiben.
+  Frage beim Nutzer angemeldet (2026-09-08), bis dahin bewusst nichts
+  unternommen.
+- **Verhalten bei nicht verfügbarer IndexedDB** (Privatmodus, blockierter
+  Speicher) ist offen — Frage beim Nutzer angemeldet (2026-09-08). Bis dahin:
+  vollflächige Meldung, kein Schreibversuch.

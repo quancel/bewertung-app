@@ -1,10 +1,18 @@
 # ADR-0003: Versioniertes lokales Datenformat mit vorwärtsgerichteter Migrationskette
 
-- **Status**: accepted
+- **Status**: accepted — **Reichweite am 2026-09-08 vom Nutzer bestätigt:
+  unbegrenzt.** Jeder je erzeugte Gerätebestand und jede je erzeugte
+  Exportdatei bleibt dauerhaft lesbar; es gibt kein Alter, ab dem ein Bestand
+  fallengelassen wird. Der Preis (ein Migrationsschritt plus Fixture-Test je
+  Formaterweiterung) ist ausdrücklich akzeptiert. Damit ist die untenstehende
+  Entscheidung keine Annahme mehr. Der Wortlaut der Entscheidung bleibt
+  unverändert.
 - **Datum**: 2026-09-08
 - **Bounded Context(s)**: `orte`, `bewertungen`, `tags`, `medien`, `datensicherung`, `app-shell`
 - **task_id**: `PO-2026-09-07-010` (Anlass: Befund des `product-owner`; die Regel
   greift ab PO-2026-09-07-001)
+- **Umsetzung**: ADR-0004 (Speichertechnik, Trennung von IDB-Version und
+  `SCHEMA_VERSION`) und ADR-0006 (was zum Bestand zählt und was nicht)
 
 ## Kontext
 

@@ -17,7 +17,9 @@ Zustände und Formulare an; Gruppe B (003/004) ergänzt Sortieren/Filtern;
 Runde 2 von 002 klärt Wert 0 vs. „nicht bewertet"; Gruppe C (005/006/008)
 ergänzt Karte, Bilder, Ortssuche; Runde 2 von 004 klärt die UND/ODER-
 Verknüpfung des Tag-Filters; Gruppe D (007/009) ergänzt den
-Update-Hinweis der Offline-Auslieferung und Export/Import.
+Update-Hinweis der Offline-Auslieferung und Export/Import. Runde 2 von 011
+ergänzt Navigation, Zurück-Verhalten und die projektweite
+Navigationschrome-Regel; 012 ergänzt das Master-Detail-Pattern ab `lg`.
 
 - **Zuletzt kuratiert**: 2026-09-08
 
@@ -175,6 +177,100 @@ Eigenschaft.
 - Bild löschen nutzt die Bestätigungsdialog-Konvention für schwer
   rückgängig machbare Aktionen (Original ist ohnehin nicht mehr
   vorhanden, ein gelöschtes Bild ist endgültig weg).
+
+## Navigation & Routing
+
+- **Navigationschrome nur, wenn dahinter noch etwas funktioniert.** Zustände,
+  die den gesamten Bestand unbenutzbar machen (z. B. eine unbekannte,
+  neuere Formatversion), bleiben ohne Navigationsebene — sie böte Bereiche
+  an, die alle ins Leere führen, eine Zusage, die die App nicht halten
+  kann. Jeder andere Zustand, auch „Adresse ohne Ziel", zeigt die
+  Navigation weiterhin, weil der Rest der App dort funktioniert. Gilt
+  projektweit, nicht nur für den Fall, der sie ausgelöst hat.
+- **Chrome-Pattern**: mobil (bis `lg`) fixierte Bottom-Tab-Leiste (56px +
+  `env(safe-area-inset-bottom)`, `--surface`, 1px `--border` oben statt
+  Schatten, Hauptinhalt mit passendem Bottom-Padding); ab `lg` fixierte
+  linke Nav-Rail (~80px) als eigene Chrome-Spalte außerhalb des
+  1120px-Containers, keine dritte Content-Spalte. Beide zeigen dasselbe
+  Bereichsregister: Icon (Lucide Outline 24px) **plus sichtbarem Label**,
+  nie Icon-only, nicht ausgeblendet bei nur einem Eintrag. Einträge werden
+  nur angehängt, nie neu positioniert. Aktiver Zustand ohne
+  Farbabhängigkeit: Schriftgewicht 600 (inaktiv 400) + 2px-Indikatorlinie
+  in `--color-primary-600`, dazu `aria-current="page"`. Kein
+  App-Titel/Wortmarke (design-concept.md legt keine fest). Touch-Ziele
+  mind. 44×44px, Icon+Label ein Tap-Ziel.
+- **Skip-Link** „Zum Hauptinhalt springen": erstes fokussierbares Element
+  im DOM, visuell versteckt bis `:focus`, Ziel `#main-content`.
+  DOM-/Tab-Reihenfolge Skip-Link → Navigation → Hauptinhalt; die
+  abweichende visuelle Position läuft über CSS, nicht über DOM-Reihenfolge.
+- **Adresse ohne Ziel** (gehört zu keinem Bereich, oder Detailadresse zu
+  einem nicht vorhandenen Datensatz, inkl. „gerade gelöscht" und „Bereich
+  existiert in dieser Version noch nicht"): **ein** Text für alle
+  Ursachen, nennt **keine** Ursache — kein „Link kaputt", kein „gelöscht",
+  kein „Bereich existiert nicht", auch nicht im Konjunktiv. Zum
+  Anzeigezeitpunkt ist die Ursache nie sicher bekannt, und Bereiche
+  entstehen nacheinander — dieselbe Adresse würde sonst von Release zu
+  Release die Meldung wechseln. Der Text sagt nur, was zutrifft, und wohin
+  es weitergeht: „Diese Adresse führt zu keinem Inhalt." + Primär-Aktion
+  zur Startübersicht des ersten Bereichs. Rein typografisch wie andere
+  Leerzustände, zentriert; Navigation bleibt sichtbar und bedienbar; keine
+  Fehler-/Warnfarbe, kein Alarm-Icon.
+- **Zurück-Aktion**: sticky am Kopf des Detailbereichs (bleibt bei langen
+  Detailseiten erreichbar), Icon `arrow-left` + Text „Zurück" unterhalb
+  `lg`. Löst denselben History-Schritt aus wie natives Browser-Zurück,
+  kein zweiter Navigationspfad. Ausnahme: Deep-Link ohne vorherige
+  App-History → frische Listenansicht im Default-Zustand. Rückkehr zur
+  Liste zeigt Sortierung, Tag-Filter, Verknüpfung und Scrollposition
+  unverändert, ohne sichtbaren Sprung/Reflow und ohne erneuten
+  Ladezustand. Bereichswechsel selbst läuft ohne Seitenübergangs-Animation
+  (kein Fade/Slide) — ein Bereichswechsel ist ein Sprung, keine
+  Zustandsanimation.
+
+## Master-Detail (ab `lg`)
+
+- **Zwei Spalten innerhalb des 1120px-Containers** (nicht die
+  Nav-Rail-Spalte): Liste fixe Breite (Richtwert ~400px), Detail nimmt den
+  Rest (Mindestbreite, damit Formulare/Bilder-Raster nicht gequetscht
+  werden), 24px Abstand, 1px `--border` als Spaltentrennung — Trennung
+  hier über Rahmen **und** Abstand, da zwei parallel bediente Bereiche
+  eine erkennbare Kante brauchen. Beide Spalten scrollen unabhängig
+  voneinander.
+- **Keine automatische Vorauswahl.** Ohne gewählten Ort zeigt die zweite
+  Spalte einen ruhigen, rein typografischen Hinweis ohne Primär-Aktion
+  (bewusste Abweichung vom „Leer"-Muster: es gibt keine andere Aktion als
+  die bereits sichtbare Liste) — z. B. „Wähle einen Ort aus der Liste, um
+  Details zu sehen." Erscheint **nicht**, wenn der Bestand leer ist oder
+  der Filter null Treffer liefert — dort bleibt der jeweils bestehende
+  Leerzustand die einzige Aussage. Keine Fehler-/Warnfarbe.
+- **Auswahl-Hervorhebung** in der Liste: linke 3px-Kante
+  `--color-primary-600` + Fläche `--color-primary-50`, zusätzlich
+  `aria-current="true"`. Bleibt bestehen, auch wenn der Ort durch eine
+  Filteränderung aus der sichtbaren Liste fällt (Detail bleibt offen,
+  Hervorhebung ist dann nur nicht sichtbar).
+- **Schließen ab `lg`**: Icon-only „×" (`aria-label` „Detailansicht
+  schließen"), sticky an derselben Stelle wie die mobile Zurück-Aktion,
+  ersetzt dort „Zurück" — die Liste bleibt ja sichtbar. Löst denselben
+  History-Schritt aus wie Browser-Zurück. Erneuter Klick auf die bereits
+  gewählte Zeile schließt nicht (kein Toggle) — Schließen hat genau einen
+  Weg.
+- **Wechsel des Inhalts** der Detailspalte (Auswahl ↔ leer, Ort A ↔ Ort
+  B): 180ms-Crossfade (bestehende Ein-/Ausblenden-Konvention), keine
+  Sheet-artige Slide-Bewegung — die Spalte selbst bewegt sich nicht, nur
+  ihr Inhalt.
+- **Fokus**: Öffnen bewegt den Fokus in die Detailspalte (erstes
+  sinnvolles Element, z. B. Überschrift oder Schließen-Button), nicht
+  erst nach Durchtabben der restlichen Liste. Schließen oder Löschen gibt
+  den Fokus zurück auf die zugehörige Listenzeile bzw. die an ihrer
+  Position nachrückende Zeile — nicht an den Listenanfang.
+- **Breakpoint-Wechsel bei offener Detailspalte**: Unterschreiten von `lg`
+  wechselt zur vollflächigen Detailansicht (nicht zurück zur Liste);
+  Überschreiten hält denselben Ort offen, jetzt zweispaltig. Reiner
+  CSS-Layoutwechsel bei gleicher Adresse, kein Navigations-Event, kein
+  Refetch, keine Reflow-Animation.
+- **Breitenabhängige Layouts in der Detail-Spalte** (z. B. das
+  Bilder-Raster) richten sich nach der Spaltenbreite, nicht nach der
+  Viewport-Breite — sonst zeigt sich bei ~1024px Viewport ein Raster mit
+  mehr Spalten, als in der schmaleren Detail-Spalte Platz haben.
 
 ## Tokens & Spacing
 

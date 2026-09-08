@@ -42,6 +42,10 @@ src/
       model/<context>.types.ts  # Typen inkl. der persistierten Form
   persistence/                  # EINZIGER Zugriff auf den Gerätespeicher
     schema.ts                   # SCHEMA_VERSION + Typ des Gesamtbestands
+    db.ts                       # IndexedDB öffnen, Object Stores, IDB-Version
+    <context>-repository.ts     # Lese-/Schreib-API je Context (orte-repository.ts)
+    einstellungen-repository.ts # Anzeigeeinstellungen (ADR-0006)
+    migrations/index.ts         # geordnete Liste der Schritte + Kettenlauf
     migrations/NNN-<kurzname>.ts
     migrations/__fixtures__/vN-<kurzname>.json
   shared/
@@ -60,7 +64,14 @@ src/
   Ausnahme: `bewertungen`, `tags`, `medien` dürfen den `orte`-Store **lesend**
   über sein öffentliches API nutzen — nur in diese Richtung (context-map.md).
 - **Nur `persistence/` spricht mit dem Gerätespeicher.** Kein
-  `localStorage`/`indexedDB` in Komponenten, Stores oder Composables.
+  `localStorage`/`indexedDB` in Komponenten, Stores oder Composables. Auch
+  kein zweiter Speicherweg „nur für Kleinigkeiten" — Anzeigeeinstellungen
+  laufen ebenfalls über `persistence/` (ADR-0006).
+- **`model/*.types.ts` importiert nichts.** Diese Dateien sind reine
+  Typmodule. `persistence/schema.ts` importiert aus ihnen (um den Bestandstyp
+  zusammenzusetzen), Features importieren aus `persistence/` — die Richtung
+  bleibt dadurch zyklenfrei. Ein Import von `persistence/` in ein
+  `model/*.types.ts` dreht sie um und ist ein Fehler.
 - **Nach `shared/` erst ab zwei Nutzern**, nicht vorsorglich. `app/` enthält
   nur Einmaliges.
 - **`components/` kennt keinen Store**, bekommt alles über Props und meldet
@@ -108,7 +119,14 @@ src/
 - **Neuer State**: `src/features/<context>/stores/<context>.store.ts`. Ein
   Store je Context; kein globaler App-Store.
 - **Neue Route/Ansicht**: Ansicht nach `src/features/<context>/views/`,
-  Registrierung in `src/app/router/index.ts`.
+  Registrierung in `src/app/router/index.ts`. **Adressschema**: `/<bereich>`
+  für die Übersicht, `/<bereich>/:<id>` für ein einzelnes Element — also
+  `/orte` und `/orte/:ortId` (angelegt in PO-2026-09-07-001). `/` leitet auf
+  `/orte`. Route-Namen sind der Pfad ohne Schrägstrich (`orte`,
+  `ort-detail`). PO-2026-09-07-011 erweitert dieses Schema um weitere
+  Bereiche und die Sammelroute für unbekannte Adressen; es benennt bestehende
+  Adressen nicht um (PO-2026-09-07-012 verlangt ausdrücklich, dass die
+  Detailadresse unverändert bleibt).
 - **Neues Feld im gespeicherten Format**: Typ nach
   `src/features/<context>/model/`, Aufnahme in den Gesamtbestand in
   `src/persistence/schema.ts` — **plus** `SCHEMA_VERSION` +1,
@@ -127,6 +145,57 @@ src/
   mit; ohne Fixture-Test ist sie nicht fertig.
 - Import (PO-2026-09-07-009) nutzt dieselbe Kette — kein zweiter Pfad.
 - Kein `if (version < N)` außerhalb von `src/persistence/migrations/`.
+
+### Speichertechnik (ADR-0004)
+
+- **IndexedDB über die Bibliothek `idb`.** Kein `localStorage`, kein Dexie,
+  kein localForage.
+- **Zwei Versionen, die nie vermischt werden**: die IndexedDB-Datenbank­version
+  beschreibt nur Struktur (Object Stores, Indizes) und wird ausschließlich in
+  `onupgradeneeded` verwendet — dort wird **kein Inhalt** umgeschrieben. Die
+  `SCHEMA_VERSION` beschreibt den Inhalt und wird nach dem Öffnen über
+  `migrations/` verarbeitet.
+- Object Stores: `meta` (ein Datensatz `bestand` mit `schemaVersion`), `orte`
+  (Schlüssel = Ort-ID), `einstellungen`. `bilder` kommt mit -005 dazu.
+- **Ein Ort ist ein Datensatz**; Bewertungen, Kommentare und Tags sind Felder
+  darin. **Binärdaten nie im Ort-Datensatz** — Blobs in einen eigenen Store,
+  nie als Base64.
+- **IDs sind `crypto.randomUUID()`**, keine fortlaufenden Zahlen (der Import
+  „Ergänzen" aus -009 führt zwei Geräte zusammen).
+- **Löschen kaskadiert in einer Transaktion**; eine leere Datenbank ist kein
+  alter Bestand, sondern ein Erststart.
+
+### Lesen und Schreiben (ADR-0005)
+
+- **Kein stiller Ersatzwert beim Lesen.** `?? 0`, `|| []` und Ähnliches auf
+  gespeicherten Werten sind verboten. Fehlt ein Feld, wird es in einem
+  Migrationsschritt gefüllt — nicht beim Lesen. Ein fehlender Wert und ein
+  gesetzter Nullwert bleiben unterscheidbar.
+- **Ergebnisse statt Ausnahmen.** Lade- und Schreibfunktionen geben ein
+  ausdrückliches Ergebnis zurück (u. a. „zu neue Version", „Speicher voll"),
+  das der Aufrufer auswerten muss. Kein `try/catch`, das den Fehler
+  verschluckt.
+- **Geschrieben wird der vollständige Datensatz aus dem Store**, nie
+  Lesen-Ändern-Zurückschreiben gegen die Datenbank. Schreibvorgänge je ID
+  werden serialisiert.
+- **Keine Entprellung vor dem Schreiben.** Auslöser: Feld verlassen bzw.
+  Wert geändert, Route verlassen, `visibilitychange` → `hidden`, `pagehide`.
+- **Anzeigeeinstellungen sind kein Bestandsinhalt** (ADR-0006): Store
+  `einstellungen`, keine `SCHEMA_VERSION`, keine Migration, kein Export.
+  Fehlt eine, gilt die Voreinstellung — ohne Meldung.
+
+## Build und Auslieferung
+
+- **Rein statisches Bundle über HTTPS**, Anbieter offen (Nutzerentscheidung
+  2026-09-08). Kein Server-Laufzeitanteil, kein SSR (ADR-0001).
+- **`base` in `vite.config.ts` bleibt `/`** — das ist zugleich der
+  Vite-Standard. Läuft die App später unter einem Unterpfad, ist das genau
+  diese eine Zeile; nichts im Code darf einen absoluten Pfad fest verdrahten.
+- Der **sichere Kontext ist damit gegeben**: `crypto.randomUUID()`
+  (ADR-0004) und der Service Worker aus PO-2026-09-07-007 sind ohne weitere
+  Vorbedingung nutzbar. -007 muss das nicht erneut klären.
+- Ein Versionswechsel leert **Caches, niemals IndexedDB** — der
+  Gerätespeicher ist der Datenbestand, nicht Teil der Auslieferung.
 
 ## Backend
 
