@@ -14,6 +14,7 @@
  * (-009) durch dieselbe Kette laufen — es gibt keinen zweiten Migrationspfad.
  */
 import { SCHEMA_VERSION } from '../schema'
+import { schritt002Bewertungen } from './002-bewertungen'
 
 export interface RohBestand {
   schemaVersion: number
@@ -27,11 +28,11 @@ export interface Migrationsschritt {
 }
 
 /**
- * Geordnete Schrittliste. v1 hat keine Vorgängerversion — der erste Schritt
- * (v1 → v2) kommt mit PO-2026-09-07-002 als `002-<kurzname>.ts` hinzu und
- * wird hier vorne angehängt.
+ * Geordnete Schrittliste. v1 hatte keine Vorgängerversion — der erste
+ * Schritt (v1 → v2, PO-2026-09-07-002, Bewertungsachsen) steht hier vorne.
+ * Künftige Schritte werden hinten angehängt.
  */
-export const migrationsschritte: Migrationsschritt[] = []
+export const migrationsschritte: Migrationsschritt[] = [schritt002Bewertungen]
 
 export type Migrationsergebnis =
   | { status: 'ok'; bestand: RohBestand }

@@ -9,6 +9,11 @@
  * vollständigen, aktuellen Datensatz — aufgerufen von der View bei den vier
  * gleichwertigen Auslösern (Feld verlassen/Wert geändert, Route verlassen,
  * `visibilitychange`, `pagehide`).
+ *
+ * `aktualisiereAchse` ist das öffentliche API, über das der Context
+ * `bewertungen` (PO-2026-09-07-002) Achsenwert und -kommentar ändert — er
+ * führt dafür keinen eigenen Store und ruft `src/persistence/` nicht selbst
+ * auf (ADR-0008).
  */
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
@@ -21,6 +26,11 @@ import type { OrtDatensatz } from '../../../persistence/schema'
 import type { OrtStammdaten } from '../model/orte.types'
 
 export type OrtSchreibfehlerGrund = 'speicher_voll' | 'unbekannt'
+
+/** Aus dem zusammengesetzten `OrtDatensatz` abgeleitet (ADR-0008 Punkt 5) —
+ * kein Import aus `features/bewertungen/model/`. */
+export type AchsenName = keyof OrtDatensatz['bewertungen']
+type AchsenPatch = Partial<OrtDatensatz['bewertungen'][AchsenName]>
 
 export const useOrteStore = defineStore('orte', () => {
   const orte = ref<OrtDatensatz[]>([])
@@ -56,6 +66,14 @@ export const useOrteStore = defineStore('orte', () => {
       adresse: null,
       breite: null,
       laenge: null,
+      // Aktiv als „nicht bewertet" angelegt (ADR-0007), nicht weggelassen —
+      // dieselbe Regel wie im Migrationsschritt 002-bewertungen.
+      bewertungen: {
+        ambiente: { wert: null, kommentar: null },
+        zeit: { wert: null, kommentar: null },
+        geschmack: { wert: null, kommentar: null },
+        preisLeistung: { wert: null, kommentar: null },
+      },
       geaendertAm: new Date().toISOString(),
     }
     orte.value = [...orte.value, neuerOrt]
@@ -73,6 +91,32 @@ export const useOrteStore = defineStore('orte', () => {
     const aktualisiert: OrtDatensatz = {
       ...bisheriger,
       ...patch,
+      geaendertAm: new Date().toISOString(),
+    }
+    orte.value = [
+      ...orte.value.slice(0, index),
+      aktualisiert,
+      ...orte.value.slice(index + 1),
+    ]
+  }
+
+  /**
+   * Öffentliches API für den Context `bewertungen` (ADR-0008): ändert genau
+   * eine Achse eines Ortes im Arbeitsspeicher, kein Schreibvorgang. `patch`
+   * berührt nur `wert` oder nur `kommentar` oder beide — Zurücksetzen einer
+   * Achse übergibt ausschließlich `{ wert: null }` und lässt `kommentar`
+   * damit unangetastet (ADR-0007 Punkt 2).
+   */
+  function aktualisiereAchse(id: string, achse: AchsenName, patch: AchsenPatch): void {
+    const index = orte.value.findIndex((ort) => ort.id === id)
+    if (index === -1) return
+    const bisheriger = orte.value[index]!
+    const aktualisiert: OrtDatensatz = {
+      ...bisheriger,
+      bewertungen: {
+        ...bisheriger.bewertungen,
+        [achse]: { ...bisheriger.bewertungen[achse], ...patch },
+      },
       geaendertAm: new Date().toISOString(),
     }
     orte.value = [
@@ -125,6 +169,7 @@ export const useOrteStore = defineStore('orte', () => {
     sicherstellenGeladen,
     legeOrtAn,
     aktualisiereFeld,
+    aktualisiereAchse,
     persistiereOrt,
     loescheOrt,
     schreibfehlerFuer,

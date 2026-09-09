@@ -5,13 +5,20 @@
  * Schreibmodell nach ADR-0005: Autosave onBlur (Text) bzw. sofort bei
  * Wertänderung (Zahl) — plus Routenwechsel, `visibilitychange`, `pagehide`
  * über `useAutosaveBeimVerlassen`.
+ *
+ * Importiert `Bewertungsachse` (Context `bewertungen`) — erlaubt, weil sie
+ * store-frei ist und diese View `useOrteStore` anbindet, nicht die
+ * importierte Komponente selbst (ADR-0013). Achsenwert/-kommentar ändern
+ * ausschließlich über `useOrteStore.aktualisiereAchse` (ADR-0008).
  */
 import { computed, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import IconPapierkorb from '../../../shared/ui/icons/IconPapierkorb.vue'
+import Bewertungsachse from '../../bewertungen/components/Bewertungsachse.vue'
+import { berechneGesamtnote, formatiereGesamtnote, zaehleAusgefuellteAchsen } from '../../../shared/lib/gesamtnote'
 import { useAutosaveBeimVerlassen } from '../composables/useAutosaveBeimVerlassen'
 import OrtLoeschenDialog from '../components/OrtLoeschenDialog.vue'
-import { useOrteStore } from '../stores/orte.store'
+import { useOrteStore, type AchsenName } from '../stores/orte.store'
 
 const route = useRoute()
 const router = useRouter()
@@ -21,6 +28,21 @@ const ortId = computed(() => route.params.ortId as string)
 const ort = computed(() => store.ortNachId(ortId.value))
 const schreibfehler = computed(() => store.schreibfehlerFuer(ortId.value).value)
 const loeschenOffen = ref(false)
+
+const gesamtnote = computed(() => (ort.value ? berechneGesamtnote(ort.value.bewertungen) : null))
+const ausgefuellteAchsen = computed(() =>
+  ort.value ? zaehleAusgefuellteAchsen(ort.value.bewertungen) : 0,
+)
+
+function aufAchsenwertGeaendert(achse: AchsenName, wert: number | null): void {
+  store.aktualisiereAchse(ortId.value, achse, { wert })
+  persistiereJetzt()
+}
+
+function aufAchsenkommentarGeaendert(achse: AchsenName, kommentar: string | null): void {
+  store.aktualisiereAchse(ortId.value, achse, { kommentar })
+  persistiereJetzt()
+}
 
 onMounted(async () => {
   await store.sicherstellenGeladen()
@@ -155,6 +177,56 @@ async function aufLoeschenBestaetigt(): Promise<void> {
       </div>
     </div>
 
+    <div class="ortsdetail__gesamtnote">
+      <span
+        v-if="gesamtnote === null"
+        class="ortsdetail__gesamtnote-leer"
+      >Noch nicht bewertet</span>
+      <template v-else>
+        <span class="ortsdetail__gesamtnote-wert">{{ formatiereGesamtnote(gesamtnote) }}</span>
+        <span
+          v-if="ausgefuellteAchsen < 4"
+          class="ortsdetail__gesamtnote-zusatz"
+        >Ø aus {{ ausgefuellteAchsen }} von 4 Achsen</span>
+      </template>
+    </div>
+
+    <div class="ortsdetail__bewertungen">
+      <Bewertungsachse
+        achse-name="ambiente"
+        label="Ambiente"
+        :wert="ort.bewertungen.ambiente.wert"
+        :kommentar="ort.bewertungen.ambiente.kommentar"
+        @wert-geaendert="(wert) => aufAchsenwertGeaendert('ambiente', wert)"
+        @kommentar-geaendert="(kommentar) => aufAchsenkommentarGeaendert('ambiente', kommentar)"
+      />
+      <Bewertungsachse
+        achse-name="zeit"
+        label="Zeit (Wartezeit)"
+        kurzerklaerung="10 = keine spürbare Wartezeit"
+        :wert="ort.bewertungen.zeit.wert"
+        :kommentar="ort.bewertungen.zeit.kommentar"
+        @wert-geaendert="(wert) => aufAchsenwertGeaendert('zeit', wert)"
+        @kommentar-geaendert="(kommentar) => aufAchsenkommentarGeaendert('zeit', kommentar)"
+      />
+      <Bewertungsachse
+        achse-name="geschmack"
+        label="Geschmack"
+        :wert="ort.bewertungen.geschmack.wert"
+        :kommentar="ort.bewertungen.geschmack.kommentar"
+        @wert-geaendert="(wert) => aufAchsenwertGeaendert('geschmack', wert)"
+        @kommentar-geaendert="(kommentar) => aufAchsenkommentarGeaendert('geschmack', kommentar)"
+      />
+      <Bewertungsachse
+        achse-name="preisLeistung"
+        label="Preis/Leistung"
+        :wert="ort.bewertungen.preisLeistung.wert"
+        :kommentar="ort.bewertungen.preisLeistung.kommentar"
+        @wert-geaendert="(wert) => aufAchsenwertGeaendert('preisLeistung', wert)"
+        @kommentar-geaendert="(kommentar) => aufAchsenkommentarGeaendert('preisLeistung', kommentar)"
+      />
+    </div>
+
     <p
       v-if="schreibfehler"
       class="ortsdetail__fehler"
@@ -255,5 +327,33 @@ async function aufLoeschenBestaetigt(): Promise<void> {
 .ortsdetail__fehler {
   color: var(--color-danger);
   font-size: var(--font-size-14);
+}
+
+.ortsdetail__gesamtnote {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+}
+
+.ortsdetail__gesamtnote-wert {
+  font-size: var(--font-size-24);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary-700);
+}
+
+.ortsdetail__gesamtnote-zusatz {
+  font-size: var(--font-size-14);
+  color: var(--text-muted);
+}
+
+.ortsdetail__gesamtnote-leer {
+  font-size: var(--font-size-16);
+  color: var(--text-muted);
+}
+
+.ortsdetail__bewertungen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
 }
 </style>

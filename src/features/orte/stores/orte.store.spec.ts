@@ -86,6 +86,65 @@ describe('useOrteStore', () => {
     expect(store.schreibfehlerFuer(ort.id).value).toBe('speicher_voll')
   })
 
+  it('legt einen neuen Ort mit allen vier Achsen aktiv als „nicht bewertet" an', async () => {
+    const store = useOrteStore()
+
+    const neuerOrt = await store.legeOrtAn('Ausgangsname')
+
+    expect(neuerOrt.bewertungen).toEqual({
+      ambiente: { wert: null, kommentar: null },
+      zeit: { wert: null, kommentar: null },
+      geschmack: { wert: null, kommentar: null },
+      preisLeistung: { wert: null, kommentar: null },
+    })
+  })
+
+  it('aktualisiereAchse setzt einen Achsenwert, ohne den Kommentar zu berühren', async () => {
+    const store = useOrteStore()
+    const ort = await store.legeOrtAn('Ausgangsname')
+
+    store.aktualisiereAchse(ort.id, 'ambiente', { wert: 0 })
+
+    expect(store.ortNachId(ort.id)?.bewertungen.ambiente).toEqual({ wert: 0, kommentar: null })
+  })
+
+  it('aktualisiereAchse setzt beim Zurücksetzen ausschließlich den Wert auf null — der Kommentar bleibt erhalten', async () => {
+    const store = useOrteStore()
+    const ort = await store.legeOrtAn('Ausgangsname')
+    store.aktualisiereAchse(ort.id, 'ambiente', { wert: 8, kommentar: 'Sehr gemütlich' })
+
+    store.aktualisiereAchse(ort.id, 'ambiente', { wert: null })
+
+    expect(store.ortNachId(ort.id)?.bewertungen.ambiente).toEqual({
+      wert: null,
+      kommentar: 'Sehr gemütlich',
+    })
+  })
+
+  it('aktualisiereAchse ändert nur die betroffene Achse, die übrigen bleiben unverändert', async () => {
+    const store = useOrteStore()
+    const ort = await store.legeOrtAn('Ausgangsname')
+
+    store.aktualisiereAchse(ort.id, 'zeit', { wert: 5 })
+
+    const bewertungen = store.ortNachId(ort.id)?.bewertungen
+    expect(bewertungen?.zeit).toEqual({ wert: 5, kommentar: null })
+    expect(bewertungen?.ambiente).toEqual({ wert: null, kommentar: null })
+    expect(bewertungen?.geschmack).toEqual({ wert: null, kommentar: null })
+    expect(bewertungen?.preisLeistung).toEqual({ wert: null, kommentar: null })
+  })
+
+  it('aktualisiereAchse aktualisiert geaendertAm', async () => {
+    const store = useOrteStore()
+    const ort = await store.legeOrtAn('Ausgangsname')
+    const vorher = store.ortNachId(ort.id)?.geaendertAm
+
+    await new Promise((resolve) => setTimeout(resolve, 2))
+    store.aktualisiereAchse(ort.id, 'ambiente', { wert: 4 })
+
+    expect(store.ortNachId(ort.id)?.geaendertAm).not.toBe(vorher)
+  })
+
   it('löscht einen Ort nur nach erfolgreichem Schreibvorgang aus dem Store', async () => {
     loescheOrtMock.mockResolvedValueOnce({
       status: 'schreiben_fehlgeschlagen',

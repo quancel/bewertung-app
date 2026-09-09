@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 2,
+  "orte": [
+    {
+      "id": "0b6f7f9a-df3f-4e3a-9c1a-8f2a2b6a2e11",
+      "bezeichnung": "Café Sonnenschein",
+      "adresse": "Musterstraße 1, 12345 Musterstadt",
+      "breite": 52.52,
+      "laenge": 13.405,
+      "geaendertAm": "2026-09-08T10:00:00.000Z",
+      "bewertungen": {
+        "ambiente": { "wert": 8, "kommentar": "Sehr gemütlich" },
+        "zeit": { "wert": null, "kommentar": null },
+        "geschmack": { "wert": 0, "kommentar": null },
+        "preisLeistung": { "wert": 6, "kommentar": null }
+      }
+    },
+    {
+      "id": "6f6a7d3a-9c2e-4c3d-9d3a-2b6a2e116f6a",
+      "bezeichnung": "Nur ein Name",
+      "adresse": null,
+      "breite": null,
+      "laenge": null,
+      "geaendertAm": "2026-09-08T09:00:00.000Z",
+      "bewertungen": {
+        "ambiente": { "wert": null, "kommentar": null },
+        "zeit": { "wert": null, "kommentar": null },
+        "geschmack": { "wert": null, "kommentar": null },
+        "preisLeistung": { "wert": null, "kommentar": null }
+      }
+    }
+  ]
+}

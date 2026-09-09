@@ -7,16 +7,19 @@
  * Zahlen dürfen nie vermischt werden.
  */
 import type { OrtStammdaten } from '../features/orte/model/orte.types'
+import type { Bewertungen } from '../features/bewertungen/model/bewertungen.types'
 
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
 /**
- * Der kanonische, zusammengesetzte Ort-Datensatz. In v1 deckungsgleich mit
- * `OrtStammdaten`; künftige Pakete (-002 Bewertungen, -004 Tags) erweitern
- * diese Zusammensetzung um ihren Anteil, ohne dass `orte` aus deren
- * Feature-Ordnern importieren muss (ADR-0008).
+ * Der kanonische, zusammengesetzte Ort-Datensatz. Ab v2 (PO-2026-09-07-002,
+ * ADR-0007/ADR-0008) um `bewertungen` erweitert; künftige Pakete (-004 Tags,
+ * -005 Bilder) erweitern diese Zusammensetzung weiter um ihren Anteil, ohne
+ * dass `orte` aus deren Feature-Ordnern importieren muss.
  */
-export type OrtDatensatz = OrtStammdaten
+export type OrtDatensatz = OrtStammdaten & {
+  bewertungen: Bewertungen
+}
 
 /** Einziger Datensatz im Object Store `meta`, Schlüssel `bestand`. */
 export interface BestandMeta {
