@@ -10,10 +10,21 @@
  * store-frei ist und diese View `useOrteStore` anbindet, nicht die
  * importierte Komponente selbst (ADR-0013). Achsenwert/-kommentar ändern
  * ausschließlich über `useOrteStore.aktualisiereAchse` (ADR-0008).
+ *
+ * Unbekannte Ort-ID (PO-2026-09-07-011, ADR-0010): KEIN Redirect mehr —
+ * ein Redirect würde die Adresse austauschen und „gelöscht, dann
+ * Browser-Zurück" in einen zweiten Ablauf zwingen. Stattdessen rendert
+ * diese View an derselben Adresse `AdresseOhneZiel.vue` aus `shared/ui/`
+ * (zweiter Nutzer neben der Sammelroute des Routers).
+ *
+ * Wurzelelement ist ein `<div>`, kein `<main>` (siehe Ortsliste.vue) — der
+ * einzige `<main id="main-content">` liegt jetzt in `AppRahmen.vue`.
  */
 import { computed, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import IconPapierkorb from '../../../shared/ui/icons/IconPapierkorb.vue'
+import IconArrowLeft from '../../../shared/ui/icons/IconArrowLeft.vue'
+import AdresseOhneZiel from '../../../shared/ui/AdresseOhneZiel.vue'
 import Bewertungsachse from '../../bewertungen/components/Bewertungsachse.vue'
 import { berechneGesamtnote, formatiereGesamtnote, zaehleAusgefuellteAchsen } from '../../../shared/lib/gesamtnote'
 import { useAutosaveBeimVerlassen } from '../composables/useAutosaveBeimVerlassen'
@@ -26,8 +37,27 @@ const store = useOrteStore()
 
 const ortId = computed(() => route.params.ortId as string)
 const ort = computed(() => store.ortNachId(ortId.value))
+// Erst nach dem Laden entscheidbar: solange `istGeladen` false ist, ist ein
+// fehlender Ort noch kein „nicht vorhanden", sondern „noch nicht geprüft".
+const unbekannt = computed(() => store.istGeladen && !ort.value)
 const schreibfehler = computed(() => store.schreibfehlerFuer(ortId.value).value)
 const loeschenOffen = ref(false)
+
+/**
+ * Löst denselben History-Schritt aus wie natives Browser-Zurück
+ * (design-conventions.md, „Zurück-Aktion"). `history.state.back` ist von
+ * `vue-router`s `createWebHistory` gesetzt und `null`, wenn diese Adresse
+ * ohne vorherige App-History aufgerufen wurde (Deep-Link) — dann zur
+ * frischen Listenansicht statt aus der App heraus.
+ */
+function aufZurueck(): void {
+  const historyState = window.history.state as { back: string | null } | null
+  if (historyState?.back) {
+    router.back()
+  } else {
+    void router.push('/orte')
+  }
+}
 
 const gesamtnote = computed(() => (ort.value ? berechneGesamtnote(ort.value.bewertungen) : null))
 const ausgefuellteAchsen = computed(() =>
@@ -46,9 +76,6 @@ function aufAchsenkommentarGeaendert(achse: AchsenName, kommentar: string | null
 
 onMounted(async () => {
   await store.sicherstellenGeladen()
-  if (!store.ortNachId(ortId.value)) {
-    await router.replace('/orte')
-  }
 })
 
 function persistiereJetzt(): void {
@@ -98,8 +125,10 @@ async function aufLoeschenBestaetigt(): Promise<void> {
 </script>
 
 <template>
-  <main
-    v-if="ort"
+  <AdresseOhneZiel v-if="unbekannt" />
+
+  <div
+    v-else-if="ort"
     class="ortsdetail"
   >
     <h1 class="ortsdetail__sr-titel">
@@ -107,6 +136,15 @@ async function aufLoeschenBestaetigt(): Promise<void> {
     </h1>
 
     <div class="ortsdetail__kopf">
+      <button
+        type="button"
+        class="ortsdetail__zurueck"
+        @click="aufZurueck"
+      >
+        <IconArrowLeft :size="20" />
+        Zurück
+      </button>
+
       <button
         type="button"
         class="ortsdetail__loeschen"
@@ -242,7 +280,7 @@ async function aufLoeschenBestaetigt(): Promise<void> {
       @schliessen="loeschenOffen = false"
       @bestaetigen="aufLoeschenBestaetigt"
     />
-  </main>
+  </div>
 </template>
 
 <style scoped>
@@ -268,8 +306,29 @@ async function aufLoeschenBestaetigt(): Promise<void> {
 }
 
 .ortsdetail__kopf {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 calc(var(--space-16) * -1);
+  padding: var(--space-8) var(--space-16);
+  background-color: var(--surface);
+}
+
+.ortsdetail__zurueck {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: 44px;
+  padding: var(--space-8) var(--space-8) var(--space-8) 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
 }
 
 .ortsdetail__loeschen {

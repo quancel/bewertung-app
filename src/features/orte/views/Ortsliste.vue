@@ -5,6 +5,12 @@
  * „Lädt" — lokale Lesevorgänge gelten als synchron schnell genug): bis
  * `istGeladen` true ist, wird nichts gerendert, statt einer falschen
  * Zwischenanzeige des Leerzustands.
+ *
+ * Wurzelelement ist ein `<div>`, kein `<main>` (seit PO-2026-09-07-011):
+ * Der einzige `<main id="main-content">` der Anwendung liegt jetzt in
+ * `src/app/layout/AppRahmen.vue` und umschließt das `<router-view>` — ein
+ * zweites `<main>` hier würde zwei gleichzeitig sichtbare Main-Landmarks
+ * erzeugen.
  */
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -30,7 +36,7 @@ async function aufAnlegen(bezeichnung: string): Promise<void> {
 </script>
 
 <template>
-  <main
+  <div
     v-if="store.istGeladen"
     class="ortsliste"
   >
@@ -81,12 +87,12 @@ async function aufAnlegen(bezeichnung: string): Promise<void> {
       @schliessen="sheetOffen = false"
       @anlegen="aufAnlegen"
     />
-  </main>
+  </div>
 </template>
 
 <style scoped>
 .ortsliste {
-  max-width: 1120px;
+  max-width: var(--container-max-width);
   margin: 0 auto;
   padding: var(--space-16);
 }

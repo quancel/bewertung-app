@@ -88,4 +88,9 @@
   --breakpoint-md: 768px;
   --breakpoint-lg: 1024px;
   --breakpoint-xl: 1280px;
+
+  /* Layoutmaße (ADR-0010/0011/0012, PO-2026-09-07-011) */
+  --container-max-width: 1120px;
+  --nav-rail-width: 80px;
+  --bottom-tab-height: 56px;
 }
