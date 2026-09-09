@@ -6,9 +6,10 @@
 > Halte sie kompakt (Faustregel: < 100 Zeilen). Sie ist ein Register,
 > kein Design-Dokument — Details gehören in ADRs unter `adr/`.
 
-- **Stand**: 2026-09-08, angelegt beim Einordnen von PO-2026-09-07-010,
-  fortgeschrieben beim Einordnen von PO-2026-09-07-001 (Gerätespeicher) und
-  von PO-2026-09-07-011/-012 (App-Rahmen und zweispaltiges Layout).
+- **Stand**: 2026-09-09, angelegt beim Einordnen von PO-2026-09-07-010,
+  fortgeschrieben beim Einordnen von PO-2026-09-07-001 (Gerätespeicher), von
+  PO-2026-09-07-011/-012 (App-Rahmen und zweispaltiges Layout) und von
+  PO-2026-09-07-003/-004 (Sortierung und Tag-Filter).
 
 **Es gibt genau ein Artefakt**: ein clientseitiges Vue-Bundle ohne
 Backend-Dienst (ADR-0001). Ein „Bounded Context" ist hier deshalb ein
@@ -48,9 +49,17 @@ vollständiges Sequenzdiagramm.
   Speichertechnik und die Formatversion bekannt sind.
 - **`orte` besitzt die Aggregatwurzel.** `bewertungen`, `tags` und `medien`
   hängen an einer Ort-ID und dürfen den `orte`-Store über dessen öffentliches
-  API nutzen. Das ist die **einzige** erlaubte Feature-zu-Feature-Beziehung,
-  und sie zeigt ausschließlich in Richtung `orte`. Kein Rückweg: `orte`
-  importiert aus keinem der drei.
+  API nutzen. Für **Zustand und Logik** (Stores, Composables mit
+  Store-/Speicherzugriff, Ableitungen) zeigt diese Beziehung ausschließlich
+  in Richtung `orte`; `orte` importiert davon nichts zurück.
+- **Für Darstellung gibt es eine enge Gegenrichtung** (ADR-0013, ab -003/-004):
+  Eine **View** in `orte` darf **präsentationale, store-freie** Komponenten
+  aus `bewertungen`, `tags` und `medien` importieren und sie über Props und
+  Emits anbinden — die Filterleiste und die Tag-Eingabe aus -004, die
+  Achsen-Bearbeitung aus -002. Sobald eine solche Komponente selbst einen
+  Store anfasst, entfällt die Erlaubnis; nur so bleibt der Import-Graph
+  zyklenfrei. `features/orte/components/Werkzeugleiste.vue` kennt `tags`
+  **nicht**: Zeile 2 kommt als benannter Slot aus `Ortebereich.vue`.
 - **`useOrteStore` ist der einzige Besitzer des Ort-Datensatzes im
   Arbeitsspeicher** (ADR-0008). `bewertungen` (-002) und `tags` (-004)
   bearbeiten Felder darin über sein öffentliches API und haben **keinen
@@ -66,6 +75,17 @@ vollständiges Sequenzdiagramm.
   eine vollständige Sicherung von der Ladereihenfolge der Features abhängig.
   Der Store `einstellungen` gehört **nicht** zum Bestand und wird weder
   exportiert noch importiert (ADR-0006).
+- **Der Store `einstellungen` bekommt mit -003 seinen ersten Inhalt.** Der
+  Zugriffsweg `src/persistence/einstellungen-repository.ts` existiert noch
+  nicht und entsteht dort — generisch (Wert zu einem Schlüssel), ohne
+  Kenntnis einzelner Einstellungen (ADR-0009 Punkt 4). Schlüssel:
+  `orte.sortierung` (-003), `orte.tagfilter` (-004). Beide gehören dem
+  Context `orte`, auch der zweite: Zuständig ist, wem die konfigurierte
+  **Ansicht** gehört, nicht wem die gefilterten Daten gehören (ADR-0009).
+- **Das Tag-Vokabular ist abgeleitet, nicht gespeichert** (ADR-0014): Es
+  entsteht als reine Funktion über alle Orte in `src/shared/lib/`. Es gibt
+  kein Tag-Register, keine referenzielle Integrität zwischen `einstellungen`
+  und `orte` und keine Aufräumroutine.
 - **Der Zustand „Bestand hat eine zu neue Formatversion" kommt aus
   `src/persistence/`**, nicht aus dem `orte`-Store. So können `app-shell`
   (-011) und das zweispaltige Layout (-012) darauf verzweigen, ohne aus einem

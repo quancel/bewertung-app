@@ -14,8 +14,9 @@
 
 - **Modus**: `vorgegeben` (Greenfield, festgelegt in **ADR-0002**; kein
   Anwendungscode vorhanden, geprüft 2026-09-08)
-- **Zuletzt geprüft**: 2026-09-08 (beim Einordnen von PO-2026-09-07-011 und
-  -012; Stand im Repo: PO-2026-09-07-010 gebaut, -001 in Arbeit)
+- **Zuletzt geprüft**: 2026-09-09 (beim Einordnen von PO-2026-09-07-003 und
+  -004; Stand im Repo: -010 und -001 gebaut und committet, -002 parallel in
+  Arbeit, -011/-012 eingeordnet und noch nicht gebaut)
 
 **Stapel**: Vue 3 · TypeScript · Vite · Pinia · vue-router. Ein Projekt, ein
 Bundle, kein Monorepo. **Kein Backend** (ADR-0001).
@@ -41,11 +42,14 @@ src/
       stores/<context>.store.ts # Pinia
       composables/
       model/<context>.types.ts  # Typen inkl. der persistierten Form
+      model/ansicht.ts          # Anzeigeeinstellungen: Typ + Voreinstellung
+                                #   + Prüffunktion (ADR-0009 P.4; ab -003)
   persistence/                  # EINZIGER Zugriff auf den Gerätespeicher
     schema.ts                   # SCHEMA_VERSION + Typ des Gesamtbestands
     db.ts                       # IndexedDB öffnen, Object Stores, IDB-Version
     <context>-repository.ts     # Lese-/Schreib-API je Context (orte-repository.ts)
-    einstellungen-repository.ts # Anzeigeeinstellungen (ADR-0006)
+    einstellungen-repository.ts # Anzeigeeinstellungen (ADR-0006); noch nicht
+                                #   vorhanden, entsteht mit -003
     migrations/index.ts         # geordnete Liste der Schritte + Kettenlauf
     migrations/NNN-<kurzname>.ts
     migrations/__fixtures__/vN-<kurzname>.json
@@ -61,9 +65,23 @@ src/
 
 ### Regeln, die die Struktur tragen
 
-- **Ein Feature importiert nicht aus einem anderen Feature.** Einzige
-  Ausnahme: `bewertungen`, `tags`, `medien` dürfen den `orte`-Store **lesend**
-  über sein öffentliches API nutzen — nur in diese Richtung (context-map.md).
+- **Ein Feature importiert nicht aus einem anderen Feature.** Zwei
+  Ausnahmen, beide eng:
+  1. `bewertungen`, `tags`, `medien` dürfen den `orte`-Store über sein
+     öffentliches API nutzen — nur in diese Richtung (context-map.md).
+  2. Eine **View** in `orte` darf **präsentationale, store-freie**
+     Komponenten aus `bewertungen`, `tags`, `medien` importieren und über
+     Props/Emits anbinden (ADR-0013). Prüfbar am Modul: Importiert die
+     Komponente einen Store oder `persistence/`, ist sie nicht
+     präsentational und darf nicht importiert werden — sonst entsteht der
+     Zyklus, den ADR-0008 ausschließt.
+  Alles andere (Ableitungen, Composables mit Store-/Speicherzugriff, Typen)
+  läuft über `shared/lib/` bzw. `persistence/schema.ts`, nie quer.
+- **Ein Baustein, in den ein anderer Context hineinreicht, bekommt einen
+  benannten Slot statt eines Imports.** `Werkzeugleiste.vue` (`orte`)
+  besitzt Rahmen und Zeile 1 und stellt Zeile 2 als Slot `zeile-2` bereit;
+  gefüllt wird er ausschließlich von `Ortebereich.vue`. Leerer Slot = Zeile
+  wird nicht gerendert (ADR-0013).
 - **Der Ort-Datensatz hat genau einen Besitzer im Arbeitsspeicher:
   `useOrteStore`** (ADR-0008). Contexts, die Felder darin bearbeiten
   (`bewertungen`, `tags`), führen dafür **keinen eigenen Store** und rufen
@@ -162,6 +180,21 @@ src/
   `src/features/<context>/model/`, Aufnahme in den Gesamtbestand in
   `src/persistence/schema.ts` — **plus** `SCHEMA_VERSION` +1,
   Migrationsschritt und Fixture (siehe unten).
+- **Neue Anzeigeeinstellung** (ADR-0006/ADR-0009): Typ, Voreinstellung und
+  Prüffunktion („was liest man aus einem unbekannten gespeicherten Wert?")
+  zusammen in `src/features/<context>/model/ansicht.ts` — genau eine Stelle,
+  importiert nichts. Der Zustand lebt im Store des Contexts, dem die
+  **konfigurierte Ansicht** gehört (Ortsliste → `useOrteStore`, auch für den
+  Tag-Filter). Gelesen/geschrieben wird über
+  `persistence/einstellungen-repository.ts`, das generisch bleibt und keine
+  Einstellung inhaltlich kennt. Ein Schlüssel je Einstellung mit
+  Context-Präfix und strukturiertem Wert (`orte.sortierung`,
+  `orte.tagfilter`). Ein fehlgeschlagenes Schreiben wird **nicht** gemeldet
+  und bricht nichts ab.
+- **Ableitungen für die Ortsliste** liegen in `src/shared/lib/` und liefern
+  alles mit, was die Ansicht sonst ein zweites Mal formulieren müsste — die
+  Sortierfunktion liefert die Partition „mit Wert / ohne Wert" mit, statt sie
+  der Ansicht zu überlassen (ADR-0009 Punkt 9).
 
 ## Layout und Breitenlogik (ADR-0010 · ADR-0011 · ADR-0012)
 
@@ -176,6 +209,11 @@ src/
   `@container (min-width: …)`. Kein `container-name` als Contract zwischen
   Contexts. `@media` bleibt nur für den Layoutwechsel des Rahmens selbst und
   für Nicht-Breiten-Abfragen (`prefers-reduced-motion`).
+- **Ab `lg` scrollt die Listen-Spalte selbst, nicht das Fenster** (ADR-0011
+  Punkt 6). Was dort kleben soll (Werkzeugleiste), klebt an der Spalte:
+  `position: sticky; top: 0` **innerhalb** des scrollenden Spaltenelements.
+  Ein `sticky` gegen den Viewport wirkt dort nicht wie erwartet, und ein
+  `overflow` auf einem Vorfahren macht es wirkungslos.
 - **Spalten in Grid/Flex bekommen `min-width: 0`.** Sonst hält
   `min-width: auto` die Spalte auf Inhaltsbreite auf, und die
   Container-Abfrage misst eine Breite, die es nie gibt.
@@ -235,6 +273,9 @@ src/
 
 - **Dateinummer = Zielversion.** `migrations/002-bewertungen.ts` führt von
   v1 nach v2. Damit ist am Dateinamen ablesbar, welche Version sie erzeugt.
+  Die Zielversion ist immer die **aktuelle** `SCHEMA_VERSION` + 1, nicht eine
+  im Handoff genannte Zahl: nach -002 ist -004 der Schritt `003-tags.ts`
+  (v2 → v3). Weicht der Repo-Stand ab, gilt die Regel, nicht die Zahl.
 - **Ein Migrationsschritt importiert nichts aus `schema.ts`.** Er deklariert
   seine Eingangs- und Ausgangsform lokal (nur die Felder, die er anfasst).
   Sonst zieht eine spätere Schemaänderung rückwirkend die Bedeutung eines

@@ -13,13 +13,15 @@
 > Eine Zeile pro ADR. Keine Zusammenfassung des Inhalts — der Titel muss
 > reichen, um zu entscheiden, ob das ADR relevant ist.
 
-**Stand: 2026-09-08** — zwölf ADRs. 0001–0003 beim Einordnen von
+**Stand: 2026-09-09** — vierzehn ADRs. 0001–0003 beim Einordnen von
 PO-2026-09-07-010, 0004–0006 beim Einordnen von PO-2026-09-07-001
 (Gerätespeicher), 0007–0008 beim Einordnen von PO-2026-09-07-002 (erste
 Formaterweiterung), 0009 beim Einordnen von PO-2026-09-07-003 (erste
 Anzeigeeinstellung), 0010 beim Einordnen von PO-2026-09-07-011
 (Grundnavigation), 0011–0012 beim Einordnen von PO-2026-09-07-012
-(zweispaltiges Grundlayout).
+(zweispaltiges Grundlayout), 0013 beim erneuten Einordnen von
+PO-2026-09-07-003 (Werkzeugleiste) und 0014 beim Einordnen von
+PO-2026-09-07-004 (zweite Formaterweiterung).
 
 | ADR | Titel | Bounded Context | Status | Datum |
 |-----|-------|-----------------|--------|-------|
@@ -35,6 +37,8 @@ Anzeigeeinstellung), 0010 beim Einordnen von PO-2026-09-07-011
 | [0010](0010-app-rahmen-chrome-grenze-und-routenbesitz.md) | App-Rahmen — Grenze der Navigationschrome, Routenbesitz und eine Meldung an zwei Orten | app-shell, orte | accepted | 2026-09-08 |
 | [0011](0011-master-detail-als-geteilter-baustein.md) | Master-Detail als geteilter Baustein — ein Adressraum, eine Bereichsansicht | app-shell, orte, karte | accepted | 2026-09-08 |
 | [0012](0012-breitenlogik-am-container-statt-am-viewport.md) | Breitenabhängige Layouts richten sich nach ihrem Container, nicht nach dem Viewport | app-shell, orte, medien, karte, bewertungen, tags | accepted | 2026-09-08 |
+| [0013](0013-fremde-bausteine-in-den-ortsansichten.md) | Fremde Bausteine in den Ortsansichten — Import-Richtung und die Slot-Naht der Werkzeugleiste | orte, bewertungen, tags, medien | accepted | 2026-09-09 |
+| [0014](0014-tag-modell-abgeleitetes-vokabular.md) | Tag-Modell — Feld im Ort-Datensatz, abgeleitetes Vokabular, case-insensitive Identität | tags, orte, datensicherung | accepted | 2026-09-09 |
 
 **Status-Werte** wörtlich wie im ADR selbst: `proposed` · `accepted` ·
 `superseded by ADR-NNNN`.
