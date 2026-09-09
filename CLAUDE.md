@@ -137,10 +137,17 @@ Ein Vite-Projekt (Vue 3, TypeScript, Pinia, vue-router; siehe
 | Dev-Server | `npm run dev` |
 | Typecheck | `npm run typecheck` |
 | Lint | `npm run lint` (Fix: `npm run lint:fix`) |
+| Test | `npm run test` (Vitest, `src/**/*.spec.ts`) |
 | Produktions-Build | `npm run build` (führt Typecheck + `vite build` aus) |
 | Build-Vorschau lokal | `npm run preview` |
 
-Es gibt noch **keine Test-Runner-Konfiguration** (kein Vitest/Playwright
-eingerichtet) — bislang existieren keine `*.spec.ts`-Dateien, die einen
-brauchen würden. Das erste Paket mit Testbedarf (persistierte Migrationen,
-ADR-0003) richtet den Runner ein und ergänzt diese Zeile.
+Test-Runner ist **Vitest** (`vitest.config.ts`), eingerichtet mit
+PO-2026-09-07-001 (persistierte Migrationen, ADR-0003 — das erste Paket mit
+Testbedarf). `environment: 'node'` genügt für `src/persistence/` und die
+Pinia-Stores; `vitest.setup.ts` polyfüllt `indexedDB` über
+`fake-indexeddb/auto`, damit gegen eine echte (In-Memory-)IndexedDB statt
+gegen einen selbstgebauten Mock getestet wird. Tests liegen als `*.spec.ts`
+neben der getesteten Datei (code-conventions.md). Noch keine
+Component-Test-Infrastruktur (`@vue/test-utils`) — bislang reichen reine
+Store-/Persistenz-Tests; das erste Paket mit Testbedarf für
+Komponentenverhalten richtet das ein und ergänzt diese Zeile.

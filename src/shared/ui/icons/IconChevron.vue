@@ -12,8 +12,14 @@
  * Dekorativ per Default (aria-hidden) — ein `aria-label` gehört bei
  * Icon-only-Aktionen auf das interaktive Element, nicht auf das Icon selbst
  * (design-concept.md, Ikonografie).
+ *
+ * Import über den `@assets`-Alias statt eines relativen `../../` — bei
+ * `vite build` mit dieser Rolldown-Version löst ein Parent-Traversal-Import
+ * aus dem extrahierten `<script setup>`-Modul einer `.vue`-Datei nicht auf
+ * (Modul wird nicht gefunden), Alias-Importe sind davon nicht betroffen.
+ * Siehe `notes_for_conventions` im Handoff von PO-2026-09-07-001.
  */
-import iconUrl from '../../assets/icons/chevron.svg'
+import iconUrl from '@assets/icons/chevron.svg'
 
 withDefaults(defineProps<{ size?: number }>(), {
   size: 24,
