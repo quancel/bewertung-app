@@ -12,9 +12,10 @@
  * dann klemmen — nur bei tatsächlich eingegebenen Zahlen. Ein geleertes
  * Feld wird zu „nicht bewertet" (`null`) und nicht geklemmt.
  *
- * Store-frei zu bleiben ist hier keine Stilfrage: Nur dadurch darf
- * `Ortsdetail.vue` (Context `orte`) diese Komponente importieren, ohne
- * einen verbotenen Import-Zyklus zu öffnen (ADR-0013 Punkt 3).
+ * Store-frei zu bleiben ist hier keine Stilfrage: Nur dadurch darf die
+ * View `Ortebereich.vue` (Context `orte`, vormals `Ortsdetail.vue` bis
+ * PO-2026-09-07-012) diese Komponente importieren, ohne einen verbotenen
+ * Import-Zyklus zu öffnen (ADR-0013 Punkt 3).
  */
 import { computed, ref, watch } from 'vue'
 import Intensitaetsbalken from '../../../shared/ui/Intensitaetsbalken.vue'

@@ -8,15 +8,21 @@
  * vorhandenen Ort (inkl. „Ort gelöscht, danach Browser-Zurück").
  *
  * Zwei Nutzer, beide außerhalb von `app/`: die Sammelroute im Router und
- * `features/orte/views/Ortsdetail.vue` bei unbekannter Ort-ID — deshalb hier
- * in `shared/ui/` (ADR-0010, code-conventions.md „Nach shared/ erst ab zwei
- * Nutzern"). `app-shell` importiert nicht aus `features/`, `features/`
+ * `features/orte/views/Ortebereich.vue` bei unbekannter Ort-ID — deshalb
+ * hier in `shared/ui/` (ADR-0010, code-conventions.md „Nach shared/ erst ab
+ * zwei Nutzern"). `app-shell` importiert nicht aus `features/`, `features/`
  * nicht aus `app/`; dieser Ort ist der einzige Weg, der beide erreicht.
  *
  * Nennt bewusst keine Ursache, kein Konjunktiv. Rein typografisch wie andere
  * Leerzustände, zentriert; keine Fehler-/Warnfarbe, kein Alarm-Icon. Die
  * Navigation bleibt sichtbar — diese Komponente ersetzt nur den
  * Hauptinhalt, nie den App-Rahmen.
+ *
+ * Bei unbekannter Ort-ID ab `lg` (PO-2026-09-07-012, Nutzerentscheidung
+ * 2026-09-09): `Ortebereich.vue` setzt diese Komponente in die Detail-Spalte
+ * von `MasterDetail` statt sie vollflächig zu zeigen — die Liste bleibt
+ * links sichtbar. Diese Komponente selbst weiß davon nichts, sie bleibt
+ * unverändert; der Rahmen entscheidet der Aufrufer.
  */
 import { useRouter } from 'vue-router'
 import PrimaerButton from './PrimaerButton.vue'

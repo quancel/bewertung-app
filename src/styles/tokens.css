@@ -89,8 +89,12 @@
   --breakpoint-lg: 1024px;
   --breakpoint-xl: 1280px;
 
-  /* Layoutmaße (ADR-0010/0011/0012, PO-2026-09-07-011) */
+  /* Layoutmaße (ADR-0010/0011/0012, PO-2026-09-07-011/-012) */
   --container-max-width: 1120px;
   --nav-rail-width: 80px;
   --bottom-tab-height: 56px;
+  /* Richtwert Listen-Spalte im Master-Detail-Layout ab lg (ADR-0012,
+     design-conventions.md "Master-Detail (ab lg)"). Spaltenabstand nutzt
+     die bestehende Spacing-Skala (--space-24), kein eigenes Token. */
+  --listen-spalte-breite: 400px;
 }

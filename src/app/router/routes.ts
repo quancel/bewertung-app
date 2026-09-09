@@ -20,17 +20,26 @@ import type { RouteRecordRaw } from 'vue-router'
  * eine `createMemoryHistory`, ohne `window` im Node-Testrunner zu brauchen
  * (vitest.config.ts, `environment: 'node'`).
  */
+
+// EIN Ladeaufruf, in BEIDEN Routen unten referenziert (ADR-0011,
+// PO-2026-09-07-012): Zwei separate `() => import(...)`-Ausdrücke wären zwei
+// unterschiedliche Funktionsreferenzen und `vue-router` würde den Wechsel
+// zwischen `/orte` und `/orte/:ortId` dann als Aus-/Einhängen behandeln statt
+// als Update derselben Komponenteninstanz — genau das, was ADR-0011 (eine
+// Bereichsansicht, kein Aus-/Einhängen beim Adresswechsel) ausschließt.
+const Ortebereich = () => import('../../features/orte/views/Ortebereich.vue')
+
 export const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/orte' },
   {
     path: '/orte',
     name: 'orte',
-    component: () => import('../../features/orte/views/Ortsliste.vue'),
+    component: Ortebereich,
   },
   {
     path: '/orte/:ortId',
     name: 'ort-detail',
-    component: () => import('../../features/orte/views/Ortsdetail.vue'),
+    component: Ortebereich,
   },
 ]
 

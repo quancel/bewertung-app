@@ -8,12 +8,20 @@
  * Gesamtnote (PO-2026-09-07-002, design_notes): fehlt sie ganz, bleibt die
  * Spalte leer (kein „0,0"-Ersatzwert); bei Teilbewertung ergänzt ein
  * gemuteter Zusatz „aus N von 4 Achsen", der bei 4 von 4 entfällt.
+ *
+ * Auswahl-Hervorhebung (PO-2026-09-07-012, design-conventions.md
+ * „Master-Detail (ab lg)"): `ausgewaehlt` kommt von `Ortebereich.vue`, das
+ * `route.params.ortId` gegen diesen Ort vergleicht — diese Komponente
+ * bleibt store- und routenfrei und bekommt das Ergebnis nur als Prop.
  */
 import { computed } from 'vue'
 import type { OrtDatensatz } from '../../../persistence/schema'
 import { berechneGesamtnote, formatiereGesamtnote, zaehleAusgefuellteAchsen } from '../../../shared/lib/gesamtnote'
 
-const props = defineProps<{ ort: OrtDatensatz }>()
+const props = withDefaults(
+  defineProps<{ ort: OrtDatensatz; ausgewaehlt?: boolean }>(),
+  { ausgewaehlt: false },
+)
 
 // Reine Ableitung aus shared/lib/ (ADR-0008 Punkt 6) — kein Import aus
 // features/bewertungen/.
@@ -25,6 +33,8 @@ const ausgefuellteAchsen = computed(() => zaehleAusgefuellteAchsen(props.ort.bew
   <RouterLink
     :to="`/orte/${ort.id}`"
     class="ortszeile"
+    :class="{ 'ortszeile--ausgewaehlt': ausgewaehlt }"
+    :aria-current="ausgewaehlt ? 'true' : undefined"
   >
     <span class="ortszeile__hauptzeile">
       <span class="ortszeile__bezeichnung">{{ ort.bezeichnung }}</span>
@@ -59,6 +69,19 @@ const ausgefuellteAchsen = computed(() => zaehleAusgefuellteAchsen(props.ort.bew
 
 .ortszeile:hover {
   background-color: var(--surface-muted);
+}
+
+/* Auswahl-Hervorhebung ab lg (design-conventions.md „Master-Detail"): linke
+   3px-Kante + Fläche --color-primary-50. Bleibt bestehen, auch wenn die
+   Zeile durch eine künftige Filteränderung aus der Liste fällt — sie ist
+   dann schlicht nicht mehr im DOM, keine Sonderbehandlung hier nötig. */
+.ortszeile--ausgewaehlt {
+  background-color: var(--color-primary-50);
+  box-shadow: inset 3px 0 0 var(--color-primary-600);
+}
+
+.ortszeile--ausgewaehlt:hover {
+  background-color: var(--color-primary-50);
 }
 
 .ortszeile__hauptzeile {
