@@ -22,6 +22,15 @@
  * Master-Detail-Split, der Leerzustand aus -001 bleibt die einzige Aussage
  * (PO-2026-09-07-012, Kriterium) — eine schmale Listen-Spalte neben einer
  * leeren zweiten Spalte wäre eine zweite, überflüssige Aussage.
+ *
+ * Sortierung (PO-2026-09-07-003, ADR-0009): `Werkzeugleiste.vue` ist
+ * präsentational und ändert nichts selbst — diese View verbindet ihre Emits
+ * mit `useOrteStore.setzeSortierKriterium`/`schalteSortierrichtungUm` und
+ * rendert `store.sortierErgebnis` (die Partition „mit Wert"/„ohne Wert" aus
+ * `shared/lib/sortierung.ts`) statt des rohen `store.orte`. Die
+ * Fokusrückgabe nach dem Löschen (siehe unten) bezieht sich deshalb auf
+ * `angezeigteOrteSortiert`, die tatsächlich sichtbare Reihenfolge, nicht auf
+ * die Einfügereihenfolge in `store.orte`.
  */
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
@@ -38,6 +47,8 @@ import { useAutosaveBeimVerlassen } from '../composables/useAutosaveBeimVerlasse
 import OrtAnlegenSheet from '../components/OrtAnlegenSheet.vue'
 import OrtLoeschenDialog from '../components/OrtLoeschenDialog.vue'
 import Ortszeile from '../components/Ortszeile.vue'
+import Werkzeugleiste from '../components/Werkzeugleiste.vue'
+import { SORTIER_KRITERIUM_LABEL, type SortierKriterium } from '../model/ansicht'
 import { useOrteStore, type AchsenName } from '../stores/orte.store'
 
 const route = useRoute()
@@ -57,6 +68,16 @@ const ort = computed(() => (ortId.value ? store.ortNachId(ortId.value) : undefin
 const unbekannt = computed(() => detailOffen.value && store.istGeladen && !ort.value)
 const schreibfehler = computed(() => (ortId.value ? store.schreibfehlerFuer(ortId.value).value : null))
 
+// Sortierte Anzeigereihenfolge, so wie sie im <ul> unten gerendert wird
+// (mitWert gefolgt von der Gruppe „ohne Wert", ADR-0009) — Grundlage für die
+// Fokusrückgabe nach dem Löschen (design-conventions.md „Master-Detail
+// (ab lg)" -> „Fokus"): „die an ihrer Position nachrückende Zeile" bezieht
+// sich auf die sichtbare, sortierte Position, nicht auf `store.orte`.
+const angezeigteOrteSortiert = computed(() => [
+  ...store.sortierErgebnis.mitWert,
+  ...store.sortierErgebnis.ohneWert,
+])
+
 const bestandLeer = computed(() => store.istGeladen && store.orte.length === 0)
 // Kriterium PO-2026-09-07-012: kein Master-Detail-Split neben dem
 // bestehenden Leerzustand aus -001.
@@ -66,6 +87,32 @@ const gesamtnote = computed(() => (ort.value ? berechneGesamtnote(ort.value.bewe
 const ausgefuellteAchsen = computed(() =>
   ort.value ? zaehleAusgefuellteAchsen(ort.value.bewertungen) : 0,
 )
+
+// --- Werkzeugleiste / Sortierung (PO-2026-09-07-003, ADR-0009) -----------
+
+/**
+ * Überschrift der Gruppe „ohne Wert" (design_notes PO-2026-09-07-003):
+ * `sortierErgebnis.ohneWert` ist laut `sortiereOrte` nur bei Gesamtnote oder
+ * einer Einzelachse überhaupt gefüllt — bei Bezeichnung/Zuletzt geändert hat
+ * jeder Ort einen Wert. Das aktuelle Kriterium ist deshalb hier immer
+ * entweder `gesamtnote` oder eine Achse, sobald diese Liste nicht leer ist.
+ */
+const ohneWertUeberschrift = computed(() => {
+  const anzahl = store.sortierErgebnis.ohneWert.length
+  if (anzahl === 0) return ''
+  const orteWort = anzahl === 1 ? 'Ort' : 'Orte'
+  const kriterium = store.sortierung.kriterium
+  if (kriterium === 'gesamtnote') return `${anzahl} ${orteWort} ohne Bewertung`
+  return `${anzahl} ${orteWort} ohne Bewertung in ${SORTIER_KRITERIUM_LABEL[kriterium]}`
+})
+
+function aufKriteriumGewaehlt(kriterium: SortierKriterium): void {
+  store.setzeSortierKriterium(kriterium)
+}
+
+function aufRichtungUmgeschaltet(): void {
+  store.schalteSortierrichtungUm()
+}
 
 onMounted(async () => {
   await store.sicherstellenGeladen()
@@ -124,7 +171,7 @@ function fokussiereListeNachSchliessen(vorherigeId: string): void {
       leerZustandRef.value?.focus()
       return
     }
-    const ersatzOrt = store.orte[Math.min(index, store.orte.length - 1)]
+    const ersatzOrt = angezeigteOrteSortiert.value[Math.min(index, angezeigteOrteSortiert.value.length - 1)]
     if (ersatzOrt) {
       zeilenRefs.get(ersatzOrt.id)?.querySelector('a')?.focus()
     }
@@ -236,7 +283,7 @@ function aufAchsenkommentarGeaendert(achse: AchsenName, kommentar: string | null
 async function aufLoeschenBestaetigt(): Promise<void> {
   const id = ortId.value
   if (!id) return
-  const vorherigerIndex = store.orte.findIndex((eintrag) => eintrag.id === id)
+  const vorherigerIndex = angezeigteOrteSortiert.value.findIndex((eintrag) => eintrag.id === id)
   const erfolg = await store.loescheOrt(id)
   if (erfolg) {
     geloeschtVorherigerIndex.value = vorherigerIndex
@@ -288,17 +335,44 @@ async function aufLoeschenBestaetigt(): Promise<void> {
             </PrimaerButton>
           </div>
 
+          <Werkzeugleiste
+            :sortierung="store.sortierung"
+            :angezeigt="store.orteGefiltert.length"
+            :gesamt="store.orte.length"
+            @kriterium-gewaehlt="aufKriteriumGewaehlt"
+            @richtung-umschalten="aufRichtungUmgeschaltet"
+          />
+
           <ul class="ortebereich__liste">
             <li
-              v-for="ortEintrag in store.orte"
+              v-for="ortEintrag in store.sortierErgebnis.mitWert"
               :key="ortEintrag.id"
               :ref="(el) => setZeilenRef(ortEintrag.id, el as Element | null)"
             >
               <Ortszeile
                 :ort="ortEintrag"
                 :ausgewaehlt="ortEintrag.id === ortId"
+                :sortier-kriterium="store.sortierung.kriterium"
               />
             </li>
+
+            <template v-if="store.sortierErgebnis.ohneWert.length > 0">
+              <li class="ortebereich__ohne-wert-ueberschrift">
+                {{ ohneWertUeberschrift }}
+              </li>
+              <li
+                v-for="ortEintrag in store.sortierErgebnis.ohneWert"
+                :key="ortEintrag.id"
+                :ref="(el) => setZeilenRef(ortEintrag.id, el as Element | null)"
+              >
+                <Ortszeile
+                  :ort="ortEintrag"
+                  :ausgewaehlt="ortEintrag.id === ortId"
+                  :sortier-kriterium="store.sortierung.kriterium"
+                  :zeige-wert="false"
+                />
+              </li>
+            </template>
           </ul>
         </div>
       </template>
@@ -538,6 +612,18 @@ async function aufLoeschenBestaetigt(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+/* Gruppe „ohne Wert" ans Ende (design-conventions.md „Listen: Sortieren,
+   Filtern, Gruppierung"): großzügiger Abstand zur vorigen Zeile statt einer
+   Trennlinie, gemutete Zwischenüberschrift mit Anzahl. Nie eingeklappt —
+   diese Zeile ist reiner Text, kein Umschalter. */
+.ortebereich__ohne-wert-ueberschrift {
+  margin-top: var(--space-32);
+  padding: 0 var(--space-16);
+  color: var(--text-muted);
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
 }
 
 .ortebereich__keine-auswahl {

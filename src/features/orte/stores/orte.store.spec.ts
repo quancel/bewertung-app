@@ -1,16 +1,24 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { ladeAlleOrteMock, speichereOrtMock, loescheOrtMock } = vi.hoisted(() => ({
-  ladeAlleOrteMock: vi.fn(),
-  speichereOrtMock: vi.fn(),
-  loescheOrtMock: vi.fn(),
-}))
+const { ladeAlleOrteMock, speichereOrtMock, loescheOrtMock, ladeEinstellungMock, schreibeEinstellungMock } =
+  vi.hoisted(() => ({
+    ladeAlleOrteMock: vi.fn(),
+    speichereOrtMock: vi.fn(),
+    loescheOrtMock: vi.fn(),
+    ladeEinstellungMock: vi.fn(),
+    schreibeEinstellungMock: vi.fn(),
+  }))
 
 vi.mock('../../../persistence/orte-repository', () => ({
   ladeAlleOrte: ladeAlleOrteMock,
   speichereOrt: speichereOrtMock,
   loescheOrt: loescheOrtMock,
+}))
+
+vi.mock('../../../persistence/einstellungen-repository', () => ({
+  ladeEinstellung: ladeEinstellungMock,
+  schreibeEinstellung: schreibeEinstellungMock,
 }))
 
 import { useOrteStore } from './orte.store'
@@ -21,8 +29,12 @@ describe('useOrteStore', () => {
     ladeAlleOrteMock.mockReset()
     speichereOrtMock.mockReset()
     loescheOrtMock.mockReset()
+    ladeEinstellungMock.mockReset()
+    schreibeEinstellungMock.mockReset()
     speichereOrtMock.mockResolvedValue({ status: 'geschrieben' })
     loescheOrtMock.mockResolvedValue({ status: 'geschrieben' })
+    ladeEinstellungMock.mockResolvedValue({ status: 'nicht_vorhanden' })
+    schreibeEinstellungMock.mockResolvedValue({ status: 'geschrieben' })
   })
 
   it('lädt einmalig und liest bei erneutem Aufruf nicht erneut', async () => {
@@ -161,5 +173,101 @@ describe('useOrteStore', () => {
     const erfolg = await store.loescheOrt(ort.id)
     expect(erfolg).toBe(true)
     expect(store.ortNachId(ort.id)).toBeUndefined()
+  })
+
+  describe('Sortierung der Ortsliste (ADR-0009)', () => {
+    it('startet mit der Voreinstellung Bezeichnung aufsteigend, wenn nichts gespeichert ist', async () => {
+      ladeAlleOrteMock.mockResolvedValue({ status: 'geladen', orte: [] })
+      const store = useOrteStore()
+
+      await store.sicherstellenGeladen()
+
+      expect(store.sortierung).toEqual({ kriterium: 'bezeichnung', richtung: 'aufsteigend' })
+    })
+
+    it('übernimmt eine gültig gespeicherte Sortierung beim Laden', async () => {
+      ladeAlleOrteMock.mockResolvedValue({ status: 'geladen', orte: [] })
+      ladeEinstellungMock.mockResolvedValue({
+        status: 'geladen',
+        wert: { kriterium: 'gesamtnote', richtung: 'absteigend' },
+      })
+      const store = useOrteStore()
+
+      await store.sicherstellenGeladen()
+
+      expect(store.sortierung).toEqual({ kriterium: 'gesamtnote', richtung: 'absteigend' })
+    })
+
+    it('fällt bei einem ungültigen gespeicherten Wert still auf die Voreinstellung zurück — ohne Meldung', async () => {
+      ladeAlleOrteMock.mockResolvedValue({ status: 'geladen', orte: [] })
+      ladeEinstellungMock.mockResolvedValue({
+        status: 'geladen',
+        wert: { kriterium: 'unbekannt', richtung: 'absteigend' },
+      })
+      const store = useOrteStore()
+
+      await store.sicherstellenGeladen()
+
+      expect(store.sortierung).toEqual({ kriterium: 'bezeichnung', richtung: 'aufsteigend' })
+    })
+
+    it('setzeSortierKriterium setzt die Anfangsrichtung des neuen Kriteriums und persistiert', () => {
+      const store = useOrteStore()
+
+      store.setzeSortierKriterium('geaendertAm')
+
+      expect(store.sortierung).toEqual({ kriterium: 'geaendertAm', richtung: 'absteigend' })
+      expect(schreibeEinstellungMock).toHaveBeenCalledWith('orte.sortierung', {
+        kriterium: 'geaendertAm',
+        richtung: 'absteigend',
+      })
+    })
+
+    it('setzeSortierKriterium mit dem bereits aktiven Kriterium lässt eine zuvor umgeschaltete Richtung unangetastet', () => {
+      const store = useOrteStore()
+      store.schalteSortierrichtungUm()
+      schreibeEinstellungMock.mockClear()
+
+      store.setzeSortierKriterium('bezeichnung')
+
+      expect(store.sortierung).toEqual({ kriterium: 'bezeichnung', richtung: 'absteigend' })
+      expect(schreibeEinstellungMock).not.toHaveBeenCalled()
+    })
+
+    it('schalteSortierrichtungUm kehrt die Richtung um, unabhängig vom Kriterium', () => {
+      const store = useOrteStore()
+
+      store.schalteSortierrichtungUm()
+      expect(store.sortierung.richtung).toBe('absteigend')
+
+      store.schalteSortierrichtungUm()
+      expect(store.sortierung.richtung).toBe('aufsteigend')
+    })
+
+    it('ein fehlgeschlagenes Schreiben der Sortierung wird nicht gemeldet und bricht nichts ab', () => {
+      schreibeEinstellungMock.mockResolvedValue({ status: 'fehlgeschlagen' })
+      const store = useOrteStore()
+
+      expect(() => store.setzeSortierKriterium('gesamtnote')).not.toThrow()
+      expect(store.sortierung.kriterium).toBe('gesamtnote')
+    })
+
+    it('orteGefiltert ist bis PO-2026-09-07-004 die Identität von orte', async () => {
+      const store = useOrteStore()
+      await store.legeOrtAn('Ausgangsname')
+
+      expect(store.orteGefiltert).toEqual(store.orte)
+    })
+
+    it('sortierErgebnis sortiert orteGefiltert nach dem aktuellen Kriterium und trennt „ohne Wert" ab', async () => {
+      const store = useOrteStore()
+      const mitWert = await store.legeOrtAn('Bewertet')
+      await store.legeOrtAn('Unbewertet')
+      store.aktualisiereAchse(mitWert.id, 'ambiente', { wert: 7 })
+      store.setzeSortierKriterium('ambiente')
+
+      expect(store.sortierErgebnis.mitWert.map((ort) => ort.id)).toEqual([mitWert.id])
+      expect(store.sortierErgebnis.ohneWert).toHaveLength(1)
+    })
   })
 })
