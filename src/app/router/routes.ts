@@ -41,6 +41,14 @@ export const routes: RouteRecordRaw[] = [
     name: 'ort-detail',
     component: Ortebereich,
   },
+  // Neuer Bereich „Daten" (PO-2026-09-07-009, ADR-0017 Punkt 10): flache
+  // Route, VOR der Sammelroute eingetragen. Einspaltig, kein `:id`-Pendant
+  // (ADR-0011) — Export/Import sind zwei Aktionen, keine Detailansicht.
+  {
+    path: '/daten',
+    name: 'daten',
+    component: () => import('../../features/datensicherung/views/Datenbereich.vue'),
+  },
 ]
 
 // Nur im Dev-Build registriert: `import.meta.env.DEV` wird von Vite beim

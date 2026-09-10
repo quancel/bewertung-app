@@ -366,11 +366,25 @@ export const useOrteStore = defineStore('orte', () => {
     return computed(() => schreibfehlerJeId.value[id] ?? null)
   }
 
+  /**
+   * Erzwingt ein erneutes Laden aus dem Gerätespeicher — öffentliches API für
+   * `datensicherung` nach einem erfolgreichen Import (ADR-0017 Punkt 9): Der
+   * Bestand hat sich unter diesem bereits geladenen Store hinweg verändert,
+   * `sicherstellenGeladen` allein würde das wegen des `istGeladen`-Riegels
+   * nicht bemerken. Einzige zulässige Richtung: `datensicherung` ruft dies
+   * auf, nicht umgekehrt (code-conventions.md).
+   */
+  async function ladeNeu(): Promise<void> {
+    istGeladen.value = false
+    await sicherstellenGeladen()
+  }
+
   return {
     orte,
     istGeladen,
     ortNachId,
     sicherstellenGeladen,
+    ladeNeu,
     legeOrtAn,
     aktualisiereFeld,
     aktualisiereAchse,

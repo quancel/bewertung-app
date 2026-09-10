@@ -18,6 +18,7 @@
  */
 import { RouterLink, useRoute } from 'vue-router'
 import IconList from '../../shared/ui/icons/IconList.vue'
+import IconDatenbank from '../../shared/ui/icons/IconDatenbank.vue'
 
 interface Bereichseintrag {
   pfad: string
@@ -25,7 +26,13 @@ interface Bereichseintrag {
   icon: typeof IconList
 }
 
-const bereiche: Bereichseintrag[] = [{ pfad: '/orte', label: 'Orte', icon: IconList }]
+// Neue Bereiche werden angehängt, nie eingefügt oder umsortiert (ADR-0010).
+// „Daten" (PO-2026-09-07-009, ADR-0017 Punkt 10) ist der erste angehängte
+// Eintrag nach dem Einfrieren des Adressraums.
+const bereiche: Bereichseintrag[] = [
+  { pfad: '/orte', label: 'Orte', icon: IconList },
+  { pfad: '/daten', label: 'Daten', icon: IconDatenbank },
+]
 
 const route = useRoute()
 

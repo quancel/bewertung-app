@@ -93,10 +93,24 @@ export const useMedienStore = defineStore('medien', () => {
     return true
   }
 
+  /**
+   * Erzwingt ein erneutes Laden — öffentliches API für `datensicherung` nach
+   * einem erfolgreichen Import (ADR-0017 Punkt 9). Verwirft nur den
+   * Lade-Cache je Ort; ein tatsächlicher Refetch läuft lazy über
+   * `sicherstellenGeladenFuerOrt`, sobald der jeweilige Ort wieder geöffnet
+   * wird — kein eifriges Neuladen aller Bilder aller Orte, für die gerade
+   * niemand hinschaut.
+   */
+  function ladeAlleNeu(): void {
+    geladeneOrte.value = new Set()
+    bilderJeOrt.value = {}
+  }
+
   return {
     bilderFuerOrt,
     sicherstellenGeladenFuerOrt,
     fuegeBildHinzu,
     entferneBild,
+    ladeAlleNeu,
   }
 })
