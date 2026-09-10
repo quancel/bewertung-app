@@ -17,6 +17,7 @@ function beispielOrt(teil: Partial<OrtDatensatz> = {}): OrtDatensatz {
       geschmack: { wert: null, kommentar: null },
       preisLeistung: { wert: null, kommentar: null },
     },
+    tags: [],
     ...teil,
   }
 }

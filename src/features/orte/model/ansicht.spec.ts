@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { istGueltigeOrteSortierung } from './ansicht'
+import { istGueltigeOrteSortierung, istGueltigeTagfilterEinstellung } from './ansicht'
 
 describe('istGueltigeOrteSortierung', () => {
   it('akzeptiert jedes gültige Allgemein-Kriterium mit beiden Richtungen', () => {
@@ -53,5 +53,35 @@ describe('istGueltigeOrteSortierung', () => {
   it('lehnt ein Objekt mit nur einem der beiden Felder ab', () => {
     expect(istGueltigeOrteSortierung({ kriterium: 'bezeichnung' })).toBe(false)
     expect(istGueltigeOrteSortierung({ richtung: 'aufsteigend' })).toBe(false)
+  })
+})
+
+describe('istGueltigeTagfilterEinstellung', () => {
+  it('akzeptiert UND', () => {
+    expect(istGueltigeTagfilterEinstellung({ verknuepfung: 'und' })).toBe(true)
+  })
+
+  it('akzeptiert ODER', () => {
+    expect(istGueltigeTagfilterEinstellung({ verknuepfung: 'oder' })).toBe(true)
+  })
+
+  it('lehnt einen fehlenden Wert ab (undefined)', () => {
+    expect(istGueltigeTagfilterEinstellung(undefined)).toBe(false)
+  })
+
+  it('lehnt null ab', () => {
+    expect(istGueltigeTagfilterEinstellung(null)).toBe(false)
+  })
+
+  it('lehnt eine unbekannte Verknüpfung ab', () => {
+    expect(istGueltigeTagfilterEinstellung({ verknuepfung: 'xor' })).toBe(false)
+  })
+
+  it('lehnt ein Objekt ohne das erwartete Feld ab', () => {
+    expect(istGueltigeTagfilterEinstellung({})).toBe(false)
+  })
+
+  it('lehnt eine kaputte Wertform ab — Zeichenkette statt Objekt', () => {
+    expect(istGueltigeTagfilterEinstellung('und')).toBe(false)
   })
 })

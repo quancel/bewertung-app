@@ -1,14 +1,23 @@
 /**
- * Anzeigeeinstellung „Sortierung der Ortsliste" (ADR-0006, ADR-0009): Typ,
- * Voreinstellung und Prüffunktion an genau einer Stelle — importiert nichts
- * (code-conventions.md, „Neue Anzeigeeinstellung"). Gelesen/geschrieben wird
- * über `persistence/einstellungen-repository.ts` unter dem Schlüssel
- * `orte.sortierung` (ADR-0009 Punkt 3); diese Datei kennt die
- * Persistenzschicht nicht.
+ * Anzeigeeinstellungen der Ortsliste (ADR-0006, ADR-0009): Typ,
+ * Voreinstellung und Prüffunktion an genau einer Stelle je Einstellung —
+ * importiert nichts (code-conventions.md, „Neue Anzeigeeinstellung").
+ * Gelesen/geschrieben wird über `persistence/einstellungen-repository.ts`
+ * unter Schlüsseln mit Context-Präfix (`orte.sortierung`, `orte.tagfilter`,
+ * ADR-0009 Punkt 3); diese Datei kennt die Persistenzschicht nicht.
  *
  * Zentrale Quelle auch für die Kriterien-Listen und -Labels, damit
  * `shared/lib/sortierung.ts`, `Werkzeugleiste.vue` und `Ortebereich.vue`
  * sie nicht je einzeln duplizieren.
+ *
+ * Der Tag-Filter (PO-2026-09-07-004, ADR-0009/ADR-0014) gehört ebenfalls
+ * hierher: „zuständig" im Sinne von ADR-0006 Punkt 4 ist der Context, dem
+ * die konfigurierte ANSICHT gehört (`orte`), nicht der Context, der die
+ * Bedeutung des Tags trägt (`tags`). Persistiert wird ausschließlich die
+ * UND/ODER-Verknüpfung (`OrteTagfilterEinstellung`) — die aktive
+ * Tag-Auswahl ist Ansichtszustand ohne eigene Persistenz und lebt direkt in
+ * `useOrteStore` (Nutzerentscheidung 2026-09-09: überdauert Navigation und
+ * den Wechsel Liste↔Detail, nicht das Neuladen).
  */
 
 /** Die vier Bewertungsachsen als Sortierkriterium (Gruppe „Einzelachse" im
@@ -96,4 +105,40 @@ export function istGueltigeOrteSortierung(wert: unknown): wert is OrteSortierung
     GUELTIGE_KRITERIEN.includes(kandidat.kriterium as SortierKriterium) &&
     GUELTIGE_RICHTUNGEN.includes(kandidat.richtung as SortierRichtung)
   )
+}
+
+/**
+ * Verknüpfung mehrerer aktiver Tag-Filter (ADR-0014 Punkt 9): UND = alle
+ * gewählten Tags müssen vorhanden sein, ODER = mindestens einer. Eine leere
+ * Auswahl liefert in beiden Modi „alle Orte" — keine Sonderlogik.
+ */
+export type TagVerknuepfung = 'und' | 'oder'
+
+const GUELTIGE_TAGVERKNUEPFUNGEN: readonly TagVerknuepfung[] = ['und', 'oder']
+
+/** Strukturierter Wert unter dem Schlüssel `orte.tagfilter` (ADR-0009 Punkt
+ * 3) — bewusst ein Objekt statt eines rohen Strings, damit eine künftige
+ * Erweiterung der Wertform kostenlos bleibt (ADR-0009 Punkt 3). */
+export interface OrteTagfilterEinstellung {
+  verknuepfung: TagVerknuepfung
+}
+
+/**
+ * Voreinstellung UND (Nutzerentscheidung 2026-09-08, GESETZT): weder die
+ * reine UND-Annahme des product-owner noch die reine ODER-Annahme des
+ * ux-ui-designer, sondern die vom Nutzer entschiedene Mitte.
+ */
+export const ORTE_TAGFILTER_VOREINSTELLUNG: OrteTagfilterEinstellung = { verknuepfung: 'und' }
+
+/**
+ * Prüffunktion (ADR-0009 Punkt 5, ADR-0006 Punkt 3/4): Ein fehlender,
+ * unbekannter oder ungültiger gespeicherter Wert führt zur Voreinstellung
+ * UND — still, ohne Meldung, ohne Rückfrage (Kriterium: „Fehlt in einem
+ * älteren Bestand eine gespeicherte UND/ODER-Verknüpfung, startet die App
+ * mit der Voreinstellung UND").
+ */
+export function istGueltigeTagfilterEinstellung(wert: unknown): wert is OrteTagfilterEinstellung {
+  if (typeof wert !== 'object' || wert === null) return false
+  const kandidat = wert as Record<string, unknown>
+  return GUELTIGE_TAGVERKNUEPFUNGEN.includes(kandidat.verknuepfung as TagVerknuepfung)
 }

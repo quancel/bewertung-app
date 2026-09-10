@@ -4,6 +4,7 @@ import { SCHEMA_VERSION } from '../schema'
 import { berechneGesamtnote } from '../../shared/lib/gesamtnote'
 import v1Bestand from './__fixtures__/v1-bestand.json'
 import v2Bestand from './__fixtures__/v2-bestand.json'
+import v3Bestand from './__fixtures__/v3-bestand.json'
 
 interface OrtV2 {
   bewertungen: {
@@ -16,11 +17,25 @@ interface OrtV2 {
 
 describe('wendeMigrationsketteAn', () => {
   it('liefert den Bestand unverändert (Identität) bei gleicher Version', () => {
-    const rohBestand: RohBestand = v2Bestand as RohBestand
+    const rohBestand: RohBestand = v3Bestand as RohBestand
 
     const ergebnis = wendeMigrationsketteAn(rohBestand)
 
     expect(ergebnis).toEqual({ status: 'ok', bestand: rohBestand })
+  })
+
+  it('migriert einen v2-Bestand (PO-2026-09-07-002) auf die aktuelle Version und ergänzt tags: [] bei jedem Ort', () => {
+    const rohBestand: RohBestand = v2Bestand as RohBestand
+
+    const ergebnis = wendeMigrationsketteAn(rohBestand)
+
+    expect(ergebnis.status).toBe('ok')
+    if (ergebnis.status !== 'ok') return
+    expect(ergebnis.bestand.schemaVersion).toBe(SCHEMA_VERSION)
+    const orte = ergebnis.bestand.orte as Array<{ tags: string[] }>
+    for (const ort of orte) {
+      expect(ort.tags).toEqual([])
+    }
   })
 
   it('lehnt eine unbekannte, neuere Version ab und lässt den Bestand unangetastet', () => {
@@ -64,8 +79,12 @@ describe('wendeMigrationsketteAn', () => {
     expect((v1Bestand as RohBestand).schemaVersion).toBe(1)
   })
 
-  it('das v2-Fixture trägt die aktuelle SCHEMA_VERSION', () => {
+  it('das v2-Fixture bleibt bei Version 2 — Historie, nicht die aktuelle Version', () => {
     expect((v2Bestand as RohBestand).schemaVersion).toBe(2)
-    expect(SCHEMA_VERSION).toBe(2)
+  })
+
+  it('das v3-Fixture trägt die aktuelle SCHEMA_VERSION', () => {
+    expect((v3Bestand as RohBestand).schemaVersion).toBe(3)
+    expect(SCHEMA_VERSION).toBe(3)
   })
 })

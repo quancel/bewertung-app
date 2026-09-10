@@ -15,6 +15,7 @@ function ort(teil: Partial<OrtDatensatz> & { id: string; bezeichnung: string }):
       geschmack: { wert: null, kommentar: null },
       preisLeistung: { wert: null, kommentar: null },
     },
+    tags: [],
     ...teil,
   }
 }

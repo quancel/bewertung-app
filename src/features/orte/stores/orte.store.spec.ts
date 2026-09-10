@@ -270,4 +270,203 @@ describe('useOrteStore', () => {
       expect(store.sortierErgebnis.ohneWert).toHaveLength(1)
     })
   })
+
+  describe('Tags und Tag-Filter (ADR-0014, PO-2026-09-07-004)', () => {
+    it('legt einen neuen Ort mit leeren Tags an', async () => {
+      const store = useOrteStore()
+
+      const neuerOrt = await store.legeOrtAn('Ausgangsname')
+
+      expect(neuerOrt.tags).toEqual([])
+    })
+
+    it('fuegeTagHinzu ergänzt einen getrimmten Tag im Arbeitsspeicher, kein Schreibvorgang', async () => {
+      const store = useOrteStore()
+      const ort = await store.legeOrtAn('Ausgangsname')
+      speichereOrtMock.mockClear()
+
+      store.fuegeTagHinzu(ort.id, '  Café  ')
+
+      expect(store.ortNachId(ort.id)?.tags).toEqual(['Café'])
+      expect(speichereOrtMock).not.toHaveBeenCalled()
+    })
+
+    it('fuegeTagHinzu erzeugt bei Leereingabe still keinen Tag', async () => {
+      const store = useOrteStore()
+      const ort = await store.legeOrtAn('Ausgangsname')
+
+      store.fuegeTagHinzu(ort.id, '   ')
+
+      expect(store.ortNachId(ort.id)?.tags).toEqual([])
+    })
+
+    it('ein erneut eingetippter, bereits vergebener Tag führt zu keinem zweiten Eintrag', async () => {
+      const store = useOrteStore()
+      const ort = await store.legeOrtAn('Ausgangsname')
+      store.fuegeTagHinzu(ort.id, 'Pizza')
+
+      store.fuegeTagHinzu(ort.id, 'pizza')
+
+      expect(store.ortNachId(ort.id)?.tags).toEqual(['Pizza'])
+    })
+
+    it('übernimmt bereits im Bestand vergebene Schreibweise bei abweichender Groß-/Kleinschreibung an einem anderen Ort', async () => {
+      const store = useOrteStore()
+      const ortA = await store.legeOrtAn('Ort A')
+      const ortB = await store.legeOrtAn('Ort B')
+      store.fuegeTagHinzu(ortA.id, 'Pizza')
+
+      store.fuegeTagHinzu(ortB.id, 'PIZZA')
+
+      expect(store.ortNachId(ortB.id)?.tags).toEqual(['Pizza'])
+    })
+
+    it('entferneTagVonOrt entfernt einen Tag case-insensitiv', async () => {
+      const store = useOrteStore()
+      const ort = await store.legeOrtAn('Ausgangsname')
+      store.fuegeTagHinzu(ort.id, 'Pizza')
+
+      store.entferneTagVonOrt(ort.id, 'PIZZA')
+
+      expect(store.ortNachId(ort.id)?.tags).toEqual([])
+    })
+
+    it('tagVokabular leitet sich alphabetisch sortiert über alle Orte ab', async () => {
+      const store = useOrteStore()
+      const ortA = await store.legeOrtAn('Ort A')
+      const ortB = await store.legeOrtAn('Ort B')
+      store.fuegeTagHinzu(ortA.id, 'Zebra')
+      store.fuegeTagHinzu(ortB.id, 'Apfel')
+
+      expect(store.tagVokabular).toEqual(['Apfel', 'Zebra'])
+    })
+
+    it('ein Tag am letzten verbliebenen Ort entfernt verschwindet aus Vokabular und aktivem Filter', async () => {
+      const store = useOrteStore()
+      const ort = await store.legeOrtAn('Ausgangsname')
+      store.fuegeTagHinzu(ort.id, 'Pizza')
+      store.schalteTagAktiv('Pizza')
+      expect(store.aktiveTags).toEqual(['Pizza'])
+
+      store.entferneTagVonOrt(ort.id, 'Pizza')
+
+      expect(store.tagVokabular).toEqual([])
+      expect(store.aktiveTags).toEqual([])
+    })
+
+    it('startet mit der Voreinstellung UND, wenn keine Verknüpfung gespeichert ist', async () => {
+      ladeAlleOrteMock.mockResolvedValue({ status: 'geladen', orte: [] })
+      const store = useOrteStore()
+
+      await store.sicherstellenGeladen()
+
+      expect(store.tagfilterEinstellung).toEqual({ verknuepfung: 'und' })
+    })
+
+    it('übernimmt eine gültig gespeicherte Verknüpfung beim Laden', async () => {
+      ladeAlleOrteMock.mockResolvedValue({ status: 'geladen', orte: [] })
+      ladeEinstellungMock.mockImplementation((schluessel: string) =>
+        schluessel === 'orte.tagfilter'
+          ? Promise.resolve({ status: 'geladen', wert: { verknuepfung: 'oder' } })
+          : Promise.resolve({ status: 'nicht_vorhanden' }),
+      )
+      const store = useOrteStore()
+
+      await store.sicherstellenGeladen()
+
+      expect(store.tagfilterEinstellung).toEqual({ verknuepfung: 'oder' })
+    })
+
+    it('fällt bei einer fehlenden/ungültigen gespeicherten Verknüpfung still auf UND zurück', async () => {
+      ladeAlleOrteMock.mockResolvedValue({ status: 'geladen', orte: [] })
+      ladeEinstellungMock.mockImplementation((schluessel: string) =>
+        schluessel === 'orte.tagfilter'
+          ? Promise.resolve({ status: 'geladen', wert: { verknuepfung: 'xor' } })
+          : Promise.resolve({ status: 'nicht_vorhanden' }),
+      )
+      const store = useOrteStore()
+
+      await store.sicherstellenGeladen()
+
+      expect(store.tagfilterEinstellung).toEqual({ verknuepfung: 'und' })
+    })
+
+    it('setzeTagVerknuepfung ändert die Verknüpfung und persistiert sie, die Auswahl bleibt erhalten', async () => {
+      const store = useOrteStore()
+      const ort = await store.legeOrtAn('Ausgangsname')
+      store.fuegeTagHinzu(ort.id, 'Pizza')
+      store.schalteTagAktiv('Pizza')
+
+      store.setzeTagVerknuepfung('oder')
+
+      expect(store.tagfilterEinstellung).toEqual({ verknuepfung: 'oder' })
+      expect(store.aktiveTags).toEqual(['Pizza'])
+      expect(schreibeEinstellungMock).toHaveBeenCalledWith('orte.tagfilter', { verknuepfung: 'oder' })
+    })
+
+    it('schalteTagAktiv schaltet einen Tag im Filter an und wieder aus', async () => {
+      const store = useOrteStore()
+      const ort = await store.legeOrtAn('Ausgangsname')
+      store.fuegeTagHinzu(ort.id, 'Pizza')
+
+      store.schalteTagAktiv('Pizza')
+      expect(store.aktiveTags).toEqual(['Pizza'])
+
+      store.schalteTagAktiv('Pizza')
+      expect(store.aktiveTags).toEqual([])
+    })
+
+    it('entferneTagAusFilter entfernt genau einen Tag, die übrigen bleiben aktiv', async () => {
+      const store = useOrteStore()
+      const ort = await store.legeOrtAn('Ausgangsname')
+      store.fuegeTagHinzu(ort.id, 'Pizza')
+      store.fuegeTagHinzu(ort.id, 'Pasta')
+      store.schalteTagAktiv('Pizza')
+      store.schalteTagAktiv('Pasta')
+
+      store.entferneTagAusFilter('Pizza')
+
+      expect(store.aktiveTags).toEqual(['Pasta'])
+    })
+
+    it('setzeTagfilterZurueck leert die Auswahl, die Verknüpfung bleibt unverändert', async () => {
+      const store = useOrteStore()
+      const ort = await store.legeOrtAn('Ausgangsname')
+      store.fuegeTagHinzu(ort.id, 'Pizza')
+      store.schalteTagAktiv('Pizza')
+      store.setzeTagVerknuepfung('oder')
+
+      store.setzeTagfilterZurueck()
+
+      expect(store.aktiveTags).toEqual([])
+      expect(store.tagfilterEinstellung).toEqual({ verknuepfung: 'oder' })
+    })
+
+    it('orteGefiltert wendet UND/ODER auf die aktive Tag-Auswahl an', async () => {
+      const store = useOrteStore()
+      const beide = await store.legeOrtAn('Beide Tags')
+      const nurPizza = await store.legeOrtAn('Nur Pizza')
+      const keiner = await store.legeOrtAn('Kein Tag')
+      store.fuegeTagHinzu(beide.id, 'Pizza')
+      store.fuegeTagHinzu(beide.id, 'Pasta')
+      store.fuegeTagHinzu(nurPizza.id, 'Pizza')
+      store.schalteTagAktiv('Pizza')
+      store.schalteTagAktiv('Pasta')
+
+      expect(store.orteGefiltert.map((ort) => ort.id)).toEqual([beide.id])
+
+      store.setzeTagVerknuepfung('oder')
+
+      expect(store.orteGefiltert.map((ort) => ort.id).sort()).toEqual([beide.id, nurPizza.id].sort())
+      expect(store.orteGefiltert.some((ort) => ort.id === keiner.id)).toBe(false)
+    })
+
+    it('orteGefiltert liefert alle Orte bei leerer Tag-Auswahl', async () => {
+      const store = useOrteStore()
+      await store.legeOrtAn('A')
+      await store.legeOrtAn('B')
+
+      expect(store.orteGefiltert).toHaveLength(2)
+    })
+  })
 })

@@ -16,10 +16,16 @@
  * auf (ADR-0008).
  *
  * Ansichtszustand der Ortsliste (ADR-0009, PO-2026-09-07-003): Sortierung
- * gehört ebenfalls hierher, nicht in einen eigenen Store. `orteGefiltert` ist
- * bis PO-2026-09-07-004 die Identität — die Naht, an der der Tag-Filter
- * künftig ansetzt, ohne dass `sortierErgebnis` oder die Trefferzahl-Bildung
- * in der View umgebaut werden müssen.
+ * gehört ebenfalls hierher, nicht in einen eigenen Store. Ab PO-2026-09-07-004
+ * (ADR-0014) auch der Tag-Filter: `orteGefiltert` wendet das Tag-Prädikat aus
+ * `shared/lib/tagfilter.ts` an, `sortierErgebnis` und die Trefferzahl-Bildung
+ * in der View bleiben dabei unverändert — sie bauen bereits auf
+ * `orteGefiltert`.
+ *
+ * `fuegeTagHinzu`/`entferneTagVonOrt` sind das öffentliche API, über das der
+ * Context `tags` Tags an einem Ort ändert — er führt dafür keinen eigenen
+ * Store und ruft `src/persistence/` nicht selbst auf (ADR-0008, ADR-0014
+ * Punkt 1).
  */
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
@@ -32,16 +38,29 @@ import {
 import type { OrtDatensatz } from '../../../persistence/schema'
 import { sortiereOrte, type SortierErgebnis } from '../../../shared/lib/sortierung'
 import {
+  ermittleKanonischeSchreibweise,
+  leiteTagVokabularAb,
+  normalisiereTagSchluessel,
+  ortErfuelltTagfilter,
+} from '../../../shared/lib/tagfilter'
+import {
   istGueltigeOrteSortierung,
+  istGueltigeTagfilterEinstellung,
   ORTE_SORTIERUNG_VOREINSTELLUNG,
+  ORTE_TAGFILTER_VOREINSTELLUNG,
   SORTIER_ANFANGSRICHTUNG,
   type OrteSortierung,
+  type OrteTagfilterEinstellung,
   type SortierKriterium,
+  type TagVerknuepfung,
 } from '../model/ansicht'
 import type { OrtStammdaten } from '../model/orte.types'
 
 /** Context-Präfix im Object Store `einstellungen` (ADR-0009 Punkt 3). */
 const SORTIERUNG_SCHLUESSEL = 'orte.sortierung'
+/** Nur die Verknüpfung wird persistiert, nicht die aktive Tag-Auswahl
+ * (ADR-0014 Punkt 8, Nutzerentscheidung 2026-09-09). */
+const TAGFILTER_SCHLUESSEL = 'orte.tagfilter'
 
 export type OrtSchreibfehlerGrund = 'speicher_voll' | 'unbekannt'
 
@@ -62,6 +81,13 @@ export const useOrteStore = defineStore('orte', () => {
   // bis `sicherstellenGeladen` einen gültigen gespeicherten Wert findet.
   const sortierung = ref<OrteSortierung>(ORTE_SORTIERUNG_VOREINSTELLUNG)
 
+  // Ansichtszustand „Tag-Filter" (ADR-0009, ADR-0014): Verknüpfung wird
+  // geladen wie die Sortierung; die aktive Tag-Auswahl ist reiner
+  // Arbeitsspeicher ohne eigene Persistenz (Nutzerentscheidung 2026-09-09) —
+  // sie startet nach jedem Neuladen leer.
+  const tagfilterEinstellung = ref<OrteTagfilterEinstellung>(ORTE_TAGFILTER_VOREINSTELLUNG)
+  const tagAuswahlRoh = ref<string[]>([])
+
   function ortNachId(id: string): OrtDatensatz | undefined {
     return orte.value.find((ort) => ort.id === id)
   }
@@ -74,9 +100,10 @@ export const useOrteStore = defineStore('orte', () => {
    * ADR-0009 Punkt 5): kein Fall für `OrtSchreibfehlerGrund`, keine Meldung. */
   async function sicherstellenGeladen(): Promise<void> {
     if (istGeladen.value) return
-    const [ergebnis, sortierungErgebnis] = await Promise.all([
+    const [ergebnis, sortierungErgebnis, tagfilterErgebnis] = await Promise.all([
       ladeAlleOrte(),
       ladeEinstellung(SORTIERUNG_SCHLUESSEL),
+      ladeEinstellung(TAGFILTER_SCHLUESSEL),
     ])
     if (ergebnis.status === 'geladen') {
       orte.value = ergebnis.orte
@@ -88,13 +115,28 @@ export const useOrteStore = defineStore('orte', () => {
     if (sortierungErgebnis.status === 'geladen' && istGueltigeOrteSortierung(sortierungErgebnis.wert)) {
       sortierung.value = sortierungErgebnis.wert
     }
+    if (tagfilterErgebnis.status === 'geladen' && istGueltigeTagfilterEinstellung(tagfilterErgebnis.wert)) {
+      tagfilterEinstellung.value = tagfilterErgebnis.wert
+    }
   }
 
-  // Naht für PO-2026-09-07-004 (ADR-0009): Hier tritt künftig das
-  // Tag-Filter-Prädikat an die Stelle der Identität. Sortierfunktion und
-  // Trefferzahl-Bildung in der View bauen bereits auf `orteGefiltert`, nicht
-  // auf `orte`, und müssen dafür nicht angefasst werden.
-  const orteGefiltert = computed(() => orte.value)
+  /** Abgeleitetes Tag-Vokabular über den gesamten Bestand (ADR-0014 Punkt
+   * 2) — kein Register, keine Referenzzählung. */
+  const tagVokabular = computed(() => leiteTagVokabularAb(orte.value))
+
+  /** Die aktive Tag-Auswahl gefiltert gegen das aktuelle Vokabular
+   * (ADR-0014 Punkt 7): Verschwindet ein Tag mit seinem letzten Ort, fällt
+   * er hier automatisch aus dem aktiven Filter — beim Lesen, ohne
+   * Aufräum-Schreibvorgang auf `tagAuswahlRoh` (ADR-0014, Alternativen). */
+  const aktiveTags = computed(() => tagAuswahlRoh.value.filter((tag) => tagVokabular.value.includes(tag)))
+
+  /** Naht aus PO-2026-09-07-003 (ADR-0009): Das Tag-Prädikat aus
+   * `shared/lib/tagfilter.ts` (ADR-0014 Punkt 9/10) ersetzt hier die
+   * Identität. Sortierfunktion und Trefferzahl-Bildung in der View bauen
+   * bereits auf `orteGefiltert` und müssen dafür nicht angefasst werden. */
+  const orteGefiltert = computed(() =>
+    orte.value.filter((ort) => ortErfuelltTagfilter(ort.tags, aktiveTags.value, tagfilterEinstellung.value.verknuepfung)),
+  )
 
   /** Sortierte Ansicht inkl. der Partition „mit Wert / ohne Wert" für das
    * aktuelle Kriterium (ADR-0009 Punkt 8/9) — reine Ableitung, kein
@@ -146,6 +188,9 @@ export const useOrteStore = defineStore('orte', () => {
         geschmack: { wert: null, kommentar: null },
         preisLeistung: { wert: null, kommentar: null },
       },
+      // Aktiv als leeres Array angelegt (ADR-0014 Punkt 6-Muster), nicht
+      // weggelassen.
+      tags: [],
       geaendertAm: new Date().toISOString(),
     }
     orte.value = [...orte.value, neuerOrt]
@@ -198,6 +243,93 @@ export const useOrteStore = defineStore('orte', () => {
     ]
   }
 
+  /**
+   * Öffentliches API für den Context `tags` (ADR-0008, ADR-0014 Punkt 1):
+   * fügt einem Ort einen Tag hinzu, kein Schreibvorgang (Persistenz läuft
+   * wie bei jedem anderen Feld über `persistiereOrt`, ausgelöst von der
+   * View). Leereingabe erzeugt still keinen Tag (ADR-0014 Punkt 4).
+   * Existiert im Bestand bereits ein Tag mit demselben normalisierten
+   * Schlüssel, wird dessen Schreibweise übernommen (ADR-0014 Punkt 3) statt
+   * eine zweite danebenzustellen. Ist der (kanonische) Tag an diesem Ort
+   * bereits vergeben, passiert nichts — kein zweiter Eintrag, keine
+   * Fehlermeldung.
+   */
+  function fuegeTagHinzu(id: string, eingabe: string): void {
+    const kanonisch = ermittleKanonischeSchreibweise(orte.value, eingabe)
+    if (kanonisch === null) return
+    const index = orte.value.findIndex((ort) => ort.id === id)
+    if (index === -1) return
+    const bisheriger = orte.value[index]!
+    const schluessel = normalisiereTagSchluessel(kanonisch)
+    const bereitsVergeben = bisheriger.tags.some((tag) => normalisiereTagSchluessel(tag) === schluessel)
+    if (bereitsVergeben) return
+    const aktualisiert: OrtDatensatz = {
+      ...bisheriger,
+      tags: [...bisheriger.tags, kanonisch],
+      geaendertAm: new Date().toISOString(),
+    }
+    orte.value = [
+      ...orte.value.slice(0, index),
+      aktualisiert,
+      ...orte.value.slice(index + 1),
+    ]
+  }
+
+  /** Öffentliches API für den Context `tags` (ADR-0008): entfernt einen Tag
+   * von einem Ort, kein Schreibvorgang. Leichte, folgenlos wiederholbare
+   * Entfernung ohne Bestätigung (design-conventions.md). */
+  function entferneTagVonOrt(id: string, tag: string): void {
+    const index = orte.value.findIndex((ort) => ort.id === id)
+    if (index === -1) return
+    const bisheriger = orte.value[index]!
+    const schluessel = normalisiereTagSchluessel(tag)
+    const aktualisiert: OrtDatensatz = {
+      ...bisheriger,
+      tags: bisheriger.tags.filter((vorhandenerTag) => normalisiereTagSchluessel(vorhandenerTag) !== schluessel),
+      geaendertAm: new Date().toISOString(),
+    }
+    orte.value = [
+      ...orte.value.slice(0, index),
+      aktualisiert,
+      ...orte.value.slice(index + 1),
+    ]
+  }
+
+  /** Fire-and-forget (ADR-0009 Punkt 6): ein fehlgeschlagenes Schreiben der
+   * Verknüpfung wird nicht gemeldet und bricht nichts ab. */
+  function persistiereTagfilter(): void {
+    void schreibeEinstellung(TAGFILTER_SCHLUESSEL, tagfilterEinstellung.value)
+  }
+
+  /** Setzt die UND/ODER-Verknüpfung explizit (Segment-Control mit zwei
+   * Tap-Zielen, design_notes) und persistiert sie — die aktive Tag-Auswahl
+   * bleibt dabei unverändert (ADR-0014 Punkt 8). */
+  function setzeTagVerknuepfung(verknuepfung: TagVerknuepfung): void {
+    if (verknuepfung === tagfilterEinstellung.value.verknuepfung) return
+    tagfilterEinstellung.value = { verknuepfung }
+    persistiereTagfilter()
+  }
+
+  /** Schaltet einen Tag im aktiven Filter an/aus — reiner Ansichtszustand,
+   * keine Persistenz (Nutzerentscheidung 2026-09-09). */
+  function schalteTagAktiv(tag: string): void {
+    tagAuswahlRoh.value = tagAuswahlRoh.value.includes(tag)
+      ? tagAuswahlRoh.value.filter((aktiverTag) => aktiverTag !== tag)
+      : [...tagAuswahlRoh.value, tag]
+  }
+
+  /** Entfernt genau einen Tag aus dem aktiven Filter, ohne die übrigen
+   * anzutasten. */
+  function entferneTagAusFilter(tag: string): void {
+    tagAuswahlRoh.value = tagAuswahlRoh.value.filter((aktiverTag) => aktiverTag !== tag)
+  }
+
+  /** Setzt den aktiven Filter in einem Schritt zurück — die gewählte
+   * Verknüpfung bleibt unverändert bestehen (Kriterium, ADR-0014 Punkt 8). */
+  function setzeTagfilterZurueck(): void {
+    tagAuswahlRoh.value = []
+  }
+
   /** Schreibt den vollständigen, aktuellen Stand aus dem Store (ADR-0005 Punkt 1). */
   async function persistiereOrt(id: string): Promise<void> {
     const aktuellerOrt = ortNachId(id)
@@ -242,6 +374,8 @@ export const useOrteStore = defineStore('orte', () => {
     legeOrtAn,
     aktualisiereFeld,
     aktualisiereAchse,
+    fuegeTagHinzu,
+    entferneTagVonOrt,
     persistiereOrt,
     loescheOrt,
     schreibfehlerFuer,
@@ -250,5 +384,12 @@ export const useOrteStore = defineStore('orte', () => {
     sortierErgebnis,
     setzeSortierKriterium,
     schalteSortierrichtungUm,
+    tagVokabular,
+    aktiveTags,
+    tagfilterEinstellung,
+    setzeTagVerknuepfung,
+    schalteTagAktiv,
+    entferneTagAusFilter,
+    setzeTagfilterZurueck,
   }
 })

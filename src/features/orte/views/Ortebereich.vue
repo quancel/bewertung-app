@@ -48,7 +48,9 @@ import OrtAnlegenSheet from '../components/OrtAnlegenSheet.vue'
 import OrtLoeschenDialog from '../components/OrtLoeschenDialog.vue'
 import Ortszeile from '../components/Ortszeile.vue'
 import Werkzeugleiste from '../components/Werkzeugleiste.vue'
-import { SORTIER_KRITERIUM_LABEL, type SortierKriterium } from '../model/ansicht'
+import TagFilterleiste from '../../tags/components/TagFilterleiste.vue'
+import TagEingabe from '../../tags/components/TagEingabe.vue'
+import { SORTIER_KRITERIUM_LABEL, type SortierKriterium, type TagVerknuepfung } from '../model/ansicht'
 import { useOrteStore, type AchsenName } from '../stores/orte.store'
 
 const route = useRoute()
@@ -82,6 +84,60 @@ const bestandLeer = computed(() => store.istGeladen && store.orte.length === 0)
 // Kriterium PO-2026-09-07-012: kein Master-Detail-Split neben dem
 // bestehenden Leerzustand aus -001.
 const zeigeNurLeerzustand = computed(() => !detailOffen.value && bestandLeer.value)
+
+// --- Tag-Filter (PO-2026-09-07-004, ADR-0014) -----------------------------
+
+/** Bestand nicht leer, aber die aktive Tag-Auswahl liefert null Treffer —
+ * unterscheidet sich von `bestandLeer` (kein Datensatz überhaupt). */
+const keineTreffer = computed(() => store.istGeladen && store.orte.length > 0 && store.orteGefiltert.length === 0)
+// Analog zu `zeigeNurLeerzustand` (design_notes PO-2026-09-07-004,
+// „überspringt den Master-Detail-Split analog zum leeren Bestand"): keine
+// leere zweite Spalte neben der Null-Treffer-Meldung, solange kein Ort
+// ausgewählt ist. Ist ein Ort ausgewählt, bleibt die Detailspalte offen und
+// die Meldung erscheint stattdessen anstelle der (leeren) Liste, siehe
+// Template unten.
+const zeigeNurGefiltertLeer = computed(() => !detailOffen.value && keineTreffer.value)
+
+function formatiereTagAufzaehlung(tags: readonly string[]): string {
+  const namen = tags.map((tag) => `„${tag}“`)
+  if (namen.length <= 1) return namen.join('')
+  return `${namen.slice(0, -1).join(', ')} und ${namen[namen.length - 1]}`
+}
+
+/** Erklärender Hinweis (Kriterium PO-2026-09-07-004): benennt die aktiven
+ * Tags, andere Aussage/Aktion als der Leerzustand „noch keine Orte"
+ * (design-conventions.md „Leer (gefiltert, kein Treffer)"). Keine Fehler-/
+ * Warnfarbe, kein Alarm-Icon — reiner Text wie jeder andere Leerzustand. */
+const keineTrefferText = computed(() => {
+  const aufzaehlung = formatiereTagAufzaehlung(store.aktiveTags)
+  return store.tagfilterEinstellung.verknuepfung === 'und'
+    ? `Kein Ort trägt alle ausgewählten Tags: ${aufzaehlung}.`
+    : `Kein Ort trägt einen der ausgewählten Tags: ${aufzaehlung}.`
+})
+
+function aufTagUmschalten(tag: string): void {
+  store.schalteTagAktiv(tag)
+}
+
+function aufVerknuepfungGeaendert(verknuepfung: TagVerknuepfung): void {
+  store.setzeTagVerknuepfung(verknuepfung)
+}
+
+function aufTagfilterZurueckgesetzt(): void {
+  store.setzeTagfilterZurueck()
+}
+
+function aufTagHinzugefuegt(tag: string): void {
+  if (!ortId.value) return
+  store.fuegeTagHinzu(ortId.value, tag)
+  persistiereJetzt()
+}
+
+function aufTagEntfernt(tag: string): void {
+  if (!ortId.value) return
+  store.entferneTagVonOrt(ortId.value, tag)
+  persistiereJetzt()
+}
 
 const gesamtnote = computed(() => (ort.value ? berechneGesamtnote(ort.value.bewertungen) : null))
 const ausgefuellteAchsen = computed(() =>
@@ -167,7 +223,7 @@ function fokussiereListeNachSchliessen(vorherigeId: string): void {
   if (geloeschtVorherigerIndex.value !== null) {
     const index = geloeschtVorherigerIndex.value
     geloeschtVorherigerIndex.value = null
-    if (zeigeNurLeerzustand.value) {
+    if (zeigeNurLeerzustand.value || zeigeNurGefiltertLeer.value) {
       leerZustandRef.value?.focus()
       return
     }
@@ -316,6 +372,60 @@ async function aufLoeschenBestaetigt(): Promise<void> {
       </PrimaerButton>
     </div>
 
+    <div
+      v-else-if="zeigeNurGefiltertLeer"
+      ref="leerZustandRef"
+      class="ortebereich__liste-spalte"
+      tabindex="-1"
+    >
+      <div class="ortebereich__kopf">
+        <h1 class="ortebereich__kopf-titel">
+          Orte
+        </h1>
+        <PrimaerButton
+          type="button"
+          @click="sheetOffen = true"
+        >
+          <IconPlus :size="20" />
+          Ort hinzufügen
+        </PrimaerButton>
+      </div>
+
+      <Werkzeugleiste
+        :sortierung="store.sortierung"
+        :angezeigt="store.orteGefiltert.length"
+        :gesamt="store.orte.length"
+        @kriterium-gewaehlt="aufKriteriumGewaehlt"
+        @richtung-umschalten="aufRichtungUmgeschaltet"
+      >
+        <template
+          v-if="store.tagVokabular.length > 0"
+          #zeile-2
+        >
+          <TagFilterleiste
+            :vokabular="store.tagVokabular"
+            :aktive-tags="store.aktiveTags"
+            :verknuepfung="store.tagfilterEinstellung.verknuepfung"
+            @tag-umschalten="aufTagUmschalten"
+            @verknuepfung-geaendert="aufVerknuepfungGeaendert"
+            @zuruecksetzen="aufTagfilterZurueckgesetzt"
+          />
+        </template>
+      </Werkzeugleiste>
+
+      <div class="ortebereich__keine-treffer">
+        <p class="ortebereich__keine-treffer-text">
+          {{ keineTrefferText }}
+        </p>
+        <PrimaerButton
+          type="button"
+          @click="aufTagfilterZurueckgesetzt"
+        >
+          Filter zurücksetzen
+        </PrimaerButton>
+      </div>
+    </div>
+
     <MasterDetail
       v-else
       :detail-offen="detailOffen"
@@ -341,9 +451,41 @@ async function aufLoeschenBestaetigt(): Promise<void> {
             :gesamt="store.orte.length"
             @kriterium-gewaehlt="aufKriteriumGewaehlt"
             @richtung-umschalten="aufRichtungUmgeschaltet"
-          />
+          >
+            <template
+              v-if="store.tagVokabular.length > 0"
+              #zeile-2
+            >
+              <TagFilterleiste
+                :vokabular="store.tagVokabular"
+                :aktive-tags="store.aktiveTags"
+                :verknuepfung="store.tagfilterEinstellung.verknuepfung"
+                @tag-umschalten="aufTagUmschalten"
+                @verknuepfung-geaendert="aufVerknuepfungGeaendert"
+                @zuruecksetzen="aufTagfilterZurueckgesetzt"
+              />
+            </template>
+          </Werkzeugleiste>
 
-          <ul class="ortebereich__liste">
+          <div
+            v-if="keineTreffer"
+            class="ortebereich__keine-treffer"
+          >
+            <p class="ortebereich__keine-treffer-text">
+              {{ keineTrefferText }}
+            </p>
+            <PrimaerButton
+              type="button"
+              @click="aufTagfilterZurueckgesetzt"
+            >
+              Filter zurücksetzen
+            </PrimaerButton>
+          </div>
+
+          <ul
+            v-else
+            class="ortebereich__liste"
+          >
             <li
               v-for="ortEintrag in store.sortierErgebnis.mitWert"
               :key="ortEintrag.id"
@@ -478,6 +620,16 @@ async function aufLoeschenBestaetigt(): Promise<void> {
             </div>
           </div>
 
+          <div class="ortsdetail__feld">
+            <span>Tags</span>
+            <TagEingabe
+              :tags="ort.tags"
+              :vokabular="store.tagVokabular"
+              @tag-hinzugefuegt="aufTagHinzugefuegt"
+              @tag-entfernt="aufTagEntfernt"
+            />
+          </div>
+
           <div class="ortsdetail__gesamtnote">
             <span
               v-if="gesamtnote === null"
@@ -584,6 +736,25 @@ async function aufLoeschenBestaetigt(): Promise<void> {
   gap: var(--space-16);
   padding: var(--space-64) var(--space-16);
   text-align: center;
+}
+
+/* Null-Treffer-Zustand (PO-2026-09-07-004, design-conventions.md „Leer
+   (gefiltert, kein Treffer)"): gleiches typografisches Muster wie
+   `.ortebereich__leer`, andere Aussage/Aktion, kein Fehler-/Warnton. Sitzt
+   innerhalb der Listen-Spalte unter der Werkzeugleiste (Umschalter bleibt
+   sichtbar darüber), nicht vollflächig zentriert wie der leere Bestand. */
+.ortebereich__keine-treffer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-16);
+  padding: var(--space-64) var(--space-16);
+  text-align: center;
+}
+
+.ortebereich__keine-treffer-text {
+  color: var(--text);
+  font-size: var(--font-size-16);
 }
 
 .ortebereich__leer-text {

@@ -30,7 +30,7 @@ describe('initialisiereBestand', () => {
     const geoeffnet = await oeffneDatenbank()
     if (geoeffnet.status !== 'geoeffnet') throw new Error('Datenbank hätte offen sein müssen')
     const meta = await geoeffnet.db.get('meta', 'bestand')
-    expect(meta).toEqual({ id: 'bestand', schemaVersion: 2 })
+    expect(meta).toEqual({ id: 'bestand', schemaVersion: 3 })
   })
 
   it('lässt einen Bestand mit aktueller Version unverändert', async () => {
@@ -42,7 +42,7 @@ describe('initialisiereBestand', () => {
     const geoeffnet = await oeffneDatenbank()
     if (geoeffnet.status !== 'geoeffnet') throw new Error('Datenbank hätte offen sein müssen')
     const meta = await geoeffnet.db.get('meta', 'bestand')
-    expect(meta).toEqual({ id: 'bestand', schemaVersion: 2 })
+    expect(meta).toEqual({ id: 'bestand', schemaVersion: 3 })
   })
 
   it('lehnt einen Bestand mit unbekannter, neuerer Version ab und überschreibt nichts', async () => {
@@ -62,6 +62,7 @@ describe('initialisiereBestand', () => {
         geschmack: { wert: null, kommentar: null },
         preisLeistung: { wert: null, kommentar: null },
       },
+      tags: [],
     })
 
     const ergebnis = await initialisiereBestand()
