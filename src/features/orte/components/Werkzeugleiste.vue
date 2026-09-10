@@ -38,7 +38,7 @@ import {
   type OrteSortierung,
   type SortierKriterium,
 } from '../model/ansicht'
-import Sheet from './Sheet.vue'
+import Sheet from '../../../shared/ui/Sheet.vue'
 
 const props = defineProps<{
   sortierung: OrteSortierung

@@ -10,6 +10,7 @@ async function raeumeStoresAuf(): Promise<void> {
   await geoeffnet.db.clear('meta')
   await geoeffnet.db.clear('orte')
   await geoeffnet.db.clear('einstellungen')
+  await geoeffnet.db.clear('bilder')
   resetDb()
   resetInit()
 }
@@ -30,7 +31,7 @@ describe('initialisiereBestand', () => {
     const geoeffnet = await oeffneDatenbank()
     if (geoeffnet.status !== 'geoeffnet') throw new Error('Datenbank hätte offen sein müssen')
     const meta = await geoeffnet.db.get('meta', 'bestand')
-    expect(meta).toEqual({ id: 'bestand', schemaVersion: 3 })
+    expect(meta).toEqual({ id: 'bestand', schemaVersion: 4 })
   })
 
   it('lässt einen Bestand mit aktueller Version unverändert', async () => {
@@ -42,7 +43,7 @@ describe('initialisiereBestand', () => {
     const geoeffnet = await oeffneDatenbank()
     if (geoeffnet.status !== 'geoeffnet') throw new Error('Datenbank hätte offen sein müssen')
     const meta = await geoeffnet.db.get('meta', 'bestand')
-    expect(meta).toEqual({ id: 'bestand', schemaVersion: 3 })
+    expect(meta).toEqual({ id: 'bestand', schemaVersion: 4 })
   })
 
   it('lehnt einen Bestand mit unbekannter, neuerer Version ab und überschreibt nichts', async () => {

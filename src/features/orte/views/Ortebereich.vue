@@ -31,6 +31,14 @@
  * Fokusrückgabe nach dem Löschen (siehe unten) bezieht sich deshalb auf
  * `angezeigteOrteSortiert`, die tatsächlich sichtbare Reihenfolge, nicht auf
  * die Einfügereihenfolge in `store.orte`.
+ *
+ * Bilder (PO-2026-09-07-005, ADR-0016 Punkt 10): `Bilderbereich.vue`
+ * (`medien`) ist die einzige Ausnahme, unter der diese View einen Baustein
+ * importiert, der SEINEN EIGENEN Store anfasst — erlaubt, weil `medien`
+ * nichts aus `features/orte/` importiert (ADR-0016 Punkt 9) und dadurch kein
+ * Import-Zyklus entsteht, der einzige Grund, aus dem ADR-0013 Punkt 3 das
+ * sonst ausschließt. Kein `persistiereOrt`-Aufruf dafür nötig: Bilder liegen
+ * im eigenen Object Store, nicht im Ort-Datensatz (ADR-0016 Punkt 1).
  */
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
@@ -50,6 +58,7 @@ import Ortszeile from '../components/Ortszeile.vue'
 import Werkzeugleiste from '../components/Werkzeugleiste.vue'
 import TagFilterleiste from '../../tags/components/TagFilterleiste.vue'
 import TagEingabe from '../../tags/components/TagEingabe.vue'
+import Bilderbereich from '../../medien/components/Bilderbereich.vue'
 import { SORTIER_KRITERIUM_LABEL, type SortierKriterium, type TagVerknuepfung } from '../model/ansicht'
 import { useOrteStore, type AchsenName } from '../stores/orte.store'
 
@@ -628,6 +637,11 @@ async function aufLoeschenBestaetigt(): Promise<void> {
               @tag-hinzugefuegt="aufTagHinzugefuegt"
               @tag-entfernt="aufTagEntfernt"
             />
+          </div>
+
+          <div class="ortsdetail__feld">
+            <span>Bilder</span>
+            <Bilderbereich :ort-id="ort.id" />
           </div>
 
           <div class="ortsdetail__gesamtnote">

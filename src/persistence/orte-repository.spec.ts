@@ -31,6 +31,7 @@ async function raeumeStoresAuf(): Promise<void> {
   await geoeffnet.db.clear('meta')
   await geoeffnet.db.clear('orte')
   await geoeffnet.db.clear('einstellungen')
+  await geoeffnet.db.clear('bilder')
 }
 
 describe('orte-repository', () => {
@@ -81,6 +82,55 @@ describe('orte-repository', () => {
 
     const ladeErgebnis = await ladeAlleOrte()
     expect(ladeErgebnis).toEqual({ status: 'geladen', orte: [] })
+  })
+
+  it('löscht einen Ort kaskadierend samt aller seiner Bilder, andere Orte bleiben unangetastet (ADR-0004 Punkt 8, ADR-0016 Punkt 8)', async () => {
+    const ortA = beispielOrt({ id: 'ort-a' })
+    const ortB = beispielOrt({ id: 'ort-b' })
+    await speichereOrt(ortA)
+    await speichereOrt(ortB)
+
+    const geoeffnet = await oeffneDatenbank()
+    if (geoeffnet.status !== 'geoeffnet') throw new Error('Datenbank hätte offen sein müssen')
+    await geoeffnet.db.put('bilder', {
+      id: 'bild-a1',
+      ortId: 'ort-a',
+      hinzugefuegtAm: '2026-09-10T08:00:00.000Z',
+      mimeTyp: 'image/webp',
+      breite: 4,
+      hoehe: 4,
+      blob: new Blob(['x'], { type: 'image/webp' }),
+    })
+    await geoeffnet.db.put('bilder', {
+      id: 'bild-a2',
+      ortId: 'ort-a',
+      hinzugefuegtAm: '2026-09-10T09:00:00.000Z',
+      mimeTyp: 'image/webp',
+      breite: 4,
+      hoehe: 4,
+      blob: new Blob(['y'], { type: 'image/webp' }),
+    })
+    await geoeffnet.db.put('bilder', {
+      id: 'bild-b1',
+      ortId: 'ort-b',
+      hinzugefuegtAm: '2026-09-10T08:00:00.000Z',
+      mimeTyp: 'image/webp',
+      breite: 4,
+      hoehe: 4,
+      blob: new Blob(['z'], { type: 'image/webp' }),
+    })
+
+    const loeschErgebnis = await loescheOrt('ort-a')
+    expect(loeschErgebnis).toEqual({ status: 'geschrieben' })
+
+    const ladeErgebnis = await ladeAlleOrte()
+    expect(ladeErgebnis.status).toBe('geladen')
+    if (ladeErgebnis.status === 'geladen') {
+      expect(ladeErgebnis.orte.map((eintrag) => eintrag.id)).toEqual(['ort-b'])
+    }
+
+    const verbleibendeBilder = await geoeffnet.db.getAll('bilder')
+    expect(verbleibendeBilder.map((bild) => bild.id)).toEqual(['bild-b1'])
   })
 
   it('meldet "speicher_nicht_verfuegbar", wenn die Datenbank nicht geöffnet werden kann', async () => {

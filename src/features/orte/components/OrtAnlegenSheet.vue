@@ -8,7 +8,7 @@
 import { ref, watch } from 'vue'
 import PrimaerButton from '../../../shared/ui/PrimaerButton.vue'
 import TextButton from '../../../shared/ui/TextButton.vue'
-import Sheet from './Sheet.vue'
+import Sheet from '../../../shared/ui/Sheet.vue'
 
 const props = defineProps<{ offen: boolean }>()
 const emit = defineEmits<{

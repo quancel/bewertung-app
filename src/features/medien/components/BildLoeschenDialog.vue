@@ -1,16 +1,15 @@
 <script setup lang="ts">
 /**
- * Löschbestätigung (design_notes PO-2026-09-07-001): nennt die Bezeichnung,
- * kein Undo-Toast. Schwer rückgängig machbarer Verlust → Bestätigungsdialog
- * nach design-conventions.md („Interaktion & Animation").
+ * Löschbestätigung für ein einzelnes Bild (design_notes PO-2026-09-07-005):
+ * schwer rückgängig machbarer Verlust → Bestätigungsdialog nach der
+ * bestehenden Konvention (Sheet, 240ms, Radius 16px), Text nennt
+ * ausdrücklich, dass das Original nicht mehr vorhanden ist. Rein
+ * präsentational, kennt keinen Store.
  */
 import TextButton from '../../../shared/ui/TextButton.vue'
 import Sheet from '../../../shared/ui/Sheet.vue'
 
-defineProps<{
-  offen: boolean
-  bezeichnung: string
-}>()
+defineProps<{ offen: boolean }>()
 
 const emit = defineEmits<{
   bestaetigen: []
@@ -21,14 +20,14 @@ const emit = defineEmits<{
 <template>
   <Sheet
     :offen="offen"
-    label="Ort löschen"
+    label="Bild löschen"
     @schliessen="emit('schliessen')"
   >
-    <p class="loeschen-dialog__text">
-      {{ bezeichnung }} löschen? Bewertungen, Bilder und Kommentare werden mit entfernt.
+    <p class="bild-loeschen-dialog__text">
+      Bild endgültig löschen? Das Original ist nicht mehr vorhanden — ein gelöschtes Bild lässt sich nicht wiederherstellen.
     </p>
 
-    <div class="loeschen-dialog__aktionen">
+    <div class="bild-loeschen-dialog__aktionen">
       <TextButton
         type="button"
         @click="emit('schliessen')"
@@ -37,7 +36,7 @@ const emit = defineEmits<{
       </TextButton>
       <button
         type="button"
-        class="loeschen-dialog__bestaetigen"
+        class="bild-loeschen-dialog__bestaetigen"
         @click="emit('bestaetigen')"
       >
         Endgültig löschen
@@ -47,18 +46,18 @@ const emit = defineEmits<{
 </template>
 
 <style scoped>
-.loeschen-dialog__text {
+.bild-loeschen-dialog__text {
   margin-bottom: var(--space-24);
   font-size: var(--font-size-16);
 }
 
-.loeschen-dialog__aktionen {
+.bild-loeschen-dialog__aktionen {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-8);
 }
 
-.loeschen-dialog__bestaetigen {
+.bild-loeschen-dialog__bestaetigen {
   display: inline-flex;
   align-items: center;
   justify-content: center;

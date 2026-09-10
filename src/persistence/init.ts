@@ -11,7 +11,7 @@
  * aus `features/` zu importieren (context-map.md).
  */
 import { oeffneDatenbank } from './db'
-import { SCHEMA_VERSION, type BestandMeta, type OrtDatensatz } from './schema'
+import { SCHEMA_VERSION, type BestandMeta, type BildDatensatz, type OrtDatensatz } from './schema'
 import { wendeMigrationsketteAn, type RohBestand } from './migrations'
 
 export type BestandInitErgebnis =
@@ -56,22 +56,36 @@ async function tatsaechlichInitialisieren(): Promise<BestandInitErgebnis> {
     }
 
     // Älterer Bestand: Kette anwenden und in einer Transaktion zurückschreiben.
-    const alleOrte = await db.getAll('orte')
-    const rohBestand: RohBestand = { schemaVersion: meta.schemaVersion, orte: alleOrte }
+    // Ab v4 (ADR-0016 Punkt 4) besteht der RohBestand aus meta + orte + bilder
+    // — ein Bestand vor -005 hat den Store `bilder` zwar bereits (Struktur-
+    // Upgrade in db.ts läuft vor diesem Zugriff), aber noch leer.
+    const [alleOrte, alleBilder] = await Promise.all([db.getAll('orte'), db.getAll('bilder')])
+    const rohBestand: RohBestand = {
+      schemaVersion: meta.schemaVersion,
+      orte: alleOrte,
+      bilder: alleBilder,
+    }
     const ergebnis = wendeMigrationsketteAn(rohBestand)
 
     if (ergebnis.status === 'version_zu_neu') {
       return { status: 'version_zu_neu' }
     }
 
-    const tx = db.transaction(['meta', 'orte'], 'readwrite')
+    const tx = db.transaction(['meta', 'orte', 'bilder'], 'readwrite')
     const metaStore = tx.objectStore('meta')
     const orteStore = tx.objectStore('orte')
+    const bilderStore = tx.objectStore('bilder')
 
     await metaStore.put({ id: 'bestand', schemaVersion: ergebnis.bestand.schemaVersion })
     await orteStore.clear()
     for (const ort of ergebnis.bestand.orte as OrtDatensatz[]) {
       await orteStore.put(ort)
+    }
+    await bilderStore.clear()
+    // Ab dem vollständigen Kettenlauf immer gesetzt (schritt004Bilder setzt
+    // es aktiv) — kein `?? []` (ADR-0005).
+    for (const bild of ergebnis.bestand.bilder as BildDatensatz[]) {
+      await bilderStore.put(bild)
     }
     await tx.done
 

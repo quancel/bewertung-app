@@ -2,10 +2,13 @@
 /**
  * Generische Sheet-Chrome (Radius 16px, 240ms, design-concept.md/-conventions.md):
  * Hintergrund-Backdrop + von unten erscheinendes Panel. Präsentational,
- * kennt keinen Store. Zwei Nutzer ab diesem Paket (Anlage- und
- * Löschbestätigungs-Sheet), deshalb hier im Feature-Ordner statt in
- * `shared/ui/` (code-conventions.md: „Nach shared/ erst ab zwei Nutzern" —
- * die zwei Nutzer sind hier beide im selben Context `orte`).
+ * kennt keinen Store. Ursprünglich (PO-2026-09-07-001) in
+ * `features/orte/components/` mit zwei Nutzern innerhalb desselben Contexts
+ * (Anlage- und Löschbestätigungs-Sheet); mit PO-2026-09-07-005 kommt
+ * `medien` als zweiter, andersartiger Context hinzu (Bild-Löschbestätigung)
+ * — code-conventions.md: „Nach shared/ erst ab zwei Nutzern", hier jetzt
+ * über eine Context-Grenze hinweg. Deshalb hierher verschoben, kein zweites
+ * Sheet gebaut.
  */
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 

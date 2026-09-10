@@ -9,12 +9,14 @@
  * `upgrade()` legt ausschließlich Stores an und schreibt keinen Inhalt um.
  */
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
-import type { BestandMeta, OrtDatensatz } from './schema'
+import type { BestandMeta, BildDatensatz, OrtDatensatz } from './schema'
 
 export const IDB_DATENBANK_NAME = 'bewertung-app'
 
-/** Nur erhöhen, wenn ein Object Store oder Index dazukommt (z. B. `bilder` ab -005). */
-export const IDB_STRUKTUR_VERSION = 1
+/** Nur erhöhen, wenn ein Object Store oder Index dazukommt. -005 erhöht sie
+ * für den neuen Store `bilder` samt Index auf `ortId` (ADR-0004 Punkt 2/3,
+ * ADR-0016 Punkt 3) — getrennt von `SCHEMA_VERSION`, nie gleichgesetzt. */
+export const IDB_STRUKTUR_VERSION = 2
 
 export interface BewertungAppSchema extends DBSchema {
   meta: {
@@ -30,6 +32,13 @@ export interface BewertungAppSchema extends DBSchema {
   einstellungen: {
     key: string
     value: unknown
+  }
+  // Ab -005 (ADR-0016): Schlüssel ist die Bild-ID, Index auf `ortId` löst die
+  // Zuordnung aus — kein Rückverweis im Ort-Datensatz.
+  bilder: {
+    key: string
+    value: BildDatensatz
+    indexes: { ortId: string }
   }
 }
 
@@ -73,6 +82,12 @@ async function tatsaechlichOeffnen(): Promise<DatenbankOeffnenErgebnis> {
           }
           if (!db.objectStoreNames.contains('einstellungen')) {
             db.createObjectStore('einstellungen')
+          }
+          // -005 (ADR-0004 Punkt 2, ADR-0016 Punkt 3): nur Store + Index
+          // anlegen, kein Inhalt wird hier umgeschrieben.
+          if (!db.objectStoreNames.contains('bilder')) {
+            const bilderStore = db.createObjectStore('bilder', { keyPath: 'id' })
+            bilderStore.createIndex('ortId', 'ortId')
           }
         },
       },

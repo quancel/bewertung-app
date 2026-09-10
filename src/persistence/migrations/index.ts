@@ -16,10 +16,20 @@
 import { SCHEMA_VERSION } from '../schema'
 import { schritt002Bewertungen } from './002-bewertungen'
 import { schritt003Tags } from './003-tags'
+import { schritt004Bilder } from './004-bilder'
 
 export interface RohBestand {
   schemaVersion: number
   orte: unknown[]
+  /**
+   * Ab v4 (PO-2026-09-07-005, ADR-0016 Punkt 4). Optional, weil die
+   * veröffentlichten Schritte 002/003 ihre Ein-/Ausgangsform lokal ohne
+   * dieses Feld deklarieren (ADR-0003 Punkt 4 verbietet, sie nachträglich
+   * anzupassen) — ein Pflichtfeld machte sie unzuweisbar. Nach dem
+   * vollständigen Kettenlauf immer gesetzt, weil `schritt004Bilder` es aktiv
+   * auf `[]` setzt. Kein `?? []` beim Lesen (ADR-0005).
+   */
+  bilder?: unknown[]
 }
 
 export interface Migrationsschritt {
@@ -31,10 +41,14 @@ export interface Migrationsschritt {
 /**
  * Geordnete Schrittliste. v1 hatte keine Vorgängerversion — der erste
  * Schritt (v1 → v2, PO-2026-09-07-002, Bewertungsachsen) steht hier vorne,
- * gefolgt von v2 → v3 (PO-2026-09-07-004, Tags). Künftige Schritte werden
- * hinten angehängt.
+ * gefolgt von v2 → v3 (PO-2026-09-07-004, Tags) und v3 → v4
+ * (PO-2026-09-07-005, Bilder). Künftige Schritte werden hinten angehängt.
  */
-export const migrationsschritte: Migrationsschritt[] = [schritt002Bewertungen, schritt003Tags]
+export const migrationsschritte: Migrationsschritt[] = [
+  schritt002Bewertungen,
+  schritt003Tags,
+  schritt004Bilder,
+]
 
 export type Migrationsergebnis =
   | { status: 'ok'; bestand: RohBestand }

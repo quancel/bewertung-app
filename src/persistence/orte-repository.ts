@@ -75,9 +75,11 @@ async function tatsaechlichSpeichern(ort: OrtDatensatz): Promise<SchreibErgebnis
 }
 
 /**
- * Löscht einen Ort. -005 erweitert diese Kaskade um den Store `bilder`
- * (Index auf `ortId`), führt aber keine zweite Löschstelle ein
- * (ADR-0004 Punkt 8).
+ * Löscht einen Ort. Ab -005 (ADR-0004 Punkt 8, ADR-0016 Punkt 8) läuft das
+ * in EINER Transaktion über `orte` UND `bilder`: Der Ort-Datensatz und alle
+ * Bilder mit dieser `ortId` (über den Index gefunden) werden gemeinsam
+ * entfernt. Keine zweite Löschstelle in `bilder-repository.ts` oder im
+ * `medien`-Store.
  */
 export function loescheOrt(id: string): Promise<SchreibErgebnis> {
   const vorherigerLauf = schreibWarteschlangenJeId.get(id) ?? Promise.resolve()
@@ -102,7 +104,19 @@ async function tatsaechlichLoeschen(id: string): Promise<SchreibErgebnis> {
   }
 
   try {
-    await geoeffnet.db.delete('orte', id)
+    const tx = geoeffnet.db.transaction(['orte', 'bilder'], 'readwrite')
+    const orteStore = tx.objectStore('orte')
+    const bilderIndex = tx.objectStore('bilder').index('ortId')
+
+    await orteStore.delete(id)
+
+    let cursor = await bilderIndex.openCursor(IDBKeyRange.only(id))
+    while (cursor) {
+      await cursor.delete()
+      cursor = await cursor.continue()
+    }
+
+    await tx.done
     return { status: 'geschrieben' }
   } catch (fehler) {
     return { status: 'schreiben_fehlgeschlagen', grund: bestimmeSchreibfehlerGrund(fehler) }
