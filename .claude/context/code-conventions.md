@@ -14,9 +14,12 @@
 
 - **Modus**: `vorgegeben` (Greenfield, festgelegt in **ADR-0002**; kein
   Anwendungscode vorhanden, geprüft 2026-09-08)
-- **Zuletzt geprüft**: 2026-09-09 (beim Einordnen von PO-2026-09-07-003 und
-  -004; Stand im Repo: -010 und -001 gebaut und committet, -002 parallel in
-  Arbeit, -011/-012 eingeordnet und noch nicht gebaut)
+- **Zuletzt geprüft**: 2026-09-10 (beim Einordnen von PO-2026-09-07-007, -005
+  und -009; Stand im Repo: -010, -001, -002, -011, -012, -003 und -004 gebaut
+  und committet, 138 Tests grün, `SCHEMA_VERSION` = 3,
+  `IDB_STRUKTUR_VERSION` = 1). Dabei korrigiert: Die Wiedergabe von ADR-0013
+  Punkt 3 stand hier strenger als im ADR („einen Store" statt „den
+  `orte`-Store") und hätte PO-2026-09-07-005 fälschlich blockiert.
 
 **Stapel**: Vue 3 · TypeScript · Vite · Pinia · vue-router. Ein Projekt, ein
 Bundle, kein Monorepo. **Kein Backend** (ADR-0001).
@@ -69,12 +72,20 @@ src/
   Ausnahmen, beide eng:
   1. `bewertungen`, `tags`, `medien` dürfen den `orte`-Store über sein
      öffentliches API nutzen — nur in diese Richtung (context-map.md).
-  2. Eine **View** in `orte` darf **präsentationale, store-freie**
-     Komponenten aus `bewertungen`, `tags`, `medien` importieren und über
-     Props/Emits anbinden (ADR-0013). Prüfbar am Modul: Importiert die
-     Komponente einen Store oder `persistence/`, ist sie nicht
-     präsentational und darf nicht importiert werden — sonst entsteht der
-     Zyklus, den ADR-0008 ausschließt.
+  2. Eine **View** in `orte` darf Komponenten aus `bewertungen`, `tags`,
+     `medien` importieren und über Props/Emits anbinden (ADR-0013). Prüfbar
+     am Modul, und zwar am **Zyklus**, nicht am Wort „Store": Verboten ist
+     der Import einer Komponente, die ihrerseits **den `orte`-Store** oder
+     `persistence/` anfasst — das war der einzige Grund, aus dem ADR-0008 die
+     Gegenrichtung verworfen hat. `bewertungen` und `tags` bearbeiten Felder
+     des Ort-Datensatzes und sind deshalb praktisch immer store-frei.
+     **Ausnahme `medien`** (ADR-0016 Punkt 9/10): `Bilderbereich.vue` fasst
+     seinen **eigenen** Store an und importiert nichts aus `features/orte/`;
+     `Ortebereich.vue` darf ihn importieren. Die Erlaubnis endet in dem
+     Moment, in dem `medien` etwas aus `orte` importiert.
+  3. `datensicherung` darf nach einem Import `useOrteStore` und
+     `useMedienStore` über deren öffentliches API **zum Neuladen** anstoßen —
+     nur das, ohne Rückrichtung (ADR-0017 Punkt 9).
   Alles andere (Ableitungen, Composables mit Store-/Speicherzugriff, Typen)
   läuft über `shared/lib/` bzw. `persistence/schema.ts`, nie quer.
 - **Ein Baustein, in den ein anderer Context hineinreicht, bekommt einen
@@ -111,7 +122,13 @@ src/
   deshalb von Anfang an in `src/shared/ui/` — es gibt keinen anderen Weg
   dorthin: `app-shell` importiert nicht aus `features/`, und `features/`
   importiert nicht aus `app/`. Betrifft heute `AdresseOhneZiel.vue`
-  (ADR-0010) und `MasterDetail.vue` (ADR-0011).
+  (ADR-0010), `MasterDetail.vue` (ADR-0011) und ab -007 `Toast.vue` — der
+  Update-Hinweis aus -007 (`app-shell`) und die Export-/Import-Meldungen aus
+  -009 (`datensicherung`) sind zwei Nutzer, und `features/` käme an eine
+  Ablage in `app/` nicht heran. **Ein zweiter Nutzer zählt, sobald er in
+  einem freigegebenen Paket steht** — nicht erst, wenn er gebaut ist; ein
+  späteres Verschieben wäre reine Umbenennung. Was nur ein Paket je braucht,
+  bleibt trotzdem draußen.
 - **`components/` kennt keinen Store**, bekommt alles über Props und meldet
   über Emits zurück. `views/` sind die einzige Stelle, die Stores anbindet.
 - **Rohwerte nur in `styles/tokens.css`.** In Feature-Stylesheets kein
@@ -170,6 +187,13 @@ src/
   **letzter** Eintrag. `path` und `name` einer einmal angelegten Route werden
   nie geändert — ab PO-2026-09-07-007 ist der Adressraum offline
   ausgeliefert.
+- **Neuer Bereich**: bringt seine flache Route selbst mit (Eintrag **vor**
+  der Sammelroute in `src/app/router/routes.ts`) **und** einen **angehängten**
+  Eintrag im Bereichsregister von `app/layout/Bereichsnavigation.vue` —
+  Einträge werden nie eingefügt oder umsortiert (ADR-0010). Dazu je ein Icon
+  nach dem üblichen Weg (SVG in `src/assets/icons/`, Wrapper in
+  `src/shared/ui/icons/`). Nicht jeder Bereich ist zweispaltig: `daten`
+  (-009) bleibt einspaltig und benutzt `MasterDetail.vue` nicht (ADR-0011).
 - **Bereichsansicht je Bereich**: Beide Routen eines Bereichs
   (`/<bereich>` und `/<bereich>/:<id>`) zeigen auf **dieselbe**
   Bereichsansicht in `src/features/<context>/views/` (`Ortebereich.vue` ab
@@ -191,6 +215,12 @@ src/
   Context-Präfix und strukturiertem Wert (`orte.sortierung`,
   `orte.tagfilter`). Ein fehlgeschlagenes Schreiben wird **nicht** gemeldet
   und bricht nichts ab.
+- **Export/Import (-009)**: Der Bestand als Einheit gehört nach
+  `src/persistence/bestand-repository.ts` (lesen, ersetzen, ergänzen — je in
+  einer Transaktion, als ausdrückliches Ergebnis). Das Ein- und Auspacken der
+  Datei liegt in `src/features/datensicherung/lib/`; **`fflate` wird nur dort
+  importiert**. `persistence/` kennt kein Dateiformat, `datensicherung` kennt
+  kein IndexedDB (ADR-0017 Punkt 8).
 - **Ableitungen für die Ortsliste** liegen in `src/shared/lib/` und liefern
   alles mit, was die Ansicht sonst ein zweites Mal formulieren müsste — die
   Sortierfunktion liefert die Partition „mit Wert / ohne Wert" mit, statt sie
@@ -253,7 +283,13 @@ src/
   `SCHEMA_VERSION` beschreibt den Inhalt und wird nach dem Öffnen über
   `migrations/` verarbeitet.
 - Object Stores: `meta` (ein Datensatz `bestand` mit `schemaVersion`), `orte`
-  (Schlüssel = Ort-ID), `einstellungen`. `bilder` kommt mit -005 dazu.
+  (Schlüssel = Ort-ID), `einstellungen`. `bilder` kommt mit -005 dazu
+  (Schlüssel = Bild-ID, Index auf `ortId`) und erhöht als bisher einziges
+  Paket **beide** Zahlen getrennt: `IDB_STRUKTUR_VERSION` 1 → 2 **und**
+  `SCHEMA_VERSION` 3 → 4 (ADR-0016).
+- **Kein Rückverweis vom Ort auf seine Bilder** — keine Liste von Bild-IDs im
+  Ort-Datensatz. Die Zuordnung steht genau einmal, als `ortId` im
+  Bild-Datensatz (ADR-0016 Punkt 1).
 - **Ein Ort ist ein Datensatz**; Bewertungen, Kommentare und Tags sind Felder
   darin. **Binärdaten nie im Ort-Datensatz** — Blobs in einen eigenen Store,
   nie als Base64.
@@ -284,6 +320,19 @@ src/
 - **Jedes Paket, das `SCHEMA_VERSION` erhöht, hinterlässt ein Fixture seines
   neuen Formats** (`__fixtures__/vN-bestand.json`). Es ist das „alte Format"
   des nächsten Pakets. Ein bereits vorhandenes Fixture wird nie geändert.
+- **Ein neues Feld in `RohBestand` wird optional deklariert**
+  (`bilder?: unknown[]`, ADR-0016 Punkt 4). Die veröffentlichten Schritte
+  deklarieren ihre Form lokal und ohne das neue Feld; ein Pflichtfeld machte
+  sie unzuweisbar und erzwänge eine Änderung an bereits veröffentlichtem
+  Code (ADR-0003 Punkt 4). Nach dem Kettenlauf ist das Feld trotzdem immer
+  gesetzt, weil der neue Schritt es **aktiv** füllt.
+- **Binärdaten stehen nie im Fixture, sondern nur in seinem Test.** Ein
+  Bild-Datensatz im Fixture trägt seinen Inhalt als kurzen Base64-String,
+  den der Test vor dem Kettenlauf in einen `Blob` umwandelt. Base64 ist ein
+  Behelf der Testdatei — nie eine Form, in der gespeichert oder exportiert
+  wird (ADR-0004 Punkt 6, ADR-0016 Punkt 5).
+- **Ein Migrationsschritt fasst keinen Binärinhalt an**: weiterreichen ja,
+  dekodieren/umkodieren/messen nein.
 
 ### Lesen und Schreiben (ADR-0005)
 
@@ -316,6 +365,28 @@ src/
   Vorbedingung nutzbar. -007 muss das nicht erneut klären.
 - Ein Versionswechsel leert **Caches, niemals IndexedDB** — der
   Gerätespeicher ist der Datenbestand, nicht Teil der Auslieferung.
+
+### Service Worker (ab -007, ADR-0015)
+
+- **Generiert, nicht handgeschrieben**: `vite-plugin-pwa` im Modus
+  `generateSW`, konfiguriert im `pwa`-Block von `vite.config.ts`.
+  `manifest: false` — kein Web-App-Manifest, keine Installierbarkeit
+  (ADR-0001: kein App-Icon).
+- **`globPatterns` werden überschrieben, nicht übernommen.** Der Vorgabewert
+  enthält kein `woff2`; die lokale Inter-Datei fiele damit aus dem Cache und
+  der Start ohne Netz zeigte die Systemschrift. Jedes Paket, das ein neues
+  Dateiformat ins Bundle bringt, prüft diese Liste.
+- **Adressen stehen nicht im Service Worker.** Tiefenlinks laufen über
+  `navigateFallback: '/index.html'`; eine Routenliste wäre eine zweite Quelle
+  für den Adressraum und veraltete bei jedem neuen Bereich. Ein Paket, das
+  eine Route ergänzt (`/daten` in -009, Karte in -006), fasst -007 nicht an.
+- **`registerType: 'prompt'`, nie `autoUpdate`.** Der wartende Service Worker
+  übernimmt ausschließlich auf Nutzeraktion; kein Reload aus einem
+  `controllerchange`-Handler. Grund: Inline-Autosave (ADR-0005).
+- **Kein Runtime-Caching für Fremd-Hosts.** Kartenkacheln und Ortssuche
+  bringen ihren Ausfallpfad im eigenen Feature mit (-006/-008).
+- Der Registrierungspunkt (`virtual:pwa-register/vue`) braucht die
+  Typreferenz in `src/vite-env.d.ts`.
 
 ## Backend
 

@@ -6,10 +6,11 @@
 > Halte sie kompakt (Faustregel: < 100 Zeilen). Sie ist ein Register,
 > kein Design-Dokument — Details gehören in ADRs unter `adr/`.
 
-- **Stand**: 2026-09-09, angelegt beim Einordnen von PO-2026-09-07-010,
+- **Stand**: 2026-09-10, angelegt beim Einordnen von PO-2026-09-07-010,
   fortgeschrieben beim Einordnen von PO-2026-09-07-001 (Gerätespeicher), von
-  PO-2026-09-07-011/-012 (App-Rahmen und zweispaltiges Layout) und von
-  PO-2026-09-07-003/-004 (Sortierung und Tag-Filter).
+  PO-2026-09-07-011/-012 (App-Rahmen und zweispaltiges Layout), von
+  PO-2026-09-07-003/-004 (Sortierung und Tag-Filter) und von
+  PO-2026-09-07-007/-005/-009 (Offline-Auslieferung, Bilder, Export/Import).
 
 **Es gibt genau ein Artefakt**: ein clientseitiges Vue-Bundle ohne
 Backend-Dienst (ADR-0001). Ein „Bounded Context" ist hier deshalb ein
@@ -70,11 +71,25 @@ vollständiges Sequenzdiagramm.
   im besitzenden Feature.
 - **`karte` liest Koordinaten aus `orte`** und schreibt nichts zurück; das
   Nachtragen von Koordinaten läuft über die Ort-Bearbeitung in `orte`.
+- **`medien` (-005) hat als einziger Feature-Context einen eigenen Object
+  Store und deshalb einen eigenen Pinia-Store** (ADR-0016). Er importiert
+  **nichts** aus `features/orte/` — nur unter dieser Bedingung darf
+  `Ortebereich.vue` umgekehrt seinen `Bilderbereich.vue` importieren, obwohl
+  der einen Store anfasst (Präzisierung von ADR-0013 Punkt 3, das den
+  Zyklus meint, nicht das Wort „Store"). Der Ort-Datensatz kennt seine Bilder
+  nicht; die Zuordnung ist der Index `ortId` im Store `bilder`.
 - **`datensicherung` arbeitet auf dem gesamten Bestand über
   `src/persistence/`**, nicht über die einzelnen Feature-Stores. Sonst wäre
   eine vollständige Sicherung von der Ladereihenfolge der Features abhängig.
   Der Store `einstellungen` gehört **nicht** zum Bestand und wird weder
-  exportiert noch importiert (ADR-0006).
+  exportiert noch importiert (ADR-0006). Die Exportdatei ist ein
+  ZIP-Container (`bestand.json` + `bilder/<bildId>`), der durch **dieselbe**
+  Migrationskette läuft wie der Gerätespeicher (ADR-0017).
+- **Genau eine Gegenrichtung von `datensicherung`**: Nach einem erfolgreichen
+  Import stößt es `useOrteStore` und `useMedienStore` über deren öffentliches
+  API zum **Neuladen** an — mehr nicht, keine Rückrichtung (ADR-0017 Punkt 9).
+  Ohne das bliebe der `istGeladen`-Riegel der Stores auf dem Stand vor dem
+  Import stehen.
 - **Der Store `einstellungen` bekommt mit -003 seinen ersten Inhalt.** Der
   Zugriffsweg `src/persistence/einstellungen-repository.ts` existiert noch
   nicht und entsteht dort — generisch (Wert zu einem Schlüssel), ohne
@@ -109,8 +124,10 @@ Drei erlaubte Netz-Zwecke, jeder mit definiertem Ausfallpfad (ADR-0001):
 - **Kartenkacheln** (`karte`) — Anbieter noch offen, Entscheidung mit
   PO-2026-09-07-006.
 - **Ortssuche** (`karte`) — optional und streichbar, PO-2026-09-07-008.
-- **Auslieferung neuer Versionen** (`app-shell`) — Service Worker,
-  PO-2026-09-07-007.
+- **Auslieferung neuer Versionen** (`app-shell`) — generierter Service Worker
+  über `vite-plugin-pwa`, Update im Prompt-Modus, kein Web-App-Manifest
+  (PO-2026-09-07-007, ADR-0015). Kein Runtime-Caching für Fremd-Hosts: Die
+  beiden Zwecke oben bringen ihren Ausfallpfad selbst mit.
 
 ## Bekannte Grenzen / bewusst nicht geteilt
 
@@ -126,9 +143,13 @@ Drei erlaubte Netz-Zwecke, jeder mit definiertem Ausfallpfad (ADR-0001):
   Grundlagen-Paket** (Platz 5, vor -003/-004/-005/-006), kein Nachrüster:
   Werkzeugleiste, Bilder-Raster und Karte bauen in die dort festgelegte
   Spaltenbreite hinein.
-- **Der Adressraum ist ab -011 eingefroren.** -012 führt keine Adresse ein,
-  -007 liefert genau diesen Satz offline aus. Änderungen an `path`/`name`
-  einer bestehenden Route brauchen ein eigenes ADR (ADR-0010/0011).
+- **Bestehende Adressen sind ab -011 eingefroren**: Änderungen an
+  `path`/`name` einer angelegten Route brauchen ein eigenes ADR
+  (ADR-0010/0011). **Neue** Adressen sind davon nicht betroffen — `/daten`
+  (-009) und die Karte (-006) hängen ihre flache Route und ihren
+  Navigationseintrag selbst an. -007 muss dafür nicht angefasst werden: Der
+  Service Worker kennt keine Routenliste, sondern beantwortet jede Navigation
+  über `navigateFallback` mit dem App-Einstieg (ADR-0015 Punkt 4).
 - **Kartenstil und Tile-Anbieter sind offen** — laut `design-concept.md`
   bewusst als Architektur-/Lizenzentscheidung dem Architekten zugewiesen,
   fällig mit PO-2026-09-07-006.
