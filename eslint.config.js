@@ -30,6 +30,17 @@ export default tseslint.config(
     },
   },
   {
+    // Node-Skripte außerhalb des Browser-Bundles (Build-Ausgaben-Prüfung,
+    // PO-2026-09-07-007) — kein Browser-Kontext, braucht `process`/`console`
+    // aus der Node-Laufzeit statt der Browser-Globals oben.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+  {
     rules: {
       // ADR-0002: einteilige deutsche Komposita sind ausdrücklich erlaubt
       // (`Ortsliste.vue`) — die Regel schützt vor Kollisionen mit

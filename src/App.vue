@@ -11,6 +11,7 @@ import { onMounted, ref } from 'vue'
 import { initialisiereBestand, type BestandInitErgebnis } from './persistence/init'
 import PersistenzMeldung from './app/PersistenzMeldung.vue'
 import AppRahmen from './app/layout/AppRahmen.vue'
+import UpdateHinweis from './app/UpdateHinweis.vue'
 
 const initErgebnis = ref<BestandInitErgebnis | null>(null)
 
@@ -27,4 +28,8 @@ onMounted(async () => {
   <AppRahmen v-else-if="initErgebnis">
     <router-view />
   </AppRahmen>
+  <!-- Außerhalb der Sperr-Verzweigung (Nutzerentscheidung 2026-09-10,
+       PO-2026-09-07-007): sichtbar auch im vollflächigen Sperrzustand, weil
+       eine neue Version dort der einzige Ausweg sein kann. -->
+  <UpdateHinweis />
 </template>
