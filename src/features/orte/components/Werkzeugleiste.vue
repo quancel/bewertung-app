@@ -1,36 +1,63 @@
 <script setup lang="ts">
 /**
- * Werkzeugleiste der Ortsliste (PO-2026-09-07-003, geteilt mit -004,
+ * Werkzeugleiste der Ortsliste (PO-2026-09-07-003, geteilt mit -004/-006,
  * code-conventions.md „Ein Baustein, in den ein anderer Context
  * hineinreicht, bekommt einen benannten Slot statt eines Imports"):
  * besitzt den zweizeiligen Rahmen und den kompletten Inhalt von Zeile 1 —
  * Sortier-Chip (aktuelles Kriterium als Text), direkt angehängter
- * Icon-Button für die Richtung (eigener Tap) sowie rechts die
- * Trefferzahl. Zeile 2 ist der benannte Slot `zeile-2`, gefüllt von
+ * Icon-Button für die Richtung (eigener Tap), die Trefferzahl sowie GANZ
+ * RECHTS der Ansichtsumschalter Liste/Karte (PO-2026-09-07-006,
+ * ADR-0019). Zeile 2 ist der benannte Slot `zeile-2`, gefüllt von
  * `Ortebereich.vue`. Ein leerer Slot wird nicht gerendert (ADR-0013) — so
  * ist „Bestand ohne Tags → Zeile 2 entfällt" (-004) strukturell erfüllt,
  * ohne dass diese Komponente `tags` kennen müsste. Präsentational, kennt
- * keinen Store — Sortierung ändert sich ausschließlich über Emits.
+ * keinen Store — Sortierung UND Ansichtswechsel ändern sich ausschließlich
+ * über Emits (Constraint UMSCHALTER, PO-2026-09-07-006): diese Komponente
+ * bleibt store- UND routerfrei, `Ortebereich.vue` führt den `router.push`
+ * aus.
+ *
+ * Dieselbe Komponente steht unverändert in BEIDEN Ansichten desselben
+ * Bereichs (design-conventions.md „Ansichtswechsel innerhalb eines
+ * Bereichs"): in der Listenansicht oben in der ~400px schmalen
+ * Listen-Spalte, in der Kartenansicht über die volle Inhaltsbreite
+ * (ADR-0019 Punkt 5) — keine zweite Werkzeugleisten-Variante. Was sich
+ * unterscheidet, ist ausschließlich der Wortlaut der Trefferzahl (Prop
+ * `ansicht`, siehe unten).
  *
  * Bedienform der sieben Kriterien (design_notes PO-2026-09-07-003): Tippen
  * auf den Chip öffnet ein Sheet (`Sheet.vue` aus -001, wiederverwendet),
  * gruppiert unter „Allgemein" und „Einzelachse". Auswahl wirkt sofort und
  * schließt das Sheet, kein „Anwenden"-Button. Aktive Auswahl als
- * Zeilen-Highlight in `--color-primary-50`.
+ * Zeilen-Highlight in `--color-primary-50`. In der Kartenansicht bleiben
+ * Sortier-Chip und Richtungs-Button sichtbar und bedienbar, obwohl dort
+ * ohne sichtbare Wirkung (design-conventions.md „Karte") — diese Komponente
+ * unterscheidet nicht danach, `Ortebereich.vue` wertet `sortierErgebnis` in
+ * der Kartenansicht schlicht nicht aus (ADR-0019 Punkt 9).
  *
  * Sticky-Kopf der Listen-Spalte (ADR-0011 Punkt 6, ADR-0012): `position:
  * sticky; top: 0` auf der Wurzel — ab `lg` klebt das INNERHALB des
  * scrollenden Spaltenelements (`.master-detail__liste`, `overflow-y:
  * auto`), unterhalb `lg` klebt es am scrollenden Fenster (kein `overflow`
- * auf einem Vorfahren dazwischen). Kein `@container`-Umbruch nötig: bei
- * der Richwertbreite ~400px (~368px Inhaltsbreite) passen laut design_notes
- * selbst das längste Kriterium („Preis/Leistung") und die längste
- * realistische Trefferzahl („128 von 128 Orten") ohne Umbruch — Zeile 1
- * bekommt deshalb bewusst keine Container Query (ADR-0012 gilt nur, wo
- * tatsächlich umgebrochen wird).
+ * auf einem Vorfahren dazwischen).
+ *
+ * Container Query auf Zeile 1 (NEU seit PO-2026-09-07-006,
+ * design-conventions.md „Karte" -> „Trefferzahl" -> „Platz"): Die frühere
+ * Einschätzung „passt in jeder Breite ohne Umbruch" galt nur für die
+ * ~368px Inhaltsbreite der Listen-Spalte. Die Kartenansicht hat dagegen die
+ * volle Inhaltsbreite (ADR-0019 Punkt 5) — auf einem schmalen Telefon kann
+ * das WENIGER Platz sein als die Listen-Spalte selbst, und der lange
+ * Kartenwortlaut („128 von 128 Orten mit Koordinaten") passt dort nicht
+ * mehr ohne Umbruch. `.werkzeugleiste` ist deshalb jetzt selbst ein
+ * `@container`-Kontext (ADR-0012): unterhalb 768px Containerbreite
+ * (`--breakpoint-md`, als Zahl wörtlich — Custom Properties werten
+ * `@container`-Bedingungen nicht aus, ADR-0012 Punkt 5) zeigt die
+ * Trefferzahl ihre Kurzform.
  */
 import { computed, ref } from 'vue'
 import IconArrowUp from '../../../shared/ui/icons/IconArrowUp.vue'
+import IconKarte from '../../../shared/ui/icons/IconKarte.vue'
+import IconList from '../../../shared/ui/icons/IconList.vue'
+import IconStecknadel from '../../../shared/ui/icons/IconStecknadel.vue'
 import {
   ACHSEN_KRITERIEN,
   ALLGEMEIN_KRITERIEN,
@@ -38,20 +65,34 @@ import {
   type OrteSortierung,
   type SortierKriterium,
 } from '../model/ansicht'
+import { formatiereKartenTrefferzahl, formatiereListenTrefferzahl } from '../lib/trefferzahlFormat'
+import type { OrteAnsicht } from '../lib/ansichtAusAdresse'
 import Sheet from '../../../shared/ui/Sheet.vue'
 
 const props = defineProps<{
   sortierung: OrteSortierung
-  /** Anzahl der aktuell angezeigten Orte (nach Filterstufe — bis -004 immer
-   * gleich `gesamt`). */
+  /** Anzahl der aktuell angezeigten Orte (nach Filterstufe). In der
+   * Kartenansicht ist das die „gefilterte" Zahl aus der
+   * Zwei-Zahlen-Trefferzahl (Nutzerentscheidung 2026-09-11). */
   angezeigt: number
   /** Gesamtzahl der Orte im Bestand, unabhängig vom Filter. */
   gesamt: number
+  /** Aktive Ansicht (PO-2026-09-07-006, ADR-0019) — bestimmt Wortlaut der
+   * Trefferzahl und Zustand/Ziel des Ansichtsumschalters. */
+  ansicht: OrteAnsicht
+  /** Nur in der Kartenansicht gesetzt: Anzahl der tatsächlich gezeichneten
+   * Marker (Orte mit beiden Koordinaten) unter den `angezeigt` gefilterten
+   * Orten. `undefined` in der Listenansicht. */
+  sichtbarAufKarte?: number
 }>()
 
 const emit = defineEmits<{
   'kriterium-gewaehlt': [kriterium: SortierKriterium]
   'richtung-umschalten': []
+  /** Meldet den Wunsch, die Ansicht zu wechseln — `Ortebereich.vue`
+   * entscheidet Ziel-Adresse und führt den `router.push` aus (Constraint
+   * UMSCHALTER: diese Komponente bleibt routerfrei). */
+  'ansicht-umschalten': []
 }>()
 
 const sheetOffen = ref(false)
@@ -62,15 +103,24 @@ const richtungsLabel = computed(() =>
     : 'Absteigend sortiert — zu aufsteigend wechseln',
 )
 
-// Trefferzahl als Paar von Anfang an (design_notes PO-2026-09-07-003): gleich
-// -> „N Orte", sonst -> „M von N Orten" — damit muss -004 beim Einführen des
-// Tag-Filters nur noch `angezeigt` von `gesamt` abweichen lassen, kein
-// Umbau eines reinen Gesamtzählers.
+const ansichtUmschalterLabel = computed(() =>
+  props.ansicht === 'liste'
+    ? 'Listenansicht aktiv — zur Kartenansicht wechseln'
+    : 'Kartenansicht aktiv — zur Listenansicht wechseln',
+)
+
+/**
+ * Trefferzahl-Wortlaut (design-conventions.md „Listen: Sortieren, Filtern,
+ * Gruppierung" und „Karte" -> „Trefferzahl"): In der Kartenansicht mit
+ * bekanntem `sichtbarAufKarte` gilt die Zwei-Zahlen-Form (Nutzerentscheidung
+ * 2026-09-11), sonst die gewöhnliche Listen-Form — reine Funktionen aus
+ * `../lib/trefferzahlFormat.ts`, hier nur noch ausgewählt.
+ */
 const trefferzahlText = computed(() => {
-  if (props.angezeigt === props.gesamt) {
-    return `${props.angezeigt} ${props.angezeigt === 1 ? 'Ort' : 'Orte'}`
+  if (props.ansicht === 'karte' && props.sichtbarAufKarte !== undefined) {
+    return formatiereKartenTrefferzahl(props.sichtbarAufKarte, props.angezeigt, props.gesamt)
   }
-  return `${props.angezeigt} von ${props.gesamt} ${props.gesamt === 1 ? 'Ort' : 'Orten'}`
+  return formatiereListenTrefferzahl(props.angezeigt, props.gesamt)
 })
 
 function aufKriteriumGewaehlt(kriterium: SortierKriterium): void {
@@ -105,9 +155,37 @@ function aufKriteriumGewaehlt(kriterium: SortierKriterium): void {
         </button>
       </div>
 
-      <p class="werkzeugleiste__trefferzahl">
-        {{ trefferzahlText }}
-      </p>
+      <div class="werkzeugleiste__rechts">
+        <p
+          class="werkzeugleiste__trefferzahl"
+          :aria-label="trefferzahlText.lang"
+        >
+          <span class="werkzeugleiste__trefferzahl-lang">{{ trefferzahlText.lang }}</span>
+          <span class="werkzeugleiste__trefferzahl-kurz">
+            <IconStecknadel
+              v-if="trefferzahlText.kartenKurzform"
+              :size="12"
+              class="werkzeugleiste__trefferzahl-pin"
+            />{{ trefferzahlText.kurz }}
+          </span>
+        </p>
+
+        <button
+          type="button"
+          class="werkzeugleiste__ansicht-umschalten"
+          :aria-label="ansichtUmschalterLabel"
+          @click="emit('ansicht-umschalten')"
+        >
+          <IconKarte
+            v-if="ansicht === 'liste'"
+            :size="20"
+          />
+          <IconList
+            v-else
+            :size="20"
+          />
+        </button>
+      </div>
     </div>
 
     <div
@@ -182,6 +260,10 @@ function aufKriteriumGewaehlt(kriterium: SortierKriterium): void {
   flex-direction: column;
   gap: var(--space-8);
   background-color: var(--surface);
+  /* ADR-0012: eigener Container statt Fensterbreite — Zeile 1 muss sowohl
+     in der ~368px schmalen Listen-Spalte als auch über die volle
+     Inhaltsbreite der Kartenansicht funktionieren (PO-2026-09-07-006). */
+  container-type: inline-size;
 }
 
 .werkzeugleiste__zeile--eins {
@@ -243,11 +325,66 @@ function aufKriteriumGewaehlt(kriterium: SortierKriterium): void {
   transform: rotate(180deg);
 }
 
+/* Rechte Gruppe aus Zeile 1: Trefferzahl + Ansichtsumschalter, gemeinsam
+   fest am rechten Rand (design-conventions.md „Ansichtsumschalter") — die
+   Trefferzahl rückt dafür einen Schritt nach innen, der Umschalter besetzt
+   den äußersten rechten Platz. */
+.werkzeugleiste__rechts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex-shrink: 0;
+}
+
 .werkzeugleiste__trefferzahl {
   flex-shrink: 0;
   color: var(--text-muted);
   font-size: var(--font-size-14);
   white-space: nowrap;
+}
+
+/* Kurzform-Umschaltung (design-conventions.md „Karte" -> „Trefferzahl" ->
+   „Platz"): Lang- und Kurzform stehen beide im DOM, `aria-label` am
+   `<p>`-Element trägt den vollen Wortlaut unabhängig von der visuellen
+   Form (siehe Template) — CSS entscheidet nur, welche sichtbar ist. */
+.werkzeugleiste__trefferzahl-kurz {
+  display: none;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.werkzeugleiste__trefferzahl-pin {
+  color: var(--text-muted);
+}
+
+/* 768px = --breakpoint-md, wörtlich (ADR-0012 Punkt 5: Custom Properties
+   werden in @container-Bedingungen nicht ausgewertet). */
+@container (max-width: 767px) {
+  .werkzeugleiste__trefferzahl-lang {
+    display: none;
+  }
+
+  .werkzeugleiste__trefferzahl-kurz {
+    display: inline-flex;
+  }
+}
+
+.werkzeugleiste__ansicht-umschalten {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-8);
+  background-color: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.werkzeugleiste__ansicht-umschalten:hover {
+  background-color: var(--surface-muted);
 }
 
 .werkzeugleiste__zeile--zwei {

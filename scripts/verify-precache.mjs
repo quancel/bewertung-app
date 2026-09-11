@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
  * Build-Ausgaben-Prüfung für PO-2026-09-07-007 (Offline-Auslieferung,
- * ADR-0015). Keine Vitest-Komponente/kein Service-Worker-Mock — die
- * Offline-Kriterien sind im Node-Testrunner nicht sinnvoll simulierbar
- * (`vitest.config.ts`, `environment: 'node'`, keine Browser-Umgebung). Was
- * bleibt, ist die generierte Build-Ausgabe selbst: Läuft nach `npm run
- * build` und prüft `dist/sw.js` auf genau das, was ADR-0015 verlangt.
+ * ADR-0015), erweitert um PO-2026-09-07-006 (ADR-0018 Punkt 5). Keine
+ * Vitest-Komponente/kein Service-Worker-Mock — die Offline-Kriterien sind im
+ * Node-Testrunner nicht sinnvoll simulierbar (`vitest.config.ts`,
+ * `environment: 'node'`, keine Browser-Umgebung). Was bleibt, ist die
+ * generierte Build-Ausgabe selbst: Läuft nach `npm run build` und prüft
+ * `dist/sw.js` auf genau das, was ADR-0015/ADR-0018 verlangen.
  *
  * Kein Bestandteil von `npm run test` (Vitest, reine `src/**\/*.spec.ts`
  * Unit-Tests ohne Build-Abhängigkeit) — dieses Skript braucht ein
@@ -65,6 +66,21 @@ if (!hatCssBundle) fehler('Kein CSS-Bundle in der Precache-Liste.')
 if (!hatNavigateFallback)
   fehler("`navigateFallback: '/index.html'` nicht im generierten Service Worker gefunden (ADR-0015 Punkt 4).")
 if (!hatCleanup) fehler('`cleanupOutdatedCaches()` fehlt (ADR-0015 Punkt 7).')
+
+// ADR-0018 Punkt 5 (PO-2026-09-07-006): Kartenkacheln (tile.openstreetmap.org)
+// und Ortssuche (photon.komoot.io, PO-2026-09-07-008) sind Fremd-Hosts, die
+// NIE über runtimeCaching in den Service Worker gelangen dürfen — beide
+// bringen ihren eigenen Ausfallpfad im jeweiligen Feature mit, kein
+// Precache, keine Strategie. Die billigste Absicherung gegen ein späteres,
+// versehentliches `runtimeCaching`: der Hostname darf im generierten
+// `dist/sw.js` schlicht nicht vorkommen.
+const FREMD_HOSTS = ['tile.openstreetmap.org', 'photon.komoot.io']
+const gefundeneFremdHosts = FREMD_HOSTS.filter((host) => inhalt.includes(host))
+if (gefundeneFremdHosts.length > 0) {
+  fehler(
+    `Fremd-Host(s) im Service Worker gefunden (ADR-0018 Punkt 5): ${gefundeneFremdHosts.join(', ')} — kein runtimeCaching für Kartenkacheln/Ortssuche erlaubt.`,
+  )
+}
 
 if (process.exitCode) {
   console.error('\nPrecache-Prüfung fehlgeschlagen.')

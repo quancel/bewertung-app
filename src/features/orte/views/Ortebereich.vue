@@ -39,8 +39,23 @@
  * Import-Zyklus entsteht, der einzige Grund, aus dem ADR-0013 Punkt 3 das
  * sonst ausschließt. Kein `persistiereOrt`-Aufruf dafür nötig: Bilder liegen
  * im eigenen Object Store, nicht im Ort-Datensatz (ADR-0016 Punkt 1).
+ *
+ * Kartenansicht (PO-2026-09-07-006, ADR-0019): vierter Zweig neben Leer /
+ * gefiltert-leer / Master-Detail — kein neuer Routen-Eintrag, die Ansicht
+ * ist ausschließlich aus `route.query.ansicht` abgeleitet
+ * (`../lib/ansichtAusAdresse.ts`, ADR-0019 Punkt 7: kein zweiter
+ * Ansichtszustand). `Kartenflaeche.vue` (`karte`) wird ASYNCHRON eingebunden
+ * (`defineAsyncComponent`) — `/orte` ist die Startroute, ein statischer
+ * Import legte Leaflet ins Einstiegs-Bundle (ADR-0018 Punkt 6/ADR-0019
+ * Punkt 12). Gezeichnet wird `store.orteGefiltert`, eingeschränkt auf Orte
+ * mit beiden Koordinaten (`../../karte/lib/koordinatenFilter.ts`,
+ * ADR-0019 Punkt 9) — die Sortierung bleibt dabei unausgewertet. Marker-Klick
+ * navigiert wie ein Listeneintrag auf `ort-detail`; Umschalten Liste↔Karte
+ * ist `router.push` (nie `replace`, ADR-0019 Punkt 6), ausgelöst über das
+ * `ansicht-umschalten`-Emit von `Werkzeugleiste.vue` (die selbst store- und
+ * routerfrei bleibt, Constraint UMSCHALTER).
  */
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import PrimaerButton from '../../../shared/ui/PrimaerButton.vue'
 import MasterDetail from '../../../shared/ui/MasterDetail.vue'
@@ -62,7 +77,13 @@ import TagEingabe from '../../tags/components/TagEingabe.vue'
 import Bilderbereich from '../../medien/components/Bilderbereich.vue'
 import type { OrtsvorschlagWerte } from '../lib/geocoding'
 import { SORTIER_KRITERIUM_LABEL, type SortierKriterium, type TagVerknuepfung } from '../model/ansicht'
+import { leiteAnsichtAusAdresse } from '../lib/ansichtAusAdresse'
+import { filtereOrteMitKoordinaten } from '../../karte/lib/koordinatenFilter'
+import { bestimmeKartenLeerzustand } from '../../karte/lib/leerzustand'
 import { useOrteStore, type AchsenName } from '../stores/orte.store'
+
+// Asynchron (ADR-0018 Punkt 6/ADR-0019 Punkt 12): siehe Modul-Kommentar oben.
+const Kartenflaeche = defineAsyncComponent(() => import('../../karte/components/Kartenflaeche.vue'))
 
 const route = useRoute()
 const router = useRouter()
@@ -108,6 +129,54 @@ const keineTreffer = computed(() => store.istGeladen && store.orte.length > 0 &&
 // die Meldung erscheint stattdessen anstelle der (leeren) Liste, siehe
 // Template unten.
 const zeigeNurGefiltertLeer = computed(() => !detailOffen.value && keineTreffer.value)
+
+// --- Kartenansicht (PO-2026-09-07-006, ADR-0019) --------------------------
+
+/** Ausschließlich aus der Adresse abgeleitet (ADR-0019 Punkt 7) — kein Flag
+ * im Store, keine Anzeigeeinstellung. Auf der Detailadresse (`ortId` gesetzt)
+ * liefert `route.name !== 'orte'`, die Funktion also immer `'liste'`
+ * (ADR-0019 Punkt 2: der Parameter hat dort keine Bedeutung). */
+const ansicht = computed(() => leiteAnsichtAusAdresse(route.name, route.query.ansicht))
+
+/** Gezeichnet wird `orteGefiltert`, eingeschränkt auf Orte mit beiden
+ * Koordinaten (ADR-0019 Punkt 9) — die Sortierung bleibt unausgewertet. */
+const kartenOrte = computed(() => filtereOrteMitKoordinaten(store.orteGefiltert))
+
+/** Dritter Kartenzustand (ADR-0019 Punkt 10c): Filter lässt Orte übrig, aber
+ * keiner davon hat Koordinaten. Nur relevant, wenn weder `bestandLeer` noch
+ * `keineTreffer` bereits einen der beiden vorgelagerten Zustände zeigen. */
+const kartenLeerzustand = computed(() =>
+  bestimmeKartenLeerzustand(store.orteGefiltert.length, kartenOrte.value.length),
+)
+
+// Kein Master-Detail-Split in der Kartenansicht (ADR-0019 Punkt 5) — die
+// Kartenansicht existiert ausschließlich ohne offene Detailansicht
+// (ADR-0019 Punkt 6) und tritt hinter den beiden vorgelagerten Leerzuständen
+// zurück (die sind ansichtsunabhängig, design-conventions.md „Karte").
+const zeigeKartenbereich = computed(
+  () => !detailOffen.value && ansicht.value === 'karte' && !bestandLeer.value && !keineTreffer.value,
+)
+
+/** Umschalten ist IMMER `push`, nie `replace` (ADR-0019 Punkt 6) — Browser-
+ * Zurück muss den Wechsel rückgängig machen können. */
+function wechsleZuListe(): void {
+  void router.push('/orte')
+}
+
+function wechsleZuKarte(): void {
+  void router.push('/orte?ansicht=karte')
+}
+
+function aufAnsichtUmgeschaltet(): void {
+  if (ansicht.value === 'karte') wechsleZuListe()
+  else wechsleZuKarte()
+}
+
+/** Marker-Klick = push auf die Detailadresse (ADR-0019 Punkt 6) — dieselbe
+ * Navigation wie ein Klick auf eine Listenzeile. */
+function aufMarkerAusgewaehlt(gewaehlteOrtId: string): void {
+  void router.push({ name: 'ort-detail', params: { ortId: gewaehlteOrtId } })
+}
 
 function formatiereTagAufzaehlung(tags: readonly string[]): string {
   const namen = tags.map((tag) => `„${tag}“`)
@@ -208,6 +277,30 @@ const leerZustandRef = ref<HTMLElement | null>(null)
 // (design_notes PO-2026-09-07-012), nicht die alte ID, die es nicht mehr gibt.
 const geloeschtVorherigerIndex = ref<number | null>(null)
 
+// Fokusrückgabe Karte <- Detail (design-conventions.md „Ansichtswechsel
+// innerhalb eines Bereichs" -> „Rückkehr aus der Detailansicht"): Der zuvor
+// geöffnete Marker existiert erst wieder, NACHDEM `Kartenflaeche.vue` neu
+// gemountet hat (Adresswechsel hängt den ganzen Kartenzweig aus/ein,
+// ADR-0019 Punkt 11) — deshalb als Prop weitergereicht statt hier direkt
+// fokussiert. `Kartenflaeche.vue` meldet die Übernahme per Emit zurück.
+const fokusMarkerId = ref<string | null>(null)
+const kartenLeerRef = ref<HTMLElement | null>(null)
+
+function aufKartenfokusUebernommen(): void {
+  fokusMarkerId.value = null
+}
+
+// Fallback, falls der zuvor geöffnete Ort beim Rücksprung keine Koordinaten
+// mehr hat (der Marker existiert dann nicht mehr, `Kartenflaeche.vue` wird
+// gar nicht gerendert und könnte die Übernahme nie melden): Fokus geht in
+// diesem Randfall auf den dritten Kartenleerzustand.
+watch(kartenLeerzustand, (zustand) => {
+  if (zustand === 'ohne_koordinaten' && fokusMarkerId.value !== null) {
+    fokusMarkerId.value = null
+    void nextTick(() => kartenLeerRef.value?.focus())
+  }
+})
+
 /** Ab lg sichtbar (nicht per `display: none` durch MasterDetail
  * ausgeblendet) — unterhalb lg sind Fokus-/Scroll-Ziele der jeweils
  * anderen Spalte nicht im sichtbaren Layout vorhanden. */
@@ -253,7 +346,17 @@ watch(ortId, async (neu, alt) => {
     fokussiereDetailNachOeffnen()
     scrolleZeileInSicht(neu)
   } else if (!neu && alt) {
-    fokussiereListeNachSchliessen(alt)
+    // Rücksprung in die Kartenansicht (design-conventions.md
+    // „Ansichtswechsel innerhalb eines Bereichs"): `ansicht` liest zu diesem
+    // Zeitpunkt bereits die NEUE Adresse (`ortId` selbst ist von `route`
+    // abgeleitet, die Navigation ist also bereits abgeschlossen). Löschen
+    // landet immer auf der Liste (`replace('/orte')`, kein Sonderfall) und
+    // nimmt diesen Zweig deshalb nie.
+    if (ansicht.value === 'karte') {
+      fokusMarkerId.value = alt
+    } else {
+      fokussiereListeNachSchliessen(alt)
+    }
   }
 })
 
@@ -419,8 +522,11 @@ async function aufLoeschenBestaetigt(): Promise<void> {
         :sortierung="store.sortierung"
         :angezeigt="store.orteGefiltert.length"
         :gesamt="store.orte.length"
+        :ansicht="ansicht"
+        :sichtbar-auf-karte="kartenOrte.length"
         @kriterium-gewaehlt="aufKriteriumGewaehlt"
         @richtung-umschalten="aufRichtungUmgeschaltet"
+        @ansicht-umschalten="aufAnsichtUmgeschaltet"
       >
         <template
           v-if="store.tagVokabular.length > 0"
@@ -450,6 +556,80 @@ async function aufLoeschenBestaetigt(): Promise<void> {
       </div>
     </div>
 
+    <!-- Kartenansicht (PO-2026-09-07-006, ADR-0019 Punkt 5): volle
+         Inhaltsbreite, kein MasterDetail — Kopfzeile und Werkzeugleiste wie
+         in der Liste, darunter die Karte über die volle Breite. -->
+    <div
+      v-else-if="zeigeKartenbereich"
+      class="ortebereich__karte-bereich"
+    >
+      <div class="ortebereich__kopf">
+        <h1 class="ortebereich__kopf-titel">
+          Orte
+        </h1>
+        <PrimaerButton
+          type="button"
+          @click="sheetOffen = true"
+        >
+          <IconPlus :size="20" />
+          Ort hinzufügen
+        </PrimaerButton>
+      </div>
+
+      <Werkzeugleiste
+        :sortierung="store.sortierung"
+        :angezeigt="store.orteGefiltert.length"
+        :gesamt="store.orte.length"
+        :ansicht="ansicht"
+        :sichtbar-auf-karte="kartenOrte.length"
+        @kriterium-gewaehlt="aufKriteriumGewaehlt"
+        @richtung-umschalten="aufRichtungUmgeschaltet"
+        @ansicht-umschalten="aufAnsichtUmgeschaltet"
+      >
+        <template
+          v-if="store.tagVokabular.length > 0"
+          #zeile-2
+        >
+          <TagFilterleiste
+            :vokabular="store.tagVokabular"
+            :aktive-tags="store.aktiveTags"
+            :verknuepfung="store.tagfilterEinstellung.verknuepfung"
+            @tag-umschalten="aufTagUmschalten"
+            @verknuepfung-geaendert="aufVerknuepfungGeaendert"
+            @zuruecksetzen="aufTagfilterZurueckgesetzt"
+          />
+        </template>
+      </Werkzeugleiste>
+
+      <!-- Dritter Kartenleerzustand (ADR-0019 Punkt 10c, design-conventions.md
+           „Karte"): Filter lässt Orte übrig, aber keiner hat Koordinaten.
+           Ersetzt NUR die Kartenfläche — Kopfzeile/Werkzeugleiste bleiben
+           sichtbar (siehe oben). -->
+      <div
+        v-if="kartenLeerzustand === 'ohne_koordinaten'"
+        ref="kartenLeerRef"
+        class="ortebereich__karte-leer"
+        tabindex="-1"
+      >
+        <p class="ortebereich__karte-leer-text">
+          Keiner der angezeigten Orte hat Koordinaten.
+        </p>
+        <PrimaerButton
+          type="button"
+          @click="wechsleZuListe"
+        >
+          Zur Ortsliste
+        </PrimaerButton>
+      </div>
+      <Kartenflaeche
+        v-else
+        :orte="kartenOrte"
+        :fokussierter-ort-id="fokusMarkerId"
+        @ort-ausgewaehlt="aufMarkerAusgewaehlt"
+        @fokus-uebernommen="aufKartenfokusUebernommen"
+      />
+    </div>
+
     <MasterDetail
       v-else
       :detail-offen="detailOffen"
@@ -473,8 +653,11 @@ async function aufLoeschenBestaetigt(): Promise<void> {
             :sortierung="store.sortierung"
             :angezeigt="store.orteGefiltert.length"
             :gesamt="store.orte.length"
+            :ansicht="ansicht"
+            :sichtbar-auf-karte="kartenOrte.length"
             @kriterium-gewaehlt="aufKriteriumGewaehlt"
             @richtung-umschalten="aufRichtungUmgeschaltet"
+            @ansicht-umschalten="aufAnsichtUmgeschaltet"
           >
             <template
               v-if="store.tagVokabular.length > 0"
@@ -795,6 +978,37 @@ async function aufLoeschenBestaetigt(): Promise<void> {
 
 .ortebereich__liste-spalte {
   padding: var(--space-16);
+}
+
+/* Kartenansicht (PO-2026-09-07-006, ADR-0019 Punkt 5): volle
+   INHALTSBREITE statt der ~400px schmalen Listen-Spalte — dieselbe
+   Kopfzeile/Werkzeugleiste wie oben, nur in einem breiteren Wurzelelement.
+   „Volle Inhaltsbreite" heißt die normale Container-Breite der App
+   (`--container-max-width`, wie `MasterDetail.vue` sie außen anlegt und wie
+   `.ortebereich__leer` es für den anderen Nicht-MasterDetail-Zweig oben
+   bereits tut), NICHT die nackte Fensterbreite — `<main>` selbst
+   (`AppRahmen.vue`) setzt keine eigene Höchstbreite. */
+.ortebereich__karte-bereich {
+  max-width: var(--container-max-width);
+  margin: 0 auto;
+  padding: var(--space-16);
+}
+
+/* Dritter Kartenleerzustand (design-conventions.md „Karte"): gleiches
+   typografisches Muster wie die übrigen Leerzustände dieser Datei, ersetzt
+   nur die Kartenfläche. */
+.ortebereich__karte-leer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-16);
+  padding: var(--space-64) var(--space-16);
+  text-align: center;
+}
+
+.ortebereich__karte-leer-text {
+  color: var(--text);
+  font-size: var(--font-size-16);
 }
 
 .ortebereich__kopf {

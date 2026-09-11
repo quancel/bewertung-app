@@ -51,4 +51,25 @@ describe('app/router', () => {
   it('behält die Root-Weiterleitung auf /orte unverändert (seit PO-2026-09-07-001)', () => {
     expect(routes[0]).toMatchObject({ path: '/', redirect: '/orte' })
   })
+
+  // PO-2026-09-07-006 (ADR-0019): Die Kartenansicht ist KEIN eigener
+  // Routen-Eintrag, sondern derselbe Pfad `/orte` mit einem Query-Parameter.
+  // Diese Tests sichern genau das ab — kein neuer Eintrag in `routes`, die
+  // Query bleibt beim Auflösen erhalten.
+  it('legt für die Kartenansicht KEINEN eigenen Routen-Eintrag an (ADR-0019)', () => {
+    expect(routes.some((eintrag) => String(eintrag.path).includes('karte'))).toBe(false)
+    expect(routes.some((eintrag) => eintrag.name === 'karte')).toBe(false)
+  })
+
+  it('löst /orte?ansicht=karte weiterhin auf die Ortsliste-Route auf, Query bleibt erhalten', () => {
+    const router = erzeugeTestRouter()
+    const aufgeloest = router.resolve('/orte?ansicht=karte')
+    expect(aufgeloest.name).toBe('orte')
+    expect(aufgeloest.query.ansicht).toBe('karte')
+  })
+
+  it('löst /orte mit unbekanntem ansicht-Wert weiterhin auf die Ortsliste-Route auf', () => {
+    const router = erzeugeTestRouter()
+    expect(router.resolve('/orte?ansicht=unbekannt').name).toBe('orte')
+  })
 })

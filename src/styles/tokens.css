@@ -97,4 +97,11 @@
      design-conventions.md "Master-Detail (ab lg)"). Spaltenabstand nutzt
      die bestehende Spacing-Skala (--space-24), kein eigenes Token. */
   --listen-spalte-breite: 400px;
+  /* Höhe der Kartenfläche (PO-2026-09-07-006, Constraint HÖHE/LAYOUTMASSE):
+     Leaflet braucht eine explizite Höhe, ein Container ohne Höhe rendert
+     eine 0px-Karte. Kein Wert dazu in design_notes/design-conventions.md —
+     reine Layout-Mechanik, kein Gestaltungsentscheid; ein Richtwert wie die
+     Listen-Spaltenbreite oben, einheitlich über alle Breiten (die
+     Kartenansicht hat kein eigenes @container-Layout für die Höhe). */
+  --karte-hoehe: 480px;
 }
