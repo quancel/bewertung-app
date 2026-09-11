@@ -30,7 +30,12 @@ Zeile 1, den dritten Karten-Leerzustand und den neuen Abschnitt
 „Ansichtswechsel innerhalb eines Bereichs". Eine zweite Nachtrags-Runde von
 006 (Nutzerentscheidung zur zwei-zahligen Kartenansicht-Trefferzahl) zieht
 deren Wortlaut samt Kurzform-Schwelle nach und vereinheitlicht sie mit dem
-Fallback des Ansichtsumschalters.
+Fallback des Ansichtsumschalters. Eine Korrektur-Runde nach einem
+Abnahme-Befund zu 012 (2026-09-11) streicht den 180ms-Crossfade des
+Master-Detail-Inhaltswechsels ersatzlos — er wurde nie gebaut, kein
+Akzeptanzkriterium fordert ihn, und er war inhaltlich nicht mit dem
+inzwischen für den Ansichtswechsel festgelegten Sprung-Verhalten
+vereinbar. Beide Wechsel gelten jetzt einheitlich als Sprung.
 
 - **Zuletzt kuratiert**: 2026-09-11
 
@@ -276,11 +281,11 @@ Eigenschaft.
 - **Ein Wechsel zwischen zwei Ansichten desselben Bereichs** (z. B. `/orte`
   ↔ `/orte?ansicht=karte`) **ist ein Sprung, keine Zustandsanimation** —
   kein Fade/Slide, analog zum Bereichswechsel (siehe „Navigation &
-  Routing" → Zurück-Aktion). Das unterscheidet sich vom 180ms-Crossfade der
-  Master-Detail-Spalte: Der Crossfade ist für einen Inhaltswechsel
-  **innerhalb** einer stabil bleibenden Spalte reserviert (Auswahl ↔
-  Auswahl), nicht für einen Wechsel, der die gesamte Spaltenstruktur ändert
-  und eine eigene `push`-Navigation mit eigenem History-Eintrag ist.
+  Routing" → Zurück-Aktion) **und analog zum Inhaltswechsel der
+  Master-Detail-Detailspalte** (siehe „Master-Detail (ab `lg`)" → „Wechsel
+  des Inhalts"): ein vollständiger Austausch von Inhalt ist projektweit ein
+  Sprung, unabhängig davon, ob dabei die Spaltenstruktur mitwechselt oder
+  nicht.
 - **Gemeinsame Bedienelemente** (Kopfzeile, Werkzeugleiste inkl.
   Tag-Filter) **bleiben über beide Ansichten identisch** — derselbe
   Baustein, nur ein breiterer Container; kein separates Erscheinungsbild
@@ -385,9 +390,28 @@ Eigenschaft.
   gewählte Zeile schließt nicht (kein Toggle) — Schließen hat genau einen
   Weg.
 - **Wechsel des Inhalts** der Detailspalte (Auswahl ↔ leer, Ort A ↔ Ort
-  B): 180ms-Crossfade (bestehende Ein-/Ausblenden-Konvention), keine
-  Sheet-artige Slide-Bewegung — die Spalte selbst bewegt sich nicht, nur
-  ihr Inhalt.
+  B): **Sprung, keine Zustandsanimation** — kein Fade. **Bewusste
+  Streichung** der früheren 180ms-Crossfade-Konvention (Abnahme-Befund
+  2026-09-11: nie gebaut, kein Akzeptanzkriterium fordert sie). Gründe
+  gegen den Crossfade, nicht nur „nicht gebaut": (1) Auswahl ↔ leer
+  überblendet zwei strukturell verschiedene Inhalte an derselben Stelle
+  (dichtes, linksbündiges Formular vs. kurzer zentrierter Satz ohne
+  Primär-Aktion) — bei abweichender Form/Position zweier sich
+  überlagernder Inhalte entsteht ein sichtbarer Doppel-Eindruck statt einer
+  ruhigen Überblendung. (2) Ort A ↔ Ort B überblendet zwei Formulare mit
+  gleicher Feldstruktur, aber unterschiedlichem Text in Label-Nähe
+  (Bezeichnung, Adresse, Kommentare) — das Risiko ist dort umgekehrt:
+  lesbarer Text zweier Orte übereinander während der Überblendung
+  (Ghosting), gerade weil die Positionen fast identisch sind. (3) Die
+  Auswahl-Hervorhebung in der Liste (linke 3px-Kante + Fläche +
+  `aria-current`) sowie die sofortige Fokusbewegung in die Detailspalte
+  bestätigen den Wechsel bereits eindeutig — ein zusätzliches Überblenden
+  wäre rein dekorativ (design-concept.md „Motion": Bewegung erklärt
+  Herkunft und Zustandswechsel, sie dekoriert nicht). Einheitlich mit dem
+  Ansichtswechsel Liste ↔ Karte (siehe „Ansichtswechsel innerhalb eines
+  Bereichs"): jeder vollständige Inhaltsaustausch ist ein Sprung. Die
+  Spalte selbst bewegt sich dabei ohnehin nicht, nur ihr Inhalt wechselt —
+  daran ändert die Streichung nichts.
 - **Fokus**: Öffnen bewegt den Fokus in die Detailspalte (erstes
   sinnvolles Element, z. B. Überschrift oder Schließen-Button), nicht
   erst nach Durchtabben der restlichen Liste. Schließen oder Löschen gibt
