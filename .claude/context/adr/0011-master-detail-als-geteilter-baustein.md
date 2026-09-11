@@ -42,9 +42,13 @@ sollen.
 4. **Die Adresse ist die einzige Quelle der Auswahl.** Es gibt keinen
    zusätzlichen „ausgewählter Ort"-Zustand neben `route.params.ortId`. Öffnen
    ist `push`, Schließen ist derselbe History-Schritt wie Browser-Zurück,
-   Löschen des gewählten Ortes ist `replace` auf `/orte`. Ohne `replace`
-   landete ein Neuladen nach dem Löschen auf der Meldung „Adresse ohne Ziel"
-   (ADR-0010) statt im Zustand ohne Auswahl.
+   Löschen des gewählten Ortes ist `replace` auf `/orte`.
+   **Begründung (korrigiert, siehe unten):** `replace` **ersetzt** den
+   History-Eintrag der gelöschten Detailadresse, statt einen weiteren
+   anzuhängen. Mit `push` bliebe `/orte/:ortId` als vorheriger Eintrag
+   stehen, und **Browser-Zurück** führte auf einen Ort, den es nicht mehr
+   gibt — die Meldung „Adresse ohne Ziel" (ADR-0010) als Ergebnis einer
+   Aktion, die der Nutzer gerade selbst ausgelöst hat.
 5. **`lg` wird an genau einer Stelle ausgewertet** — in der Bereichsansicht
    bzw. im Baustein, per CSS. Der Breitenwechsel ist ein reiner
    Layoutwechsel bei gleicher Adresse: kein Navigations-Event, kein Refetch,
@@ -79,6 +83,21 @@ sollen.
   Spalte, nicht am Fenster. **-005** und **-006** liegen in der
   Detail-Spalte und folgen ADR-0012. **-009** bleibt einspaltig und benutzt
   den Baustein nicht.
+
+## Korrektur der Begründung zu Punkt 4 (2026-09-11)
+
+Die **Anforderung** in Punkt 4 (`replace` beim Löschen) ist unverändert
+gültig und war es immer. Falsch war bis zum 2026-09-11 ihre **Begründung**:
+Dort stand, ohne `replace` lande ein **Neuladen** nach dem Löschen auf
+„Adresse ohne Ziel". Das trifft nicht zu — nach einem `push('/orte')` ist die
+Adresszeile bereits `/orte`, ein Neuladen ist folgenlos. Der tatsächliche
+Schaden ist **Browser-Zurück** auf die tote Detailadresse.
+
+Gefunden hat das der `product-owner` bei der Abnahme (bestätigt vom
+`frontend-lead`); die Stelle im Code war tatsächlich als `push` gebaut und
+ist mit `dfa27ff` auf `replace` korrigiert. Kein `superseded by`: Weder die
+Entscheidung noch der geforderte Code ändert sich, nur der Satz, mit dem sie
+begründet ist.
 
 ## Alternativen (kurz)
 
