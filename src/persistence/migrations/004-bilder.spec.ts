@@ -31,6 +31,18 @@ describe('schritt004Bilder', () => {
     ])
   })
 
+  it('reicht ein bereits vorhandenes Bilder-Feld unverändert durch, statt es zu verwerfen (ADR-0003: kein Migrationsschritt verwirft Daten, die er nicht kennt — der Fall ist heute unerreichbar, da ein v3-Bestand nie ein Bilder-Feld trägt, aber die Funktion darf sich nicht darauf verlassen)', () => {
+    const bestand = {
+      schemaVersion: 3,
+      orte: [],
+      bilder: [{ id: 'b1', ortId: 'a' }],
+    }
+
+    const ergebnis = schritt004Bilder.migriere(bestand)
+
+    expect(ergebnis.bilder).toEqual([{ id: 'b1', ortId: 'a' }])
+  })
+
   it('Pflicht-Fixture-Test (ADR-0003 Punkt 5): migriert das v3-Fixture aus PO-2026-09-07-004 fehlerfrei und ergänzt bilder: []', () => {
     const bestand = v3Bestand as { schemaVersion: number; orte: unknown[] }
 

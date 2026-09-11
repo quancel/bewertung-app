@@ -470,7 +470,7 @@ async function aufLoeschenBestaetigt(): Promise<void> {
   const erfolg = await store.loescheOrt(id)
   if (erfolg) {
     geloeschtVorherigerIndex.value = vorherigerIndex
-    await router.push('/orte')
+    await router.replace('/orte')
   } else {
     loeschenOffen.value = false
   }

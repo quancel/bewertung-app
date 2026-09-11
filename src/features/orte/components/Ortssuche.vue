@@ -15,6 +15,26 @@
  * überstimmt das jeden Zwischenzustand der Suche — der Nutzer erlebt keinen
  * Fehlschlag, bevor er überhaupt getippt hat. Das Feld bleibt in jedem
  * Zustand fokussierbar, nie `disabled`.
+ *
+ * Nacharbeit aus der Abnahme (2026-09-11, Befund 2): Der „kein Netz"-Hinweis
+ * ist der einzige der vier Hinweistexte, der ohne jede Nutzeraktion und
+ * DAUERHAFT erscheint (solange offline) — anders als Trefferliste/„lädt"/
+ * „keine Treffer"/„Fehler", die erst nach einer Eingabe entstehen und mit der
+ * nächsten Eingabe oder Escape wieder verschwinden. In der überlagernden,
+ * absolut positionierten `.ortssuche__ergebnisse`-Fläche verdeckte er dadurch
+ * dauerhaft das darunterliegende Feld „Adresse" — auf einem Touchgerät ohne
+ * Escape-Taste ohne jeden Ausweg (verletzt AC4 aus PO-2026-09-07-008: „das
+ * Formular bleibt vollständig bedienbar"). Deshalb rendert der Kein-Netz-Text
+ * jetzt AUSSERHALB dieser Fläche, im normalen Dokumentfluss unter dem
+ * Suchfeld — er schiebt nachfolgende Felder nach unten, statt sie zu
+ * verdecken. Die überlagernde Fläche bleibt ausschließlich für die
+ * tatsächliche Trefferliste sowie die beiden vorübergehenden Hinweise „lädt"
+ * und „keine Treffer"/„Fehler" reserviert — Zustände, die stets aus einer
+ * expliziten Eingabe folgen und bei der nächsten Eingabe wieder verschwinden,
+ * also nie unbegrenzt stehen bleiben. Unverändert: gemuteter Text, kein
+ * Icon, keine Warn-/Fehlerfarbe (design-conventions.md „Listen“ →
+ * „Netzabhängige Aktion ohne Erfolg"); nur die Platzierung ist neu, Wortlaut
+ * und „sofort beim Öffnen" bleiben wie in den design_notes festgelegt.
  */
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { useNetzzustand } from '../../../shared/composables/useNetzzustand'
@@ -43,10 +63,15 @@ onBeforeUnmount(() => client.zerstoere())
  * Hinweis ohne dass der Nutzer erst tippen und einen Fehlschlag erleben
  * muss (design_notes, ADR-0021 Punkt 2/4). `online.value === true` ist
  * dagegen keine Zusage; in dem Fall zählt ausschließlich das tatsächliche
- * Abrufergebnis aus `clientZustand`. */
+ * Abrufergebnis aus `clientZustand`.
+ *
+ * `kein_netz` läuft NICHT mehr durch diesen Zustand (Befund 2, siehe
+ * Modul-Kommentar): Solange offline, blendet dieser Computed die
+ * überlagernde Ergebnisfläche komplett aus (`inaktiv`) — der separate,
+ * dauerhafte Hinweis dafür steht weiter unten im normalen Fluss. */
 const zustand = computed<OrtssucheZustand>(() => {
   if (unterdrueckt.value) return { status: 'inaktiv' }
-  if (!online.value) return { status: 'kein_netz' }
+  if (!online.value) return { status: 'inaktiv' }
   return clientZustand.value
 })
 
@@ -62,6 +87,12 @@ const HINWEISTEXT: Partial<Record<OrtssucheZustand['status'], string>> = {
 }
 
 const hinweistext = computed(() => HINWEISTEXT[zustand.value.status] ?? '')
+
+/** Dauerhafter, nicht überlagernder Hinweis (Befund 2) — unabhängig von
+ * `unterdrueckt`: Escape schließt die Ergebnisfläche, aber „kein Netz" ist
+ * kein Zwischenergebnis einer Suche, sondern eine fortbestehende Aussage
+ * über den Verbindungsstatus, die erst mit der Verbindung selbst endet. */
+const zeigeKeinNetzHinweis = computed(() => !online.value)
 
 function aufEingabe(event: Event): void {
   eingabe.value = (event.target as HTMLInputElement).value
@@ -116,9 +147,11 @@ function aufEscape(): void {
         @keydown.esc="aufEscape"
       >
 
-      <!-- Eine gemeinsame Fläche für Vorschläge, Ladezustand und die drei
-           netzabhängigen Hinweistexte (design_notes: "dieselbe Stelle unter
-           dem Feld") — nie zwei konkurrierende Flächen gleichzeitig. -->
+      <!-- Gemeinsame ÜBERLAGERNDE Fläche für Trefferliste, „lädt" und
+           „keine Treffer"/„Fehler" (Befund 2 aus der Abnahme, 2026-09-11):
+           alle drei entstehen erst durch eine Eingabe und verschwinden mit
+           der nächsten wieder — anders als der dauerhafte Kein-Netz-Hinweis
+           unten, der deshalb NICHT mehr hier, sondern im Fluss steht. -->
       <div
         v-if="zustand.status !== 'inaktiv'"
         class="ortssuche__ergebnisse"
@@ -156,6 +189,19 @@ function aufEscape(): void {
         </p>
       </div>
     </div>
+
+    <!-- Kein-Netz-Hinweis (Befund 2): im normalen Dokumentfluss statt in der
+         überlagernden Fläche — schiebt nachfolgende Felder (u. a. „Adresse")
+         nach unten, statt sie zu verdecken. Erscheint sofort beim Öffnen,
+         solange offline (design_notes), unabhängig von `unterdrueckt`/
+         Escape. Gleiche Optik wie die übrigen Hinweistexte: gemuteter Text,
+         kein Icon, keine Warn-/Fehlerfarbe. -->
+    <p
+      v-if="zeigeKeinNetzHinweis"
+      class="ortssuche__hinweis ortssuche__hinweis--in-fluss"
+    >
+      {{ HINWEISTEXT.kein_netz }}
+    </p>
   </div>
 </template>
 
@@ -238,5 +284,15 @@ function aufEscape(): void {
   padding: var(--space-8) var(--space-12);
   color: var(--text-muted);
   font-size: var(--font-size-14);
+}
+
+/* Kein-Netz-Hinweis (Befund 2, Abnahme 2026-09-11): NICHT Teil der
+   überlagernden `.ortssuche__ergebnisse`-Fläche, sondern regulärer Fluss-
+   Nachfolger von `.ortssuche__feldbereich` — Abstand kommt bereits vom
+   `gap` des `.ortssuche`-Flex-Containers, kein `position`. Gleiche
+   Innenabstände/Optik wie `.ortssuche__hinweis`, damit der Text nicht
+   „springt", nur wenn er von der Fläche in den Fluss wechselt. */
+.ortssuche__hinweis--in-fluss {
+  padding: 0 var(--space-12);
 }
 </style>
