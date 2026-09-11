@@ -28,3 +28,4 @@ Thumbs.db
 # Claude Code: persönliche Einstellungen bleiben lokal,
 # .claude/settings.json und .claude/context/ werden committet
 .claude/settings.local.json
+.smoke/

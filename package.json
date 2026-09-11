@@ -11,7 +11,8 @@
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "test": "vitest run",
-    "verify:pwa": "node scripts/verify-precache.mjs"
+    "verify:pwa": "node scripts/verify-precache.mjs",
+    "smoke": "npm run build && node scripts/smoke.mjs"
   },
   "dependencies": {
     "fflate": "^0.8.3",

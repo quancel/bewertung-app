@@ -157,6 +157,7 @@ Ein Vite-Projekt (Vue 3, TypeScript, Pinia, vue-router; siehe
 | Test | `npm run test` (Vitest, `src/**/*.spec.ts`) |
 | Produktions-Build | `npm run build` (führt Typecheck + `vite build` aus) |
 | Build-Vorschau lokal | `npm run preview` |
+| Rauchtest im Browser | `npm run smoke` (baut vorher) |
 
 Test-Runner ist **Vitest** (`vitest.config.ts`), eingerichtet mit
 PO-2026-09-07-001 (persistierte Migrationen, ADR-0003 — das erste Paket mit
@@ -168,3 +169,35 @@ neben der getesteten Datei (code-conventions.md). Noch keine
 Component-Test-Infrastruktur (`@vue/test-utils`) — bislang reichen reine
 Store-/Persistenz-Tests; das erste Paket mit Testbedarf für
 Komponentenverhalten richtet das ein und ergänzt diese Zeile.
+
+## Rauchtest: `npm run smoke`
+
+Die **Minimalverifikation** aus `.claude/agent-team/rules/VERIFICATION.md`,
+ausführbar. `scripts/smoke.mjs` baut, startet `vite preview`, öffnet mit
+Playwright jede Ansicht und prüft die fünf Zusicherungen: Anwendung
+startet · keine Laufzeitfehler · jede Ansicht einmal geöffnet · über CSS
+geladene Ressourcen aufgelöst · kein Bedienelement verdeckt. Zusätzlich
+einmal das Ortsdetail **ohne Netz**. Bildschirmfotos landen in `.smoke/`
+(ignoriert).
+
+**Der Lead führt ihn aus, bevor er ein Paket als erledigt meldet** — nicht
+statt der Unit-Tests, sondern zusätzlich. Typecheck, Lint und Vitest
+prüfen, ob Code zusammenpasst; der Rauchtest prüft, ob das Ergebnis
+benutzbar ist. Zwei Fehler dieses Projekts sind durch alle drei **und**
+durch die Code-Abnahme gekommen und erst beim ersten Öffnen der App
+aufgefallen: jedes Icon war ein farbiger Kasten (ungültiges `url()` mit
+einer Data-URI voller Hochkommata), und das Feld „Adresse" war ohne Netz
+von der Hinweisfläche der Ortssuche verdeckt. Beide sind als **Zusicherung**
+abgebildet, nicht als Einzelfall-Test — geprüft wird die Eigenschaft, nicht
+die Stelle. Gegen den jeweiligen Vor-Korrektur-Stand aus der Historie
+nachgewiesen: beide werden gefangen, mit Exit-Code 1.
+
+**Playwright ist bewusst keine Projekt-Abhängigkeit** — es zieht einen
+Browser nach sich, den CI-Umgebungen meist schon mitbringen.
+`scripts/smoke.mjs` sucht es an den üblichen Orten; fehlt es, sagt der
+Rauchtest das und endet mit 0, statt einen Build rot zu färben, der nichts
+dafür kann. Die fünf Zusicherungen sind dann **ungeprüft**, und genau das
+gehört so in den Bericht.
+
+Neue Ansicht gebaut? In `ANSICHTEN` (oben in `scripts/smoke.mjs`)
+eintragen, sonst prüft sie niemand.
