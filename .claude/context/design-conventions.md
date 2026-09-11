@@ -24,8 +24,15 @@ Eine gemeinsame Nachtrags-Runde von 003/004 (nach dem Schnitt-Wechsel, der
 012 vor 003/004 einordnet) zieht die Werkzeugleiste auf die ~400px schmale
 Listen-Spalte nach: zwei Zeilen bleiben in jeder Breite zwei Zeilen, die
 Zurücksetzen-Aktion des Tag-Filters wandert an einen festen rechten Rand.
+Eine Nachtrags-Runde von 006 (nach der Nutzerentscheidung für die volle
+Breite der Kartenansicht, ADR-0019) ergänzt den Ansichtsumschalter in
+Zeile 1, den dritten Karten-Leerzustand und den neuen Abschnitt
+„Ansichtswechsel innerhalb eines Bereichs". Eine zweite Nachtrags-Runde von
+006 (Nutzerentscheidung zur zwei-zahligen Kartenansicht-Trefferzahl) zieht
+deren Wortlaut samt Kurzform-Schwelle nach und vereinheitlicht sie mit dem
+Fallback des Ansichtsumschalters.
 
-- **Zuletzt kuratiert**: 2026-09-08
+- **Zuletzt kuratiert**: 2026-09-11
 
 ## Zustände
 
@@ -115,6 +122,24 @@ Eigenschaft.
   breiten-umschaltende Variante mit einer gemeinsamen Kopfzeile ab `lg`
   ist überholt und ersatzlos gestrichen — sie ging von einer vollen
   Fensterbreite aus, die es seit der Zweispaltigkeit nicht mehr gibt.)
+- **Ansichtsumschalter (z. B. Liste/Karte) in Zeile 1**: Icon-only Button,
+  44×44, `aria-label` beschreibt Zustand **und** Ziel wie beim
+  Richtungs-Button („Listenansicht aktiv — zur Kartenansicht wechseln" /
+  „Kartenansicht aktiv — zur Listenansicht wechseln"), **kein**
+  Segment-Control — in der ~368px schmalen Inhaltsbreite reicht der Platz
+  nicht für ein zweites beschriftetes Tap-Ziel neben Sortier-Chip,
+  Richtungs-Button und Trefferzahl (durchgerechnet: Chip + Richtung ~172px,
+  Toggle 44px, Gaps ~16px lassen ~136px für die Trefferzahl — „128 von 128
+  Orten" passt darin noch, zwei beschriftete Segmente á ~45-55px nicht
+  mehr). Fester äußerster rechter Platz in Zeile 1, rechts von der
+  Trefferzahl — dieselbe Logik wie die festen Ränder in Zeile 2; die
+  Trefferzahl rückt dafür einen Schritt nach innen. Gilt unverändert in
+  jeder Breite, auch über die volle Breite einer anderen Ansicht desselben
+  Bereichs. **Fallback bei echter Enge**: Zeile 1 bekommt dafür erstmals
+  eine Container Query (bislang bewusst keine, siehe Kommentar in
+  `Werkzeugleiste.vue`) — Schwellenwert und Kurzform der Trefferzahl stehen
+  jetzt an einer Stelle unter „Karte" → „Trefferzahl", weil die dortige,
+  längere Kartenansicht-Fassung den eigentlich knappen Fall ist.
 - **Sortieren bei > 4 Kriterien: Sheet statt Auswahlfeld.** Sortier-Chip
   öffnet ein Sheet (Radius 16px, 240 ms), Kriterien gruppiert unter
   „Allgemein" (Bezeichnung, Zuletzt geändert, Gesamtnote) und
@@ -172,11 +197,69 @@ Eigenschaft.
 
 ## Karte
 
-- Zwei Leerzustände, zwei Texte: „kein Ort hat Koordinaten" (unabhängig
-  vom Netz, typografisch wie „Leer (kein Datensatz)", Aktion „Zur
-  Ortsliste") vs. „Orte vorhanden, aber kein Netz für Kacheln" (Marker
-  bleiben sichtbar, dazu ein kleiner Hinweis-Chip an einer festen Kante —
-  kein vollflächiger Text, der die Marker verdeckt).
+- **Drei unterscheidbare Leerzustände** (ADR-0019 P10, „nie derselbe
+  Text"): (1) Bestand insgesamt leer — der allgemeine Zustand aus „Leer
+  (kein Datensatz)", greift bereits vor jeder Ansicht. (2) Tag-Filter lässt
+  keinen Ort übrig — der bestehende Zustand „Leer (gefiltert, kein
+  Treffer)", unverändert übernommen (Kopfzeile und Werkzeugleiste inkl.
+  Tag-Filter bleiben sichtbar darüber). (3) **Neu**: Der Filter lässt Orte
+  übrig, aber keiner davon hat Koordinaten — Text „Keiner der angezeigten
+  Orte hat Koordinaten.", rein typografisch wie die übrigen Leerzustände,
+  zentriert, ersetzt nur die Kartenfläche (Kopfzeile + Werkzeugleiste
+  bleiben sichtbar). Primär-Aktion **„Zur Ortsliste"** (Filter bleibt beim
+  Wechsel erhalten). Ersetzt den bisherigen Eintrag „kein Ort hat
+  Koordinaten" vollständig: „angezeigten" macht den Bezug zum aktiven
+  Filter klar, ohne dass der Zustand zwei Textvarianten bräuchte — ist kein
+  Filter aktiv, ist die Aussage inhaltlich identisch zum bisherigen Text;
+  ist einer aktiv, bleibt die feste Zurücksetzen-Aktion in Zeile 2 die
+  schnellere Alternative zur eigenen Primär-Aktion.
+- Zustand „Orte vorhanden, aber kein Netz für Kacheln" (Marker bleiben
+  sichtbar, dazu ein kleiner Hinweis-Chip an einer festen Kante — kein
+  vollflächiger Text, der die Marker verdeckt).
+- **Trefferzahl in der Kartenansicht nennt zwei Zahlen** (Nutzerentscheidung
+  2026-09-11, gesetzt — **keine Ableitung** des `ux-ui-designer`, deshalb
+  nicht als Redundanz kürzbar): die sichtbaren Marker **und** die
+  gefilterte Gesamtmenge, nicht wie in der Liste die gefilterte Menge und
+  den Gesamtbestand. Zweiform-Muster analog zur Listen-Trefferzahl: sind
+  beide Zahlen gleich (jeder gefilterte Ort hat Koordinaten), „{N} {Ort/
+  Orte} mit Koordinaten"; sind sie unterschiedlich, „{sichtbar} von
+  {gefiltert} {Ort/Orten} mit Koordinaten" — die Ort/Orten-Form richtet
+  sich nach der **zweiten** Zahl (gefiltert), wie bei der Listen-Trefferzahl
+  auch. Nur bei `sichtbar > 0` — bei `sichtbar === 0` (Leerzustand 2 oder 3
+  oben) zeigt die Trefferzahl unverändert das gewöhnliche Listen-Format
+  (gefiltert vs. Gesamtbestand, **ohne** „mit Koordinaten"): der
+  Leerzustand-Text trägt die Koordinaten-Aussage dann bereits allein — die
+  Zahl würde sie sonst ein zweites Mal machen („nie derselbe Text" gilt
+  sinngemäß auch zwischen Zähler und Leerzustand-Prosa, nicht nur zwischen
+  zwei Leerzuständen).
+  **Platz**: Die lange Form läuft ausschließlich in der Kartenansicht, die
+  immer die volle Inhaltsbreite hat (ADR-0019 P5, kein `MasterDetail`) —
+  die ~400px schmale Listen-Spalte kommt dort nicht vor. Diese volle Breite
+  ist unterhalb `lg` aber die tatsächliche, teils sehr schmale
+  Fensterbreite eines Telefons (~320-390px Inhaltsbreite) — dort
+  überschreitet der Extremfall „128 von 128 Orten mit Koordinaten" (34
+  Zeichen) den verfügbaren Platz deutlich, mit oder ohne
+  Ansichtsumschalter. Deshalb **ein gemeinsamer Container-Query-Schwellenwert
+  auf Zeile 1 für beide Ansichten**, an der bestehenden Breakpoint-Skala
+  ausgerichtet: **unterhalb 768px Containerbreite** („md") gilt die
+  Kurzform, **ab 768px** die ausgeschriebene. Kurzform: das Wortpaar „von …
+  Ort(en)" wird zum Schrägstrich („{sichtbar}/{gefiltert}"); in der
+  Kartenansicht entfällt zusätzlich das Suffix „mit Koordinaten" zugunsten
+  eines kleinen Stecknadel-Symbols vor der Zahl (gleiche Formsprache wie
+  die Kartenmarker, aber **`--text-muted`, nicht `--color-accent-500`** —
+  der Akzent bleibt ausschließlich den echten Markern auf der Karte
+  vorbehalten). Der reine Gleichstand-Fall in der Liste („12 Orte") ändert
+  sich unterhalb 768px nicht — er ist bereits kurz genug. Der volle Wortlaut
+  bleibt in beiden Ansichten über `aria-label` am Trefferzahl-Element hörbar
+  vorhanden, unabhängig von der visuellen Kurzform.
+- **Sortier-Bedienelement bleibt in der Kartenansicht sichtbar und
+  bedienbar**, obwohl es dort ohne sichtbare Wirkung ist (Marker haben
+  keine Reihenfolge, ADR-0019 P9). Kein Ausblenden, kein `disabled`-
+  Zustand: Ein bei jedem Ansichtswechsel erscheinendes/verschwindendes
+  Bedienelement wäre der größere Bruch (Sprung in Zeile 1, Positionswechsel
+  von Trefferzahl und Umschalter) als eines, das hier gerade nichts sichtbar
+  bewirkt — die Sortierung ist eine gespeicherte Einstellung, die beim
+  Rückwechsel zur Liste wieder wirkt, kein toter Programmierrest.
 - Fehlende Kacheln: einheitliche `--color-neutral-100`-Fläche, keine
   kaputten Bild-Icons. Kein Fehler-Rot, kein Alarm-Icon, kein
   „Wiederholen" als Primäraktion.
@@ -187,6 +270,29 @@ Eigenschaft.
 - Orte ohne Koordinaten bekommen in der Liste **keine** eigene
   Kennzeichnung (kein Icon/Badge) — konsistent mit „fehlende optionale
   Werte weglassen"; eine Sonderkennzeichnung sähe wie ein Mangel aus.
+
+## Ansichtswechsel innerhalb eines Bereichs (Query-Parameter `ansicht`)
+
+- **Ein Wechsel zwischen zwei Ansichten desselben Bereichs** (z. B. `/orte`
+  ↔ `/orte?ansicht=karte`) **ist ein Sprung, keine Zustandsanimation** —
+  kein Fade/Slide, analog zum Bereichswechsel (siehe „Navigation &
+  Routing" → Zurück-Aktion). Das unterscheidet sich vom 180ms-Crossfade der
+  Master-Detail-Spalte: Der Crossfade ist für einen Inhaltswechsel
+  **innerhalb** einer stabil bleibenden Spalte reserviert (Auswahl ↔
+  Auswahl), nicht für einen Wechsel, der die gesamte Spaltenstruktur ändert
+  und eine eigene `push`-Navigation mit eigenem History-Eintrag ist.
+- **Gemeinsame Bedienelemente** (Kopfzeile, Werkzeugleiste inkl.
+  Tag-Filter) **bleiben über beide Ansichten identisch** — derselbe
+  Baustein, nur ein breiterer Container; kein separates Erscheinungsbild
+  je Ansicht.
+- **Ein Bedienelement, das in einer Ansicht wirkungslos ist, aber in einer
+  anderen Ansicht desselben Bereichs eine gespeicherte, dort wirksame
+  Einstellung repräsentiert** (z. B. die Sortierung in der Kartenansicht,
+  siehe „Karte"), **bleibt sichtbar und bedienbar** — kein Ein-/Ausblenden
+  je Ansicht.
+- **Rückkehr aus der Detailansicht in eine Nicht-Listen-Ansicht** (z. B.
+  Karte): Fokus geht auf das zuvor geöffnete Element zurück (den Marker),
+  analog zur Fokusrückgabe auf die Listenzeile im Master-Detail-Pattern.
 
 ## Bilder
 
