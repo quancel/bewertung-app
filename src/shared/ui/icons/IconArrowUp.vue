@@ -18,22 +18,25 @@
  * Import über den `@assets`-Alias statt eines relativen `../../` (siehe
  * notes_for_conventions im Handoff von PO-2026-09-07-001).
  */
+import { computed } from 'vue'
 import iconUrl from '@assets/icons/arrow-up.svg'
 
-withDefaults(defineProps<{ size?: number }>(), {
+const props = withDefaults(defineProps<{ size?: number }>(), {
   size: 24,
 })
+
+const iconStyle = computed(() => ({
+  width: `${props.size}px`,
+  height: `${props.size}px`,
+  maskImage: `url("${iconUrl}")`,
+  WebkitMaskImage: `url("${iconUrl}")`,
+}))
 </script>
 
 <template>
   <span
     class="icon"
-    :style="{
-      width: `${size}px`,
-      height: `${size}px`,
-      maskImage: `url(${iconUrl})`,
-      WebkitMaskImage: `url(${iconUrl})`,
-    }"
+    :style="iconStyle"
     aria-hidden="true"
   />
 </template>
