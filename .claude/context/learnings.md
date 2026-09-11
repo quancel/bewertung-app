@@ -41,3 +41,23 @@
   Nachbesserung jede Stelle mitziehen, die auf der alten Begründung stand
   (hier: ein bereits geschriebener Learnings-Eintrag).
   (task_id: PO-2026-09-07-006)
+- [2026-09-11] projektweit: Eine ADR-Begründung wird gelesen, kopiert und
+  geglaubt — ADR-0011 P4 begründete `replace` mit einem **Neuladen**, das gar
+  nicht betroffen ist, während der echte Schaden (Browser-Zurück auf die tote
+  Adresse) ungenannt blieb. Der Lead baute `push`, und die Abnahme fand es.
+  Eine Begründung muss den **beobachtbaren Fehlerfall** nennen, den jemand
+  nachstellen kann; was man nicht nachstellen kann, prüft auch niemand nach.
+  (task_id: PO-2026-09-07-012, ADR-0011)
+- [2026-09-11] projektweit: Ein Constraint der Form „erneut, wenn sich X
+  ändert" ist mehrdeutig, sobald X eine abgeleitete Menge ist: Der Lead
+  implementiert **Identität** (neues Array bei jeder Neuberechnung), gemeint
+  war **Inhalt**. Beim Formulieren dazusagen, was der Auslöser vergleicht —
+  sonst ist die Abweichung weder im Review noch in der Abnahme sichtbar.
+  (task_id: PO-2026-09-07-006, `useLeafletKarte.ts`)
+- [2026-09-11] orte/tags/karte: Leerzustände sind je **Filterstufe** zu
+  zählen, nicht pauschal einer. Bestand leer · Filter ohne Treffer · gefiltert,
+  aber nichts davon darstellbar (Orte ohne Koordinaten) sind drei verschiedene
+  Zweige mit verschiedenem Ausweg. Beim Einordnen eines Pakets mit Liste,
+  Filter oder Karte die Stufen durchzählen und jede im Handoff benennen —
+  sonst erbt der letzte Zweig den Text des ersten.
+  (task_id: PO-2026-09-07-004/-006, ADR-0019 Punkt 10)

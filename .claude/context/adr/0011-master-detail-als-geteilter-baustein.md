@@ -4,6 +4,8 @@
 - **Datum**: 2026-09-08
 - **Bounded Context(s)**: `app-shell`, `orte`, `karte`
 - **task_id**: `PO-2026-09-07-012`
+- **Korrigiert am**: 2026-09-11 — Begründung zu Punkt 4 (siehe Abschnitt
+  „Korrektur"); Entscheidung unverändert
 
 ## Kontext
 

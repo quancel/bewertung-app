@@ -6,7 +6,9 @@
 > Halte sie kompakt (Faustregel: < 100 Zeilen). Sie ist ein Register,
 > kein Design-Dokument — Details gehören in ADRs unter `adr/`.
 
-- **Stand**: 2026-09-10, angelegt beim Einordnen von PO-2026-09-07-010,
+- **Stand**: 2026-09-11 (Nachpflege nach der Abnahme aller zwölf Pakete:
+  Import-Gegenrichtung um reine `lib`-Funktionen erweitert, ADR-0022).
+  Angelegt beim Einordnen von PO-2026-09-07-010,
   fortgeschrieben beim Einordnen von PO-2026-09-07-001 (Gerätespeicher), von
   PO-2026-09-07-011/-012 (App-Rahmen und zweispaltiges Layout), von
   PO-2026-09-07-003/-004 (Sortierung und Tag-Filter), von
@@ -58,9 +60,11 @@ vollständiges Sequenzdiagramm.
   Eine **View** in `orte` darf **präsentationale, store-freie** Komponenten
   aus `bewertungen`, `tags` und `medien` importieren und sie über Props und
   Emits anbinden — die Filterleiste und die Tag-Eingabe aus -004, die
-  Achsen-Bearbeitung aus -002. Sobald eine solche Komponente selbst einen
-  Store anfasst, entfällt die Erlaubnis; nur so bleibt der Import-Graph
-  zyklenfrei. `features/orte/components/Werkzeugleiste.vue` kennt `tags`
+  Achsen-Bearbeitung aus -002. Dasselbe gilt für **reine Funktionen** aus
+  `features/<context>/lib/` (ADR-0022, ab -006: `koordinatenFilter.ts` und
+  `leerzustand.ts` aus `karte`). Sobald ein solches Modul selbst einen Store
+  anfasst oder aus `orte` importiert, entfällt die Erlaubnis; nur so bleibt
+  der Import-Graph zyklenfrei. `features/orte/components/Werkzeugleiste.vue` kennt `tags`
   **nicht**: Zeile 2 kommt als benannter Slot aus `Ortebereich.vue`.
 - **`useOrteStore` ist der einzige Besitzer des Ort-Datensatzes im
   Arbeitsspeicher** (ADR-0008). `bewertungen` (-002) und `tags` (-004)

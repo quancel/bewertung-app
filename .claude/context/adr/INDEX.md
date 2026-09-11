@@ -13,7 +13,11 @@
 > Eine Zeile pro ADR. Keine Zusammenfassung des Inhalts — der Titel muss
 > reichen, um zu entscheiden, ob das ADR relevant ist.
 
-**Stand: 2026-09-11** — einundzwanzig ADRs. 0019 und 0020 wurden am
+**Stand: 2026-09-11** — zweiundzwanzig ADRs. 0022 ist in der **Nachpflege
+nach der Abnahme** entstanden (Präzisierung von ADR-0013). Bei derselben
+Nachpflege wurde die **Begründung** zu ADR-0011 Punkt 4 korrigiert — die
+Entscheidung selbst ist unverändert, deshalb kein `superseded by`; die alte
+Fassung steht im Abschnitt „Korrektur" des ADR. 0019 und 0020 wurden am
 2026-09-11 **inhaltlich ersetzt**, nachdem der Nutzer die zugehörigen
 `user_questions` anders entschieden hat als der Architekt angenommen hatte;
 beide tragen den früheren Entwurf im Abschnitt „Revision" (kein
@@ -55,6 +59,7 @@ PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
 | [0019](0019-zuschnitt-des-bereichs-karte.md) | Die Karte ist eine zweite Ansicht des Bereichs Orte — Umschalter in der Werkzeugleiste, Adresse über den Query-Parameter `ansicht` | karte, orte, app-shell | accepted | 2026-09-11 |
 | [0020](0020-ortssuche-anbieter-und-abfragemodell.md) | Ortssuche — Photon als Geocoder, Suche beim Tippen, im Context `orte` statt `karte` | orte, karte, app-shell | accepted | 2026-09-11 |
 | [0021](0021-netzzustand-im-ui.md) | Netzzustand im UI — erlaubt an der netzabhängigen Bedienstelle, verboten in der Auslieferungsmechanik (Präzisierung von ADR-0015 Punkt 6) | app-shell, karte, orte | accepted | 2026-09-10 |
+| [0022](0022-reine-lib-funktionen-ueber-context-grenzen.md) | Reine `lib`-Funktionen über Context-Grenzen (Präzisierung von ADR-0013 Punkt 2/3) | orte, karte, bewertungen, tags, medien, datensicherung | accepted | 2026-09-11 |
 
 **Status-Werte** wörtlich wie im ADR selbst: `proposed` · `accepted` ·
 `superseded by ADR-NNNN`.

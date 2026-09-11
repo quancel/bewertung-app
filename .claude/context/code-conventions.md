@@ -14,7 +14,14 @@
 
 - **Modus**: `vorgegeben` (Greenfield, festgelegt in **ADR-0002**; kein
   Anwendungscode vorhanden, geprüft 2026-09-08)
-- **Zuletzt geprüft**: 2026-09-11 (beim Einordnen von PO-2026-09-07-006 und
+- **Zuletzt geprüft**: 2026-09-11, **Nachpflege nach der Abnahme aller zwölf
+  Pakete** (`notes_for_conventions` der Leads plus drei Beobachtungen des
+  `product-owner`). Neu bzw. präzisiert: `lib`-Import über Context-Grenzen
+  (ADR-0022), Container-Schwellenwert in geteilten Bausteinen,
+  Schreib-Warteschlange nur bei änderbaren Datensätzen, `scripts/` und
+  `Sheet.vue` in der Struktur, Tokenwerte in JavaScript, Schatten-Token-Lücke,
+  `watch` auf abgeleitete Arrays.
+- **Davor geprüft**: 2026-09-11 (beim Einordnen von PO-2026-09-07-006 und
   -008; Stand im Repo: zehn Pakete gebaut und committet, 173 Tests grün,
   `SCHEMA_VERSION` = 4, `IDB_STRUKTUR_VERSION` = 2, `features/karte/` noch
   leer). Ergänzt: `lib/` als vorhandener Feature-Unterordner (vier Features
@@ -33,6 +40,10 @@ Bundle, kein Monorepo. **Kein Backend** (ADR-0001).
 
 ~~~
 index.html · package.json · tsconfig.json · vite.config.ts
+scripts/                        # Node-Skripte um den Build herum, kein
+                                #   Anwendungscode: als `.mjs`, importieren
+                                #   nichts aus `src/`, prüfen `dist/`
+                                #   (`verify-precache.mjs`, ab -006)
 src/
   main.ts                       # Einstieg: App, Pinia, Router, globale Styles
   App.vue
@@ -62,7 +73,10 @@ src/
     migrations/NNN-<kurzname>.ts
     migrations/__fixtures__/vN-<kurzname>.json
   shared/
-    ui/ · composables/ · lib/
+    ui/ · composables/ · lib/   # ab zwei Nutzern; `ui/` enthält u. a.
+                                #   Sheet.vue als gemeinsame Bauform für
+                                #   Sheets UND Dialoge (orte, medien,
+                                #   datensicherung) — nicht je Feature neu
   styles/
     tokens.css                  # Rohwerte aus design-concept.md
     semantic.css                # semantische Ebene (--surface, --text-muted …)
@@ -73,8 +87,8 @@ src/
 
 ### Regeln, die die Struktur tragen
 
-- **Ein Feature importiert nicht aus einem anderen Feature.** Zwei
-  Ausnahmen, beide eng:
+- **Ein Feature importiert nicht aus einem anderen Feature.** Drei
+  Ausnahmen, alle eng:
   1. `bewertungen`, `tags` und `medien` dürfen den `orte`-Store über sein
      öffentliches API nutzen — nur in diese Richtung (context-map.md).
      **`karte` nicht**: Dieser Context fasst gar keinen Store an (ADR-0019
@@ -96,6 +110,13 @@ src/
      sie endet in dem Moment, in dem eines von beidem nicht mehr stimmt
      (ADR-0019 Punkt 8). Die Ortssuche liegt trotzdem in `orte`, weil sie
      `orte`-Felder schreibt (ADR-0020 Punkt 1).
+     **Dasselbe gilt für reine Funktionen aus `features/<context>/lib/`**
+     (ADR-0022): `Ortebereich.vue` importiert `filtereOrteMitKoordinaten`
+     und `bestimmeKartenLeerzustand` aus `features/karte/lib/`. Bedingung ist
+     wörtlich dieselbe wie oben und wird am Modul geprüft: kein Store, kein
+     `persistence/`, kein Rückimport aus dem importierenden Context, kein
+     Zustand über Aufrufe hinweg. Kein vorsorgliches Verschieben nach
+     `shared/lib/` — dort landet nur, was **zwei** Contexts nutzen.
   3. `datensicherung` darf nach einem Import `useOrteStore` und
      `useMedienStore` über deren öffentliches API **zum Neuladen** anstoßen —
      nur das, ohne Rückrichtung (ADR-0017 Punkt 9).
@@ -144,9 +165,42 @@ src/
   bleibt trotzdem draußen.
 - **`components/` kennt keinen Store**, bekommt alles über Props und meldet
   über Emits zurück. `views/` sind die einzige Stelle, die Stores anbindet.
+- **Ein `watch` auf ein abgeleitetes Array feuert bei jeder Neuberechnung**,
+  nicht erst bei inhaltlicher Änderung. Ein `computed` mit `filter`/`map`
+  liefert jedes Mal ein **neues** Array, und Vue vergleicht die Referenz —
+  der Watcher läuft also, sobald irgendeine Abhängigkeit des `computed`
+  angefasst wurde, auch wenn dieselben Elemente herauskommen. Soll eine
+  Wirkung nur bei **inhaltlicher** Änderung eintreten (Kartenausschnitt neu
+  setzen, Scrollposition zurücksetzen, Fokus verschieben), vergleicht der
+  Watcher selbst — etwa über eine stabile Kennung der Menge (verkettete IDs).
+  Ein Handoff, das „erneut, wenn sich X ändert" verlangt, meint den
+  **Inhalt**. Bekannte offene Stelle:
+  `features/karte/composables/useLeafletKarte.ts` ruft
+  `wendeKartenausschnittAn()` bei jeder Neuberechnung von `kartenOrte` — das
+  nächste Paket, das die Karte anfasst, prüft und korrigiert das mit.
 - **Rohwerte nur in `styles/tokens.css`.** In Feature-Stylesheets kein
   Hex-Wert, kein freier Pixel-Abstand außerhalb der Skalen aus
   `design-concept.md`. Komponenten binden nur an semantische Tokens.
+  - **Ausnahme, wenn CSS es nicht kann**: Eine Farbskala lässt sich in CSS
+    nicht interpolieren. Wo ein Tokenwert deshalb in JavaScript stehen muss,
+    steht er als **benannte Konstante mit dem Tokennamen im Kommentar**,
+    genau einmal je Komponente — heute nur
+    `src/shared/ui/Intensitaetsbalken.vue` (`--color-neutral-100`,
+    `--color-primary-600`). Das ist die einzige Kopie eines Tokenwerts im
+    Projekt: **Wer eine Farbe in `tokens.css` ändert, greppt zuerst nach
+    ihrem Namen** — die Kopien tragen ihn im Kommentar und sind so auffindbar.
+    Kein Auslesen über `getComputedStyle`, kein zweiter Ort für denselben
+    Wert.
+  - **Schatten kommen aus einem Token, nicht aus einem Literal.**
+    `design-concept.md` kennt **zwei** Elevation-Stufen (flach mit Rahmen /
+    schwebend über dem Inhalt); `tokens.css` hat dafür bisher **kein** Token,
+    und im Bestand stehen sechs `rgb(0 0 0 / …)`-Literale mit fünf
+    verschiedenen Werten (siehe „Abweichungen"). Das nächste Paket, das eine
+    schwebende Fläche anfasst, legt die Tokens in `styles/tokens.css` an und
+    zieht die vorhandenen Stellen mit — es erfindet **keine** dritte Stufe.
+    Nicht betroffen sind Verdunkelungsflächen hinter Sheets/Dialogen und
+    Bildkacheln (`background-color: rgb(0 0 0 / …)`): das sind Scrims, keine
+    Elevation.
 - **Schriften und Icons liegen unter `src/assets/`.** Kein `<link>` auf einen
   Fremd-Host, kein `@import` einer Font-URL, kein Icon-CDN-Paket — das ist
   die Offline-Zusage (ADR-0001), keine Stilfrage. Icons werden als
@@ -305,6 +359,18 @@ src/
   `@container (min-width: …)`. Kein `container-name` als Contract zwischen
   Contexts. `@media` bleibt nur für den Layoutwechsel des Rahmens selbst und
   für Nicht-Breiten-Abfragen (`prefers-reduced-motion`).
+- **Ein Baustein, der in zwei verschieden breiten Containern steht, wird
+  selbst zum Container.** Sobald eine zweite Ansicht (ADR-0019) oder ein
+  zweiter Bereich denselben Baustein in anderer Breite zeigt, trägt die
+  Einschätzung „passt in jeder Breite" nicht mehr: Der Baustein setzt
+  `container-type: inline-size` auf seinem **eigenen** Wurzelblock und
+  schaltet zwischen Kurz- und Langform um, statt die Breite des Elternteils
+  anzunehmen. Vorbild ist `features/orte/components/Werkzeugleiste.vue`
+  (Zeile 1: Trefferzahl in Kurzform unter 768px = `--breakpoint-md`, als Zahl
+  wörtlich) — sie steht sowohl in der ~368px schmalen Listen-Spalte als auch
+  über die volle Inhaltsbreite der Kartenansicht, und letztere kann auf dem
+  Telefon **schmaler** sein als erstere auf dem Laptop. Wer denselben Fall
+  hat, kopiert dieses Muster, statt neu zu raten.
 - **Ab `lg` scrollt die Listen-Spalte selbst, nicht das Fenster** (ADR-0011
   Punkt 6). Was dort kleben soll (Werkzeugleiste), klebt an der Spalte:
   `position: sticky; top: 0` **innerhalb** des scrollenden Spaltenelements.
@@ -411,8 +477,17 @@ src/
   das der Aufrufer auswerten muss. Kein `try/catch`, das den Fehler
   verschluckt.
 - **Geschrieben wird der vollständige Datensatz aus dem Store**, nie
-  Lesen-Ändern-Zurückschreiben gegen die Datenbank. Schreibvorgänge je ID
-  werden serialisiert.
+  Lesen-Ändern-Zurückschreiben gegen die Datenbank.
+- **Serialisiert wird nur, wo derselbe Datensatz mehrfach geschrieben
+  wird.** Die Schreib-Warteschlange je ID (ADR-0005 Punkt 3) gehört zum
+  Inline-Autosave auf dem **Ort**-Datensatz: schnelle Feldwechsel stauen
+  Schreibvorgänge auf dieselbe ID. Ein Repository, dessen Datensätze nach dem
+  Anlegen **nie mehr geändert** werden (nur schreiben oder löschen), braucht
+  sie nicht — `bilder-repository.ts` hat sie deshalb bewusst nicht
+  (ADR-0016 Punkt 7). Wer ein neues Repository baut, entscheidet an dieser
+  Frage, nicht nach Vorbild: Gibt es konkurrierende Änderungen auf **einem**
+  Datensatz? Der Kommentar im Modul sagt, warum es die Warteschlange hat oder
+  nicht.
 - **Keine Entprellung vor dem Schreiben.** Auslöser: Feld verlassen bzw.
   Wert geändert, Route verlassen, `visibilitychange` → `hidden`, `pagehide`.
 - **Anzeigeeinstellungen sind kein Bestandsinhalt** (ADR-0006): Store
@@ -472,5 +547,18 @@ damit sie nicht bei nächster Gelegenheit „korrigiert" werden.
 
 - `src/app/dev/`: liegt außerhalb von `features/` und hat keine Tests — reines
   Dev-Werkzeug, nicht Teil des Produkts.
+- **Schatten als Literal an sechs Stellen** (`shared/ui/Sheet.vue`,
+  `shared/ui/Toast.vue`, `features/tags/components/TagEingabe.vue`,
+  `features/orte/components/Ortssuche.vue`,
+  `features/karte/components/Kartenflaeche.vue` 2×). Die einzige Token-Lücke
+  im Projekt; die Werte weichen bereits voneinander ab, obwohl
+  `design-concept.md` nur zwei Stufen kennt. **Kein Einzelfall-Aufräumen**:
+  Das Auflösen braucht die zwei Tokenwerte aus `design-concept.md` (fremde
+  Datei) und geht in einem Zug, nicht Datei für Datei.
+- **Zwei Tokenwerte zusätzlich als Hex-Konstanten in JavaScript**
+  (`shared/ui/Intensitaetsbalken.vue`). Bewusst: CSS kann eine Farbskala
+  nicht interpolieren. Die Konstanten tragen den Tokennamen im Kommentar und
+  sind über ihn auffindbar — nicht „aufräumen", sondern bei einer
+  Token-Änderung mitziehen.
 - Bewusste Abweichung von der Greenfield-Referenz des Plugins (Angular/NgRx,
   Microservices): begründet in ADR-0002 bzw. ADR-0001.

@@ -4,6 +4,9 @@
 - **Datum**: 2026-09-09
 - **Bounded Context(s)**: `orte`, `bewertungen`, `tags`, `medien`
 - **task_id**: `PO-2026-09-07-003` (baut die Naht), verbindlich ab `PO-2026-09-07-004` (erster Nutzer)
+- **Präzisiert durch**: ADR-0016 Punkt 9/10 (`medien` mit eigenem Store),
+  ADR-0022 (reine Funktionen aus `features/<context>/lib/`). Punkt 2 nennt
+  nur präsentationale Komponenten; maßgeblich ist Punkt 3 (Zyklusfreiheit).
 
 ## Kontext
 

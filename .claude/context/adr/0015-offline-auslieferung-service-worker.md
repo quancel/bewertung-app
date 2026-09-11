@@ -4,6 +4,8 @@
 - **Datum**: 2026-09-10
 - **Bounded Context(s)**: `app-shell`
 - **task_id**: `PO-2026-09-07-007`
+- **Präzisiert durch**: ADR-0021 (Punkt 6 verbietet den Netzzustand nur in
+  der Auslieferungsmechanik, nicht im Feature)
 
 ## Kontext
 
