@@ -54,11 +54,13 @@ import { berechneGesamtnote, formatiereGesamtnote, zaehleAusgefuellteAchsen } fr
 import { useAutosaveBeimVerlassen } from '../composables/useAutosaveBeimVerlassen'
 import OrtAnlegenSheet from '../components/OrtAnlegenSheet.vue'
 import OrtLoeschenDialog from '../components/OrtLoeschenDialog.vue'
+import Ortssuche from '../components/Ortssuche.vue'
 import Ortszeile from '../components/Ortszeile.vue'
 import Werkzeugleiste from '../components/Werkzeugleiste.vue'
 import TagFilterleiste from '../../tags/components/TagFilterleiste.vue'
 import TagEingabe from '../../tags/components/TagEingabe.vue'
 import Bilderbereich from '../../medien/components/Bilderbereich.vue'
+import type { OrtsvorschlagWerte } from '../lib/geocoding'
 import { SORTIER_KRITERIUM_LABEL, type SortierKriterium, type TagVerknuepfung } from '../model/ansicht'
 import { useOrteStore, type AchsenName } from '../stores/orte.store'
 
@@ -310,6 +312,19 @@ onBeforeRouteLeave(() => {
 function aufBezeichnungEingabe(event: Event): void {
   const wert = (event.target as HTMLInputElement).value
   if (ortId.value) store.aktualisiereFeld(ortId.value, { bezeichnung: wert })
+}
+
+/**
+ * Übernahme eines Ortssuche-Treffers (ADR-0020 Punkt 6, „ÜBERNAHME"):
+ * schreibt über dasselbe öffentliche API wie jede andere Feldänderung
+ * (`aktualisiereFeld` + `persistiereOrt`, ADR-0005) — vollständiger
+ * Datensatz, keine Entprellung. Übernommene Werte sind danach gewöhnliche,
+ * einzeln editier- und löschbare Felder, kein Sonderzustand.
+ */
+function aufOrtssucheUebernommen(werte: OrtsvorschlagWerte): void {
+  if (!ortId.value) return
+  store.aktualisiereFeld(ortId.value, werte)
+  persistiereJetzt()
 }
 
 function aufAdresseEingabe(event: Event): void {
@@ -582,6 +597,8 @@ async function aufLoeschenBestaetigt(): Promise<void> {
               @blur="persistiereJetzt"
             >
           </div>
+
+          <Ortssuche @uebernommen="aufOrtssucheUebernommen" />
 
           <div class="ortsdetail__feld">
             <label for="ortsdetail-adresse">Adresse</label>
