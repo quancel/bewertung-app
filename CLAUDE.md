@@ -94,11 +94,28 @@ später vergleichen zu können. Wer das nicht will, nimmt `.claude/runs/` in
 die `.gitignore` auf; wer gar nicht protokollieren will, entfernt den
 `hooks`-Block aus `.claude/settings.json`.
 
-Zwei Einschränkungen, damit sich niemand auf mehr verlässt, als da ist:
+Drei Einschränkungen, damit sich niemand auf mehr verlässt, als da ist:
 Hooks werden **beim Session-Start** geladen — nach Änderungen an
 `.claude/settings.json` erst nach `/hooks` oder einem Neustart aktiv. Und
 protokolliert werden Ein- und Ausgaben der Subagents, nicht deren interne
 Schritte.
+
+Die dritte wiegt am schwersten: Hooks aus einer **Projekt**-`settings.json`
+laufen erst, wenn der Workspace-Trust-Dialog für den Ordner akzeptiert
+wurde — und eine nicht-interaktive Session zählt ausdrücklich nicht als
+Akzeptanz. **In Claude Code on the web / Cloud-Sessions schreibt
+`.claude/runs/` deshalb nicht**, ohne Fehlermeldung: der Hook-Befehl endet
+auf `2>/dev/null || true`, und er wird ohnehin nie aufgerufen. Ob die Hooks
+aktiv sind, zeigt `/hooks` — bei geladenem Protokoll steht dort „Project
+Settings" als Quelle.
+
+Das ist die eine Stelle, an der die Überlegung aus „Herkunft der Agents"
+nicht mehr trägt: Die Rollen liegen als Projekt-Agents im Repo, **damit sie
+in Cloud-Sessions funktionieren** — das Protokoll daneben funktioniert dort
+als einziges nicht. Wer einen Cloud-Durchlauf protokollieren will, muss den
+Hook auf Benutzer-Ebene eintragen (`~/.claude/settings.json`; die braucht
+keinen Trust). Das liegt dann außerhalb des Repos und gilt für alle
+Projekte des Nutzers — eine bewusste Entscheidung, kein Nebenbei-Fix.
 
 ## Projektgedächtnis in `.claude/context/`
 
