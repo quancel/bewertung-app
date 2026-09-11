@@ -35,7 +35,15 @@ Abnahme-Befund zu 012 (2026-09-11) streicht den 180ms-Crossfade des
 Master-Detail-Inhaltswechsels ersatzlos — er wurde nie gebaut, kein
 Akzeptanzkriterium fordert ihn, und er war inhaltlich nicht mit dem
 inzwischen für den Ansichtswechsel festgelegten Sprung-Verhalten
-vereinbar. Beide Wechsel gelten jetzt einheitlich als Sprung.
+vereinbar. Beide Wechsel gelten jetzt einheitlich als Sprung. Eine zweite
+Korrektur-Runde (2026-09-11, Meldung des `frontend-lead` zur Ortssuche)
+präzisiert die „Lädt"-Zeile unter „Zustände": Sie galt nur für Aktionen mit
+einem eigenen auslösenden Bedienelement (Button) und meinte nie eine
+Type-ahead-Suche ohne Button — Ortssuche war dort das falsche Beispiel und
+ist entfernt. Der zugehörige Eintrag unter „Listen" trägt jetzt zusätzlich
+den bislang nur paketbezogen (`design_notes` PO-2026-09-07-008) notierten
+Ladehinweis-Text nach, damit er als wiederkehrende Konvention und nicht nur
+als Einzelfall-Notiz steht.
 
 - **Zuletzt kuratiert**: 2026-09-11
 
@@ -50,7 +58,7 @@ unten und für die beiden Karten-Leerzustände, siehe „Karte").
 |---------|------------|------|
 | Leer (kein Datensatz) | Rein typografisch, kein Bild (design-concept.md: bis auf weiteres ohne Illustration); kurzer Satz + eine Primär-Aktion, zentriert. Beispiel: „Noch keine Orte eingetragen" + „Ort hinzufügen". | 2026-09-07 |
 | Leer (gefiltert, kein Treffer) | Gleiches Muster wie oben, andere Aussage (aktive Auswahl führt zu keinem Treffer) und andere Aktion („Filter zurücksetzen"). | 2026-09-07 |
-| Lädt | Rein lokale Lesevorgänge zeigen **keinen** Ladezustand — gilt als synchron schnell genug. Skeleton/Spinner erst ab spürbar > 400 ms (z. B. Import/Export, viele Bilder). Bei einer expliziten, netzabhängigen Aktion (Export/Import mit vielen Bildern, Ortssuche) wandert der Ladezustand in das auslösende Element selbst (Button-Inhalt wechselt zu Spinner + Kurztext, bleibt an Ort und Stelle) — kein Vollflächen-Overlay. | 2026-09-08 |
+| Lädt | Rein lokale Lesevorgänge zeigen **keinen** Ladezustand — gilt als synchron schnell genug. Skeleton/Spinner erst ab spürbar > 400 ms (z. B. Import/Export, viele Bilder, Bild-Verkleinerung). Bei einer expliziten Aktion mit einem **eigenen auslösenden Bedienelement** (Button/Kontrollelement, z. B. „Export starten", Import-Datei wählen, „Bestand ersetzen" bestätigen) wandert der Ladezustand in dieses Element selbst (Button-Inhalt wechselt zu Spinner + Kurztext, bleibt an Ort und Stelle) — kein Vollflächen-Overlay. Gilt **nicht** für Type-ahead-Interaktionen ohne eigenes Auslöse-Element (die Suche läuft beim Tippen, es gibt keinen Button, in den ein Zustand wandern könnte) — dafür siehe „Listen" → „Netzabhängige Type-ahead-Aktion". Ein pro Ergebnis erscheinender Platzhalter an dessen künftiger Position (z. B. Bilder-Raster) ist ebenfalls kein „auslösendes Element" im Sinne dieser Regel, sondern folgt derselben > 400 ms-Schwelle ohne Button-Bezug. | 2026-09-08 |
 | Fehler | Kaum Feld-Validierung nötig, da fast alles optional; Werte außerhalb eines Bereichs werden geklemmt statt abgelehnt. Echte Fehler (Speicherzugriff, unbekannte Datenversion, beschädigte/fremde Import-Datei) als ruhige, nicht-modale Inline-/Vollflächen-Meldung in `--color-danger`, nie als Modal. | 2026-09-07 |
 | Warnung | Nur bei angekündigten, noch nicht eingetretenen Aktionen mit drohendem Datenverlust (Speichermangel beim Bild-Hinzufügen, „Bestand ersetzen" beim Import) — auslösendes/bestätigendes Element in `--color-warning`, nicht `--color-danger`. Unterscheidet sich von „Fehler": hier ist noch nichts schiefgelaufen, es wird nur vor einer Folge gewarnt, die der Nutzer selbst auslösen würde. | 2026-09-08 |
 | Erfolg | Autosave hat **keine** sichtbare Bestätigung — Persistenz gilt als sofort und selbstverständlich. Toast nur bei seltenen, expliziten Aktionen (z. B. Export/Import, ein bereitstehendes App-Update). | 2026-09-08 |
@@ -174,11 +182,17 @@ Eigenschaft.
   schließt. Ein am selben Ort bereits vergebener Tag, erneut exakt
   eingetippt und bestätigt: nichts passiert (kein zweiter Pill, keine
   Fehlermeldung).
-- **Netzabhängige Aktion ohne Erfolg (z. B. Ortssuche)**: dieselbe Stelle
-  unter dem Feld trägt je nach Ursache einen anderen, immer gemuteten
-  Text — kein Icon, keine Warn-/Fehlerfarbe. Kein Netz, kein Treffer und
-  Suchfehler/Zeitüberschreitung sind drei verschiedene Texte. Feld bleibt
-  in allen Fällen bedienbar, Werte weiterhin von Hand eintragbar.
+- **Netzabhängige Type-ahead-Aktion (z. B. Ortssuche)**: läuft beim Tippen,
+  ohne eigenes auslösendes Bedienelement (kein „Suchen"-Button) — die
+  allgemeine „Lädt"-Regel unter „Zustände", die ein solches Element
+  voraussetzt, greift hier bewusst **nicht**. Stattdessen trägt dieselbe
+  Stelle unter dem Feld (die spätere Vorschlagsliste) je nach Zustand
+  einen anderen, immer gemuteten Text, kein Icon, keine Warn-/Fehlerfarbe:
+  **lädt** (z. B. „Suche läuft…", Schwelle wie sonst auch spürbar > 400 ms
+  nach der letzten Eingabe, kein Spinner-Icon nötig), **kein Netz**,
+  **kein Treffer**, **Suchfehler/Zeitüberschreitung** — vier
+  unterscheidbare Texte an derselben Stelle. Feld bleibt in allen Fällen
+  bedienbar, Werte weiterhin von Hand eintragbar.
 - **Verknüpfungs-Umschalter (UND/ODER) für Mehrfachfilter**: fester,
   nicht scrollender Segment-Control (zwei Tap-Ziele, gleiche Höhe wie die
   Pills, Radius 999px) fest am linken Rand von Zeile 2, außerhalb der
