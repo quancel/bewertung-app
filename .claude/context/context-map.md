@@ -9,8 +9,9 @@
 - **Stand**: 2026-09-10, angelegt beim Einordnen von PO-2026-09-07-010,
   fortgeschrieben beim Einordnen von PO-2026-09-07-001 (Gerätespeicher), von
   PO-2026-09-07-011/-012 (App-Rahmen und zweispaltiges Layout), von
-  PO-2026-09-07-003/-004 (Sortierung und Tag-Filter) und von
-  PO-2026-09-07-007/-005/-009 (Offline-Auslieferung, Bilder, Export/Import).
+  PO-2026-09-07-003/-004 (Sortierung und Tag-Filter), von
+  PO-2026-09-07-007/-005/-009 (Offline-Auslieferung, Bilder, Export/Import)
+  und von PO-2026-09-07-006/-008 (Kartenansicht, Ortssuche).
 
 **Es gibt genau ein Artefakt**: ein clientseitiges Vue-Bundle ohne
 Backend-Dienst (ADR-0001). Ein „Bounded Context" ist hier deshalb ein
@@ -23,11 +24,11 @@ identisch mit dem `bounded_context` im Handoff (ADR-0002).
 | Context | Repo/Service | Zuständigkeit (1 Satz) | Owner-Team |
 |---------|--------------|------------------------|------------|
 | `app-shell` | `src/app/`, `src/styles/`, `src/assets/`, `src/main.ts` | Gerüst, Design-Tokens, Schriften/Icons, Router, Offline-Auslieferung | frontend-lead |
-| `orte` | `src/features/orte/` | Ort als Aggregatwurzel (Bezeichnung, Adresse, Koordinaten), Liste, Detail, Sortierung | frontend-lead |
+| `orte` | `src/features/orte/` | Ort als Aggregatwurzel (Bezeichnung, Adresse, Koordinaten), Liste, Detail, Sortierung, Ortssuche (ADR-0020) | frontend-lead |
 | `bewertungen` | `src/features/bewertungen/` | Vier Achsen 0–10 je Ort, Achsen-Kommentare, Gesamtnote | frontend-lead |
 | `tags` | `src/features/tags/` | Freie Tags je Ort und der Tag-Filter über die Liste | frontend-lead |
 | `medien` | `src/features/medien/` | Bilder je Ort (Verkleinerung, Anzeige, Löschen) | frontend-lead |
-| `karte` | `src/features/karte/` | Kartenansicht mit Markern und die optionale Ortssuche | frontend-lead |
+| `karte` | `src/features/karte/` | Kartendarstellung mit Markern als **präsentationaler** Baustein (Leaflet-Kapselung) — keine View, keine Route, kein Store; **nicht** die Ortssuche (ADR-0018/0019) | frontend-lead |
 | `datensicherung` | `src/features/datensicherung/` | Export/Import des gesamten Bestands als eine Datei | frontend-lead |
 
 **Kein Bounded Context, sondern geteilte Infrastruktur**: `src/persistence/`
@@ -69,8 +70,16 @@ vollständiges Sequenzdiagramm.
   (Gesamtnote, Achsenwert, Tag-Filter), liegt als reine Funktion in
   `src/shared/lib/` und als Darstellungsbaustein in `src/shared/ui/` — nicht
   im besitzenden Feature.
-- **`karte` liest Koordinaten aus `orte`** und schreibt nichts zurück; das
-  Nachtragen von Koordinaten läuft über die Ort-Bearbeitung in `orte`.
+- **`karte` liefert Darstellung, `orte` liefert die Daten** (ADR-0019 ab
+  -006): `karte` fasst **keinen** Store an, kennt `persistence/` nicht und
+  importiert nichts aus `orte`. `features/orte/views/Ortebereich.vue` bindet
+  `features/karte/components/Kartenflaeche.vue` über Props und Emits an —
+  dieselbe Richtung wie bei `bewertungen`, `tags` und `medien` (ADR-0013).
+  Der Prop-Typ steht in `features/karte/model/karte.types.ts` und importiert
+  nichts, auch nicht `OrtDatensatz`: Eine Formatänderung berührt die Karte
+  nicht. Das Nachtragen von Koordinaten läuft unverändert über die
+  Ort-Bearbeitung in `orte`. Die Ortssuche (-008) liegt aus eigenen Gründen in
+  `orte` (ADR-0020 Punkt 1), nicht wegen einer Importrichtung.
 - **`medien` (-005) hat als einziger Feature-Context einen eigenen Object
   Store und deshalb einen eigenen Pinia-Store** (ADR-0016). Er importiert
   **nichts** aus `features/orte/` — nur unter dieser Bedingung darf
@@ -121,13 +130,27 @@ vollständiges Sequenzdiagramm.
 
 Drei erlaubte Netz-Zwecke, jeder mit definiertem Ausfallpfad (ADR-0001):
 
-- **Kartenkacheln** (`karte`) — Anbieter noch offen, Entscheidung mit
-  PO-2026-09-07-006.
-- **Ortssuche** (`karte`) — optional und streichbar, PO-2026-09-07-008.
+- **Kartenkacheln** (`karte`) — **Leaflet** (BSD-2-Clause) auf den
+  OSM-Standard-Rasterkacheln `tile.openstreetmap.org`, schlüsselfrei,
+  Attribution Pflicht (ADR-0018). Kacheln werden nie precacht; Ausfall =
+  leere Kachelfläche, Marker bleiben.
+- **Ortssuche** (`orte`, **nicht** `karte`) — **Photon**
+  (`photon.komoot.io`), schlüsselfrei, Suche beim Tippen (entprellt, ab drei
+  Zeichen, ohne Standort-Bias), Anbieterwissen nur in
+  `features/orte/lib/geocoding.ts` (ADR-0020, Nutzerentscheidung 2026-09-10).
+  Optional und streichbar, PO-2026-09-07-008.
 - **Auslieferung neuer Versionen** (`app-shell`) — generierter Service Worker
   über `vite-plugin-pwa`, Update im Prompt-Modus, kein Web-App-Manifest
   (PO-2026-09-07-007, ADR-0015). Kein Runtime-Caching für Fremd-Hosts: Die
   beiden Zwecke oben bringen ihren Ausfallpfad selbst mit.
+
+**Netzzustand im UI** (ADR-0021): `navigator.onLine` und die
+`online`/`offline`-Ereignisse sind **im Feature** erlaubt, um an der
+netzabhängigen Bedienstelle einen gemuteten Hinweis zu zeigen oder einen
+sichtbar fehlgeschlagenen Abruf zu wiederholen — nie für Reload, Navigation,
+Toast, globalen Offline-Balken oder einen Store-Zustand. Für die
+Update-Mechanik in `app-shell` bleibt ADR-0015 Punkt 6 unverändert: dort löst
+ein Netzwechsel nichts aus.
 
 ## Bekannte Grenzen / bewusst nicht geteilt
 
@@ -146,13 +169,32 @@ Drei erlaubte Netz-Zwecke, jeder mit definiertem Ausfallpfad (ADR-0001):
 - **Bestehende Adressen sind ab -011 eingefroren**: Änderungen an
   `path`/`name` einer angelegten Route brauchen ein eigenes ADR
   (ADR-0010/0011). **Neue** Adressen sind davon nicht betroffen — `/daten`
-  (-009) und die Karte (-006) hängen ihre flache Route und ihren
-  Navigationseintrag selbst an. -007 muss dafür nicht angefasst werden: Der
+  (-009) hängt seine flache Route und seinen Navigationseintrag selbst an;
+  die Karte (-006) kommt seit ADR-0019 **ohne** beides aus und erweitert den
+  Adressraum nur um den Query-Parameter `ansicht`. -007 muss in keinem der
+  beiden Fälle angefasst werden: Der
   Service Worker kennt keine Routenliste, sondern beantwortet jede Navigation
   über `navigateFallback` mit dem App-Einstieg (ADR-0015 Punkt 4).
-- **Kartenstil und Tile-Anbieter sind offen** — laut `design-concept.md`
-  bewusst als Architektur-/Lizenzentscheidung dem Architekten zugewiesen,
-  fällig mit PO-2026-09-07-006.
+- **Kartenstil und Tile-Anbieter sind entschieden** (ADR-0018, fällig laut
+  `design-concept.md` als Architektur-/Lizenzentscheidung): Leaflet mit
+  OSM-Rasterkacheln, kein eigener Kartenstil, kein API-Schlüssel. Ein Wechsel
+  des Anbieters ist eine ADR-Frage, keine Konfigurationsfrage — ein Anbieter
+  mit Schlüssel löste ADR-0001 ab.
+- **Die Karte ist kein Bereich, sondern die zweite Ansicht des Bereichs Orte**
+  (ADR-0019, Nutzerentscheidung 2026-09-10): Adresse `/orte?ansicht=karte`,
+  Umschalter in der Werkzeugleiste, **kein** Eintrag in der
+  Bereichsnavigation, **kein** neuer Routen-Eintrag. Der Query-Parameter ist
+  ab Auslieferung eingefroren wie ein Pfad. In der Kartenansicht entfällt
+  `MasterDetail.vue`; Werkzeugleiste und Karte stehen über die volle
+  Inhaltsbreite. Ein Marker-Klick führt nach `/orte/:ortId` (push), es gibt
+  keine zweite Detailansicht und keinen zweiten Auswahl-Zustand.
+- **Die Karte folgt dem Tag-Filter** (`orteGefiltert`), eingeschränkt auf
+  Orte mit beiden Koordinaten (Nutzerentscheidung 2026-09-10). Die
+  **Sortierung bleibt ohne Wirkung** — Marker haben keine Reihenfolge.
+- **Kein persistierter Kartenausschnitt** (ADR-0019 Punkt 6): Zoom und
+  Mittelpunkt sind flüchtig, der Startausschnitt ergibt sich aus den
+  vorhandenen Markern. Ein gespeicherter Ausschnitt wäre eine
+  Anzeigeeinstellung nach ADR-0006/0009 und braucht ein eigenes ADR.
 - **Mehrere gleichzeitig geöffnete Tabs werden bewusst nicht abgefangen**
   (Nutzerentscheidung 2026-09-08, GESETZT). Nach ADR-0005 gewinnt der zuletzt
   geschriebene vollständige Datensatz; ein Tab mit veraltetem Stand kann

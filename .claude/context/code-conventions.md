@@ -14,12 +14,15 @@
 
 - **Modus**: `vorgegeben` (Greenfield, festgelegt in **ADR-0002**; kein
   Anwendungscode vorhanden, geprüft 2026-09-08)
-- **Zuletzt geprüft**: 2026-09-10 (beim Einordnen von PO-2026-09-07-007, -005
-  und -009; Stand im Repo: -010, -001, -002, -011, -012, -003 und -004 gebaut
-  und committet, 138 Tests grün, `SCHEMA_VERSION` = 3,
-  `IDB_STRUKTUR_VERSION` = 1). Dabei korrigiert: Die Wiedergabe von ADR-0013
-  Punkt 3 stand hier strenger als im ADR („einen Store" statt „den
-  `orte`-Store") und hätte PO-2026-09-07-005 fälschlich blockiert.
+- **Zuletzt geprüft**: 2026-09-11 (beim Einordnen von PO-2026-09-07-006 und
+  -008; Stand im Repo: zehn Pakete gebaut und committet, 173 Tests grün,
+  `SCHEMA_VERSION` = 4, `IDB_STRUKTUR_VERSION` = 2, `features/karte/` noch
+  leer). Ergänzt: `lib/` als vorhandener Feature-Unterordner (vier Features
+  nutzen ihn), die Regeln zu Fremdnetz-Clients, Leaflet, Netzzustand und zur
+  zweiten Ansicht eines Bereichs. **Am 2026-09-11 nachgezogen**, nachdem der
+  Nutzer die `user_questions` zu -006/-008 anders entschieden hat als
+  angenommen: `karte` ist store-frei (vorher als Nutzer des `orte`-Stores
+  notiert), die Karte ist kein eigener Bereich mehr, Geocoder ist Photon.
 
 **Stapel**: Vue 3 · TypeScript · Vite · Pinia · vue-router. Ein Projekt, ein
 Bundle, kein Monorepo. **Kein Backend** (ADR-0001).
@@ -44,6 +47,8 @@ src/
       views/                    # an eine Route gebunden, binden den Store an
       stores/<context>.store.ts # Pinia
       composables/
+      lib/                      # reine Funktionen des Contexts, inkl. des
+                                #   EINEN Moduls, das einen Fremddienst kennt
       model/<context>.types.ts  # Typen inkl. der persistierten Form
       model/ansicht.ts          # Anzeigeeinstellungen: Typ + Voreinstellung
                                 #   + Prüffunktion (ADR-0009 P.4; ab -003)
@@ -70,8 +75,10 @@ src/
 
 - **Ein Feature importiert nicht aus einem anderen Feature.** Zwei
   Ausnahmen, beide eng:
-  1. `bewertungen`, `tags`, `medien` dürfen den `orte`-Store über sein
+  1. `bewertungen`, `tags` und `medien` dürfen den `orte`-Store über sein
      öffentliches API nutzen — nur in diese Richtung (context-map.md).
+     **`karte` nicht**: Dieser Context fasst gar keinen Store an (ADR-0019
+     Punkt 8).
   2. Eine **View** in `orte` darf Komponenten aus `bewertungen`, `tags`,
      `medien` importieren und über Props/Emits anbinden (ADR-0013). Prüfbar
      am Modul, und zwar am **Zyklus**, nicht am Wort „Store": Verboten ist
@@ -83,6 +90,12 @@ src/
      seinen **eigenen** Store an und importiert nichts aus `features/orte/`;
      `Ortebereich.vue` darf ihn importieren. Die Erlaubnis endet in dem
      Moment, in dem `medien` etwas aus `orte` importiert.
+     **`karte` fällt unter Ausnahme 2**: `Ortebereich.vue` importiert
+     `Kartenflaeche.vue` und bindet sie über Props/Emits an. Die Erlaubnis
+     trägt, weil `karte` store-frei ist und nichts aus `orte` importiert —
+     sie endet in dem Moment, in dem eines von beidem nicht mehr stimmt
+     (ADR-0019 Punkt 8). Die Ortssuche liegt trotzdem in `orte`, weil sie
+     `orte`-Felder schreibt (ADR-0020 Punkt 1).
   3. `datensicherung` darf nach einem Import `useOrteStore` und
      `useMedienStore` über deren öffentliches API **zum Neuladen** anstoßen —
      nur das, ohne Rückrichtung (ADR-0017 Punkt 9).
@@ -141,6 +154,48 @@ src/
 - **Fremdnetz-Zugriffe** sind auf die drei erlaubten Zwecke beschränkt
   (Kartenkacheln, Ortssuche, Versionsauslieferung) und liegen im Feature, das
   sie braucht. Jeder braucht einen Ausfallpfad, der die App bedienbar lässt.
+  Regeln dazu (ADR-0018/0020):
+  - **Genau ein Modul kennt den Anbieter** — URL, Parameter und Antwortform
+    stehen in `features/<context>/lib/<dienst>.ts` (`geocoding.ts`), sonst
+    nirgends. Kein Anbieter-Feldname außerhalb dieser Datei.
+  - **Ausdrückliches Ergebnis statt Ausnahme** (wie `persistence/`,
+    ADR-0005): Treffer · keine Treffer · kein Netz · Fehler/Zeitüberschreitung
+    sind unterscheidbare Ergebnisse, kein `throw`, kein verschlucktes
+    `try/catch`. Jede Anfrage hat Abbruch (`AbortController`) und
+    Zeitüberschreitung.
+  - **Datensparsam**: übertragen wird nur, was der Nutzer eingegeben hat —
+    keine Bestandsdaten, keine IDs, keine Telemetrie. Antworten werden nicht
+    gespeichert; persistiert wird nur die Übernahme, über den `orte`-Store.
+  - **Kein API-Schlüssel im Bundle** (ADR-0001). Ein Anbieter, der einen
+    verlangt, ist nicht wählbar.
+  - **Referer nicht unterdrücken**: kein `<meta name="referrer" content="no-referrer">`
+    und keine `referrerPolicy`, die die eigene Origin verschweigt — sie ist
+    die einzige Identifikation gegenüber OSM und Photon (ein `User-Agent` ist
+    aus dem Browser nicht setzbar).
+  - **Kein Standort-Bias**: Parameter, die Position oder Ausschnitt
+    mitsenden (`lat`/`lon`/`bbox` bei Photon), werden nicht benutzt — sie
+    übertragen mehr, als der Nutzer eingegeben hat (ADR-0020 Punkt 5).
+  - **Attribution ist Pflicht**, an Karte und Trefferliste sichtbar.
+- **Netzzustand** (ADR-0021): `navigator.onLine` und `online`/`offline` sind
+  **im Feature** erlaubt — nur für einen gemuteten Hinweis an der
+  netzabhängigen Bedienstelle und für das Wiederholen eines dort sichtbar
+  fehlgeschlagenen Abrufs. Nie Reload, Navigation, Toast, globaler
+  Offline-Balken, `disabled`-Feld oder Store-Zustand; Listener hängen an der
+  Komponentenlebensdauer. `onLine === false` ist verlässlich, `true` ist keine
+  Zusage — Fehlertexte kommen aus dem Abrufergebnis. Für die Update-Mechanik
+  in `app-shell` gilt weiterhin ADR-0015 Punkt 6: dort löst ein Netzwechsel
+  nichts aus. Gemeinsame Stelle: `src/shared/composables/useNetzzustand.ts`.
+- **Leaflet nur in `features/karte/`** (ADR-0018): Bibliothek **und**
+  `leaflet/dist/leaflet.css` werden ausschließlich dort importiert, nie in
+  `main.ts`, `src/styles/` oder `shared/`. Weil die Karte an der **Startroute**
+  `/orte` hängt (ADR-0019), wird `Kartenflaeche.vue` zusätzlich **asynchron**
+  eingebunden (`defineAsyncComponent(() => import(...))`) — ein statischer
+  Import legte Leaflet ins Einstiegs-Bundle. Die Karteninstanz
+  liegt in einer nicht-reaktiven Referenz (`shallowRef`), beim Unmount
+  `map.remove()`. Marker sind `L.divIcon` (kein Standard-Icon, keine
+  Bilddatei); **ihre Styles gehören nicht in `<style scoped>`** — von Leaflet
+  erzeugtes DOM trägt kein `data-v-`-Attribut, also `:deep()` vom
+  Kartencontainer aus oder ein unscoped Block.
 - **`app/dev/`** ist Dev-Werkzeug: Routen dorthin werden nur unter
   `import.meta.env.DEV` registriert und sind im Produktions-Bundle nicht
   enthalten. Inhalt importiert **nichts** aus `features/`. Der
@@ -194,6 +249,17 @@ src/
   nach dem üblichen Weg (SVG in `src/assets/icons/`, Wrapper in
   `src/shared/ui/icons/`). Nicht jeder Bereich ist zweispaltig: `daten`
   (-009) bleibt einspaltig und benutzt `MasterDetail.vue` nicht (ADR-0011).
+- **Zweite Ansicht eines bestehenden Bereichs** (ADR-0019, erstmals die Karte
+  in -006): **kein** neuer Routen-Eintrag und **kein** Eintrag in der
+  Bereichsnavigation, sondern ein Query-Parameter auf der vorhandenen
+  Bereichsadresse — `/orte?ansicht=karte`. Die Bereichsansicht leitet die
+  Ansicht allein daraus ab; es gibt keinen Ansichts-Zustand daneben (kein
+  Store-Flag, keine Anzeigeeinstellung). Unbekannter oder fehlender Wert =
+  Standardansicht, **ohne** die Adresse zu korrigieren (kein `replace`).
+  Parametername und -wert sind ab Auslieferung genauso eingefroren wie ein
+  `path` — sie stehen nur nicht in `routes.ts`, deshalb hier. Die
+  Bereichsnavigation bleibt unangetastet und hebt den Bereich weiterhin
+  hervor, weil `istAktiv` den Pfad prüft.
 - **Bereichsansicht je Bereich**: Beide Routen eines Bereichs
   (`/<bereich>` und `/<bereich>/:<id>`) zeigen auf **dieselbe**
   Bereichsansicht in `src/features/<context>/views/` (`Ortebereich.vue` ab
@@ -384,7 +450,11 @@ src/
   übernimmt ausschließlich auf Nutzeraktion; kein Reload aus einem
   `controllerchange`-Handler. Grund: Inline-Autosave (ADR-0005).
 - **Kein Runtime-Caching für Fremd-Hosts.** Kartenkacheln und Ortssuche
-  bringen ihren Ausfallpfad im eigenen Feature mit (-006/-008).
+  bringen ihren Ausfallpfad im eigenen Feature mit (-006/-008). -006 fasst
+  den `pwa`-Block **nicht** an: Leaflet-JS/-CSS und die von seinem CSS
+  emittierten Bilder decken die vorhandenen `globPatterns` bereits ab,
+  Kacheln werden nie precacht (ADR-0018 Punkt 5). `scripts/verify-precache.mjs`
+  prüft ab -006 zusätzlich, dass in `dist/sw.js` **kein Fremd-Host** vorkommt.
 - Der Registrierungspunkt (`virtual:pwa-register/vue`) braucht die
   Typreferenz in `src/vite-env.d.ts`.
 

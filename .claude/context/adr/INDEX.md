@@ -13,7 +13,12 @@
 > Eine Zeile pro ADR. Keine Zusammenfassung des Inhalts — der Titel muss
 > reichen, um zu entscheiden, ob das ADR relevant ist.
 
-**Stand: 2026-09-10** — siebzehn ADRs. 0001–0003 beim Einordnen von
+**Stand: 2026-09-11** — einundzwanzig ADRs. 0019 und 0020 wurden am
+2026-09-11 **inhaltlich ersetzt**, nachdem der Nutzer die zugehörigen
+`user_questions` anders entschieden hat als der Architekt angenommen hatte;
+beide tragen den früheren Entwurf im Abschnitt „Revision" (kein
+`superseded by`: die Entwürfe waren nie in Kraft, es existierte kein Code
+dagegen). 0018 ist an Punkt 6 präzisiert. 0001–0003 beim Einordnen von
 PO-2026-09-07-010, 0004–0006 beim Einordnen von PO-2026-09-07-001
 (Gerätespeicher), 0007–0008 beim Einordnen von PO-2026-09-07-002 (erste
 Formaterweiterung), 0009 beim Einordnen von PO-2026-09-07-003 (erste
@@ -23,8 +28,9 @@ Anzeigeeinstellung), 0010 beim Einordnen von PO-2026-09-07-011
 PO-2026-09-07-003 (Werkzeugleiste), 0014 beim Einordnen von
 PO-2026-09-07-004 (zweite Formaterweiterung), 0015 beim Einordnen von
 PO-2026-09-07-007 (Offline-Auslieferung), 0016 beim Einordnen von
-PO-2026-09-07-005 (Bilder) und 0017 beim Einordnen von PO-2026-09-07-009
-(Export/Import).
+PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
+(Export/Import) sowie 0018–0021 beim Einordnen von PO-2026-09-07-006
+(Kartenansicht) und PO-2026-09-07-008 (Ortssuche).
 
 | ADR | Titel | Bounded Context | Status | Datum |
 |-----|-------|-----------------|--------|-------|
@@ -45,6 +51,10 @@ PO-2026-09-07-005 (Bilder) und 0017 beim Einordnen von PO-2026-09-07-009
 | [0015](0015-offline-auslieferung-service-worker.md) | Offline-Auslieferung über einen generierten Service Worker; Update im Prompt-Modus | app-shell | accepted | 2026-09-10 |
 | [0016](0016-bilder-eigener-store-und-einbindung.md) | Bilder — eigener Object Store ohne Rückverweis im Ort, Verkleinerung beim Hinzufügen, Einbindung ins Ortsdetail | medien, orte, datensicherung, app-shell | accepted | 2026-09-10 |
 | [0017](0017-export-import-container-und-zusammenfuehrung.md) | Export-/Import-Container, Zusammenführungsregeln und der Bereich Daten | datensicherung, orte, medien, app-shell | accepted | 2026-09-10 |
+| [0018](0018-kartenbibliothek-und-tile-anbieter.md) | Kartenbibliothek Leaflet, OSM-Rasterkacheln als einziger Fremd-Host der Karte | karte, app-shell | accepted | 2026-09-10 |
+| [0019](0019-zuschnitt-des-bereichs-karte.md) | Die Karte ist eine zweite Ansicht des Bereichs Orte — Umschalter in der Werkzeugleiste, Adresse über den Query-Parameter `ansicht` | karte, orte, app-shell | accepted | 2026-09-11 |
+| [0020](0020-ortssuche-anbieter-und-abfragemodell.md) | Ortssuche — Photon als Geocoder, Suche beim Tippen, im Context `orte` statt `karte` | orte, karte, app-shell | accepted | 2026-09-11 |
+| [0021](0021-netzzustand-im-ui.md) | Netzzustand im UI — erlaubt an der netzabhängigen Bedienstelle, verboten in der Auslieferungsmechanik (Präzisierung von ADR-0015 Punkt 6) | app-shell, karte, orte | accepted | 2026-09-10 |
 
 **Status-Werte** wörtlich wie im ADR selbst: `proposed` · `accepted` ·
 `superseded by ADR-NNNN`.
