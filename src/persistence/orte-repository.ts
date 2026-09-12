@@ -9,6 +9,7 @@
  * Ergebnis.
  */
 import { oeffneDatenbank } from './db'
+import { sichereKopie } from './sichere-kopie'
 import type { OrtDatensatz } from './schema'
 
 export type LadeErgebnis =
@@ -42,7 +43,10 @@ const schreibWarteschlangenJeId = new Map<string, Promise<SchreibErgebnis>>()
 /**
  * Persistiert den vollständigen, aktuellen Ort-Datensatz — nie ein
  * Lesen-Ändern-Zurückschreiben gegen die Datenbank (ADR-0005 Punkt 1). Der
- * Aufrufer übergibt bereits den kompletten Stand aus dem Pinia-Store.
+ * Aufrufer übergibt bereits den kompletten Stand aus dem Pinia-Store — und
+ * damit einen Wert, der (auch nur teilweise, siehe `sichere-kopie.ts`) hinter
+ * einem reaktiven `Proxy` stecken kann. `tatsaechlichSpeichern` macht daraus
+ * eine klonbare Kopie, bevor sie an `db.put` geht (PO-2026-09-12-001).
  */
 export function speichereOrt(ort: OrtDatensatz): Promise<SchreibErgebnis> {
   const vorherigerLauf = schreibWarteschlangenJeId.get(ort.id) ?? Promise.resolve()
@@ -67,7 +71,7 @@ async function tatsaechlichSpeichern(ort: OrtDatensatz): Promise<SchreibErgebnis
   }
 
   try {
-    await geoeffnet.db.put('orte', ort)
+    await geoeffnet.db.put('orte', sichereKopie(ort))
     return { status: 'geschrieben' }
   } catch (fehler) {
     return { status: 'schreiben_fehlgeschlagen', grund: bestimmeSchreibfehlerGrund(fehler) }

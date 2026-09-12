@@ -17,6 +17,15 @@
  * Beide sind hier als Zusicherung abgebildet, nicht als Einzelfall-Test:
  * geprüft wird die Eigenschaft, nicht die Stelle.
  *
+ * Ab PO-2026-09-12-001 (ADR-0023) kommt eine dritte Zusicherung dazu: Ein
+ * angelegter Ort übersteht ein Neuladen. Der Befund dahinter — ein
+ * reaktives Store-Objekt (Vue-`Proxy`) ist nicht strukturiert klonbar und
+ * eine echte IndexedDB lehnt `put()` deshalb synchron mit
+ * `DataCloneError` ab — ist NICHT in Vitest prüfbar: `fake-indexeddb`
+ * bildet den strukturierten Klon in JavaScript nach und lässt genau den
+ * Wert durch, den eine echte Browser-Engine ablehnt. Nur eine echte Engine
+ * (hier Chromium) kann das zusichern.
+ *
  * Aufruf: `npm run smoke` (baut vorher). Bildschirmfotos landen in
  * `.smoke/`, das Verzeichnis ist ignoriert.
  */
@@ -196,6 +205,27 @@ async function main() {
       console.log(`  ${ansicht.name} — geöffnet, Bildschirmfoto in ${FOTOS}/${ansicht.name}.png`)
     }
 
+    // Zusicherung ab -001 (ADR-0023 Punkt 2, PO-2026-09-12-001): Ein
+    // angelegter Ort übersteht ein Neuladen. Das ist der eine Beleg, den
+    // Vitest (fake-indexeddb) grundsätzlich nicht liefern kann.
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await seite.getByRole('button', { name: /hinzuf|anlegen/i }).first().click()
+    await seite.waitForTimeout(300)
+    await seite.locator('input[type="text"]:visible').first().fill('Rauchtest-Ueberlebt-Neuladen')
+    await seite.keyboard.press('Enter')
+    await seite.waitForTimeout(700)
+    if (await seite.getByText('Speichern ist fehlgeschlagen').isVisible().catch(() => false)) {
+      befunde.push('ort-ueberlebt-neuladen: „Speichern ist fehlgeschlagen" bereits direkt nach dem Anlegen sichtbar')
+    }
+    await seite.reload({ waitUntil: 'networkidle' })
+    await seite.waitForTimeout(400)
+    const textNachNeuladen = await seite.evaluate(() => document.body.innerText)
+    if (!textNachNeuladen.includes('Rauchtest-Ueberlebt-Neuladen')) {
+      befunde.push('ort-ueberlebt-neuladen: der angelegte Ort ist nach dem Neuladen verschwunden')
+    }
+    await seite.screenshot({ path: `${FOTOS}/ort-ueberlebt-neuladen.png` })
+    console.log(`  ort-ueberlebt-neuladen — geprüft, Bildschirmfoto in ${FOTOS}/ort-ueberlebt-neuladen.png`)
+
     // Zusicherung 5 im Ausnahmezustand: ohne Netz darf die Ortssuche das
     // Feld „Adresse" nicht verdecken. Genau dieser Fall ist einmal
     // durchgerutscht, deshalb steht er hier ausdrücklich.
@@ -221,7 +251,8 @@ async function main() {
     return
   }
   console.log('\nRauchtest erfolgreich: alle Ansichten geöffnet, keine Laufzeitfehler,')
-  console.log('CSS-Ressourcen aufgelöst, kein Bedienelement verdeckt.')
+  console.log('CSS-Ressourcen aufgelöst, kein Bedienelement verdeckt, ein angelegter Ort')
+  console.log('übersteht ein Neuladen.')
 }
 
 await main()

@@ -1,3 +1,4 @@
+import { reactive } from 'vue'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { oeffneDatenbank, _resetFuerTests as resetDb } from './db'
 import { speichereOrt, loescheOrt, ladeAlleOrte } from './orte-repository'
@@ -131,6 +132,33 @@ describe('orte-repository', () => {
 
     const verbleibendeBilder = await geoeffnet.db.getAll('bilder')
     expect(verbleibendeBilder.map((bild) => bild.id)).toEqual(['bild-b1'])
+  })
+
+  it('speichert einen Ort, wie ihn der Pinia-Store tatsächlich übergibt — als reaktives Objekt (ADR-0023 Punkt 3, PO-2026-09-12-001)', async () => {
+    // `useOrteStore` hält `orte` in einem `ref`; `ortNachId` liefert deshalb
+    // im Betrieb kein einfaches Objekt, sondern eines hinter einem
+    // Vue-Reaktivitäts-Proxy — auch für nur teilweise neu zusammengesetzte
+    // Achsen (siehe `aktualisiereAchse`). Dieser Test benutzt das ECHTE
+    // Repository gegen `fake-indexeddb`, keinen Mock.
+    const reaktiverOrt = reactive(beispielOrt())
+    const teilweiseNeuZusammengesetzt = {
+      ...reaktiverOrt,
+      bewertungen: {
+        ...reaktiverOrt.bewertungen,
+        ambiente: { ...reaktiverOrt.bewertungen.ambiente, wert: 7 },
+      },
+    }
+
+    const schreibErgebnis = await speichereOrt(teilweiseNeuZusammengesetzt)
+    expect(schreibErgebnis).toEqual({ status: 'geschrieben' })
+
+    const ladeErgebnis = await ladeAlleOrte()
+    expect(ladeErgebnis.status).toBe('geladen')
+    if (ladeErgebnis.status === 'geladen') {
+      expect(ladeErgebnis.orte).toEqual([
+        { ...beispielOrt(), bewertungen: { ...beispielOrt().bewertungen, ambiente: { wert: 7, kommentar: null } } },
+      ])
+    }
   })
 
   it('meldet "speicher_nicht_verfuegbar", wenn die Datenbank nicht geöffnet werden kann', async () => {

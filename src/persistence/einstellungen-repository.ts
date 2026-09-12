@@ -21,6 +21,7 @@
  * auszuwerten.
  */
 import { oeffneDatenbank } from './db'
+import { sichereKopie } from './sichere-kopie'
 
 export type LadeEinstellungErgebnis =
   | { status: 'geladen'; wert: unknown }
@@ -56,7 +57,9 @@ export async function schreibeEinstellung(
   }
 
   try {
-    await geoeffnet.db.put('einstellungen', wert, schluessel)
+    // Der übergebene Wert kann ein reaktives Store-Objekt sein (Pinia
+    // `ref`/`reactive`) — siehe `sichere-kopie.ts`, PO-2026-09-12-001.
+    await geoeffnet.db.put('einstellungen', sichereKopie(wert), schluessel)
     return { status: 'geschrieben' }
   } catch {
     return { status: 'fehlgeschlagen' }

@@ -1,3 +1,4 @@
+import { reactive } from 'vue'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { oeffneDatenbank, _resetFuerTests as resetDb } from './db'
 import { ladeEinstellung, schreibeEinstellung } from './einstellungen-repository'
@@ -58,6 +59,22 @@ describe('einstellungen-repository', () => {
     expect(await ladeEinstellung('orte.tagfilter')).toEqual({
       status: 'geladen',
       wert: { modus: 'und' },
+    })
+  })
+
+  it('schreibt einen Wert, wie ihn der Pinia-Store tatsächlich übergibt — als reaktives Objekt (ADR-0023 Punkt 3, PO-2026-09-12-001)', async () => {
+    // `useOrteStore.sortierung`/`.tagfilterEinstellung` sind `ref`s auf ein
+    // Objekt; `schreibeEinstellung(SCHLUESSEL, sortierung.value)` übergibt im
+    // Betrieb deshalb ein reaktives Objekt, keinen Plain Object Literal.
+    const reaktiverWert = reactive({ kriterium: 'geaendertAm', richtung: 'absteigend' })
+
+    const schreibErgebnis = await schreibeEinstellung('orte.sortierung', reaktiverWert)
+    expect(schreibErgebnis).toEqual({ status: 'geschrieben' })
+
+    const ladeErgebnis = await ladeEinstellung('orte.sortierung')
+    expect(ladeErgebnis).toEqual({
+      status: 'geladen',
+      wert: { kriterium: 'geaendertAm', richtung: 'absteigend' },
     })
   })
 
