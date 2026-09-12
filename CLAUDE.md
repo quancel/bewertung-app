@@ -174,30 +174,51 @@ Komponentenverhalten richtet das ein und ergänzt diese Zeile.
 
 Die **Minimalverifikation** aus `.claude/agent-team/rules/VERIFICATION.md`,
 ausführbar. `scripts/smoke.mjs` baut, startet `vite preview`, öffnet mit
-Playwright jede Ansicht und prüft die fünf Zusicherungen: Anwendung
+Playwright jede Ansicht **bei mehreren Breiten** (`BREITEN`: Desktop 1280px
+sowie Telefon 320px und 390px, ADR-0012 — ein Prüfparameter des Skripts,
+keine Layout-Entscheidung) und prüft dort dieselben Zusicherungen: Anwendung
 startet · keine Laufzeitfehler · jede Ansicht einmal geöffnet · über CSS
-geladene Ressourcen aufgelöst · kein Bedienelement verdeckt. Zusätzlich
-einmal das Ortsdetail **ohne Netz**. Bildschirmfotos landen in `.smoke/`
-(ignoriert).
+geladene Ressourcen aufgelöst · kein Bedienelement verdeckt · **nichts ragt
+aus dem Bildschirm** (kein horizontal scrollbares Dokument, kein Element
+jenseits der Viewport-Breite). Zusätzlich läuft die Verdeckungsprüfung im
+Ortsdetail in **allen vier Hinweiszuständen der Ortssuche** (lädt/keine
+Treffer/Fehler/kein Netz, über Request-Interception erzeugt — nie ein echter
+Aufruf an Photon, ADR-0020 Punkt 3) statt nur offline. Eine aktiv bediente
+Auswahlliste (Trefferliste der Ortssuche, Tag-Vorschlagsliste) darf dabei
+überlagern; das ist als benannte Bedingung im Skript ausgenommen, nie als
+ID-/Klassenliste (ADR-0023 Punkt 7). Bildschirmfotos landen in `.smoke/`
+(ignoriert), je Breite und Ansicht ein eigenes.
 
 **Der Lead führt ihn aus, bevor er ein Paket als erledigt meldet** — nicht
 statt der Unit-Tests, sondern zusätzlich. Typecheck, Lint und Vitest
 prüfen, ob Code zusammenpasst; der Rauchtest prüft, ob das Ergebnis
-benutzbar ist. Zwei Fehler dieses Projekts sind durch alle drei **und**
-durch die Code-Abnahme gekommen und erst beim ersten Öffnen der App
+benutzbar ist. Mehrere reale Fehler dieses Projekts sind durch alle drei
+**und** durch die Code-Abnahme gekommen und erst in echter Nutzung
 aufgefallen: jedes Icon war ein farbiger Kasten (ungültiges `url()` mit
-einer Data-URI voller Hochkommata), und das Feld „Adresse" war ohne Netz
-von der Hinweisfläche der Ortssuche verdeckt. Beide sind als **Zusicherung**
-abgebildet, nicht als Einzelfall-Test — geprüft wird die Eigenschaft, nicht
-die Stelle. Gegen den jeweiligen Vor-Korrektur-Stand aus der Historie
-nachgewiesen: beide werden gefangen, mit Exit-Code 1.
+einer Data-URI voller Hochkommata); das Feld „Adresse" war ohne Netz von der
+Hinweisfläche der Ortssuche verdeckt; die Koordinatenzeile ragte ab ~390px
+CSS-Breite aus dem Bildschirm (PO-2026-09-12-002); dieselbe Hinweisfläche
+verdeckt „Adresse" weiterhin in den Zuständen lädt/keine Treffer/Fehler
+(PO-2026-09-12-003). Alle sind als **Zusicherung** abgebildet, nicht als
+Einzelfall-Test — geprüft wird die Eigenschaft, nicht die Stelle. Gegen den
+jeweiligen Vor-Korrektur-Stand aus der Historie nachgewiesen: alle werden
+gefangen, mit Exit-Code 1.
+
+**Ein roter Rauchtest, der einen bekannten, bereits geschnittenen Befund
+meldet, ist kein Grund, eine Zusicherung abzuschwächen** — er wird durch das
+zugehörige Paket grün (ADR-0023 Punkt 6). Zwischen PO-2026-09-12-004 (dieser
+erweiterte Rauchtest) und den Korrekturpaketen -002/-003 ist `npm run smoke`
+deshalb bewusst rot: Er meldet genau die Koordinatenzeile und die
+überlagernde Hinweisfläche und sonst nichts. Wer in diesem Fenster einen
+grünen Lauf erwartet, hat die falsche Erwartung an das Werkzeug.
 
 **Playwright ist bewusst keine Projekt-Abhängigkeit** — es zieht einen
 Browser nach sich, den CI-Umgebungen meist schon mitbringen.
 `scripts/smoke.mjs` sucht es an den üblichen Orten; fehlt es, sagt der
 Rauchtest das und endet mit 0, statt einen Build rot zu färben, der nichts
-dafür kann. Die fünf Zusicherungen sind dann **ungeprüft**, und genau das
-gehört so in den Bericht.
+dafür kann. Die Zusicherungen sind dann **ungeprüft**, und genau das gehört
+so in den Bericht.
 
-Neue Ansicht gebaut? In `ANSICHTEN` (oben in `scripts/smoke.mjs`)
-eintragen, sonst prüft sie niemand.
+Neue Ansicht gebaut? In `ANSICHTEN` eintragen. Neue Breite oder neuer
+netzabhängiger Zustand? In `BREITEN` bzw. `ORTSSUCHE_ZUSTAENDE` (alle oben in
+`scripts/smoke.mjs`) — sonst prüft sie niemand.

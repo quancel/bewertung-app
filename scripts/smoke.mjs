@@ -26,6 +26,35 @@
  * Wert durch, den eine echte Browser-Engine ablehnt. Nur eine echte Engine
  * (hier Chromium) kann das zusichern.
  *
+ * Ab PO-2026-09-12-004 (ADR-0023 Punkt 6/7) kommen zwei weitere Lücken
+ * dazu, die genau dieser Rauchtest bis dahin selbst hatte:
+ *
+ *   - Es wurde nur EINE Breite geprüft (1280×900) — ein Telefon kam darin
+ *     nicht vor. Jetzt läuft jede Ansicht zusätzlich bei 320px und 390px
+ *     CSS-Breite (`BREITEN` unten), mit denselben Zusicherungen.
+ *   - `pruefeVerdeckung()` überspringt ein Element STILL, sobald sein
+ *     Prüfpunkt außerhalb des sichtbaren Bereichs liegt
+ *     (`elementFromPoint` liefert dann `null`). Eine aus dem Bildschirm
+ *     ragende Zeile war damit grundsätzlich unauffindbar — nicht nur wegen
+ *     der fehlenden Telefonbreite. Das ist jetzt selbst ein Befund (siehe
+ *     `pruefeVerdeckung`), und eine eigene Zusicherung „nichts ragt aus
+ *     dem Bildschirm" (`pruefeUeberlauf`) prüft die Eigenschaft zusätzlich
+ *     unabhängig von einem konkreten Bedienelement.
+ *
+ * Dazu läuft die Verdeckungsprüfung im Ortsdetail jetzt in ALLEN VIER
+ * Hinweiszuständen der Ortssuche (`ORTSSUCHE_ZUSTAENDE` unten) — vorher nur
+ * offline. Die vier Zustände entstehen über Request-Interception auf
+ * `photon.komoot.io`, NIE über einen echten Aufruf (ADR-0020 Punkt 3:
+ * Sparsamkeit gegenüber einem Dienst ohne Rate-Zusage). Eine aktiv
+ * bediente Auswahlliste (Trefferliste der Ortssuche, Tag-Vorschlagsliste)
+ * darf dabei weiterhin überlagern — das ist kein Befund, siehe
+ * `istOffeneAuswahlliste()`.
+ *
+ * WICHTIG (ADR-0023 Punkt 6, Nutzerentscheidung 2026-09-12): Solange
+ * PO-2026-09-12-002 (Koordinatenzeile) und PO-2026-09-12-003 (überlagernde
+ * Hinweisfläche) nicht gebaut sind, meldet dieser Rauchtest ihre Befunde zu
+ * Recht — das ist das erwartete Ergebnis, keine Abschwächung.
+ *
  * Aufruf: `npm run smoke` (baut vorher). Bildschirmfotos landen in
  * `.smoke/`, das Verzeichnis ist ignoriert.
  */
@@ -38,6 +67,17 @@ const PORT = 4173
 const BASIS = `http://localhost:${PORT}`
 const FOTOS = '.smoke'
 
+/** Geprüfte Breiten (ADR-0012: ein Prüfparameter des Skripts, keine
+ *  Layout-Entscheidung — aus diesem Paket entsteht keine Breakpoint- oder
+ *  Viewport-Logik im Anwendungscode). Mindestens 320px und 390px CSS-Breite
+ *  kommen mit PO-2026-09-12-004 dazu; 1280×900 bleibt die bisherige
+ *  Referenzbreite. Neue Breite gebraucht? Hier eintragen. */
+const BREITEN = [
+  { name: 'desktop-1280', width: 1280, height: 900 },
+  { name: 'telefon-320', width: 320, height: 700 },
+  { name: 'telefon-390', width: 390, height: 844 },
+]
+
 /** Die Ansichten, die der Rauchtest öffnet. `vorbereiten` schafft den
  *  Zustand, den die Ansicht zum Zeigen braucht — ohne Ort gibt es keine
  *  Detailansicht und keinen Marker. */
@@ -47,6 +87,72 @@ const ANSICHTEN = [
   { name: 'kartenansicht', pfad: '/orte?ansicht=karte' },
   { name: 'datenbereich', pfad: '/daten' },
   { name: 'adresse-ohne-ziel', pfad: '/gibtesnicht' },
+]
+
+/** Photon-Endpunkt, NUR zum Abfangen (Request-Interception) — es wird
+ *  niemals eine echte Anfrage dorthin durchgelassen (ADR-0020 Punkt 3,
+ *  Sparsamkeit gegenüber einem Dienst ohne Rate-Zusage). Die vier
+ *  unterscheidbaren Hinweiszustände der Ortssuche entstehen ausschließlich
+ *  über die Antwort, die dieses Skript selbst liefert. */
+const PHOTON_MUSTER = 'https://photon.komoot.io/**'
+
+/** Die vier Hinweiszustände der Ortssuche (`features/orte/lib/geocoding.ts`),
+ *  über Request-Interception erzeugt statt über einen echten Photon-Aufruf.
+ *  `wartenMs` ist die Zeit nach dem Tippen, zu der der jeweilige Zustand
+ *  sicher aktiv ist (Debounce 300ms + client-eigene Ladezustand-Schwelle
+ *  400ms, siehe `geocoding.ts`) — bei „laedt" bewusst VOR der (verzögerten)
+ *  Antwort, damit der Zwischenzustand selbst geprüft wird. */
+const ORTSSUCHE_ZUSTAENDE = [
+  {
+    name: 'laedt',
+    suchtext: 'Ladezustand-Rauchtest',
+    async einrichten(seite) {
+      // Die verzögerte Antwort kann nach dem Weiterschalten zum nächsten
+      // Zustand ankommen (der Client bricht die alte Anfrage beim Tippen
+      // der nächsten selbst ab, ADR-0020 Punkt 3) — `route.fulfill()`
+      // wirft dann "Route is already handled", was hier bewusst
+      // verschluckt wird: der Zustand selbst wurde längst geprüft.
+      await seite.route(PHOTON_MUSTER, async (route) => {
+        await new Promise((fertig) => setTimeout(fertig, 1600))
+        await route
+          .fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ features: [] }) })
+          .catch(() => {})
+      })
+    },
+    wartenMs: 750,
+  },
+  {
+    name: 'keine_treffer',
+    suchtext: 'KeineTrefferRauchtest',
+    async einrichten(seite) {
+      await seite.route(PHOTON_MUSTER, (route) =>
+        route
+          .fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ features: [] }) })
+          .catch(() => {}))
+    },
+    wartenMs: 1000,
+  },
+  {
+    name: 'fehler',
+    suchtext: 'FehlerRauchtest',
+    async einrichten(seite) {
+      await seite.route(PHOTON_MUSTER, (route) => route.fulfill({ status: 500, body: 'Rauchtest-Fehler' }).catch(() => {}))
+    },
+    wartenMs: 1000,
+  },
+  {
+    name: 'kein_netz',
+    // Kein Tippen nötig: `zeigeKeinNetzHinweis` in Ortssuche.vue hängt
+    // ausschließlich am Online-Status, nicht an einer Eingabe.
+    suchtext: null,
+    async einrichten(seite) {
+      await seite.context().setOffline(true)
+    },
+    async aufraeumen(seite) {
+      await seite.context().setOffline(false)
+    },
+    wartenMs: 500,
+  },
 ]
 
 /** Playwright ist bewusst KEINE Projekt-Abhängigkeit — es zieht einen
@@ -125,11 +231,95 @@ function pruefeCssRessourcen() {
   return kaputt
 }
 
-/** Zusicherung 5: Kein Bedienelement ist verdeckt. Geprüft wird der
- *  Mittelpunkt — was dort liegt, muss das Element selbst oder eines seiner
- *  Kinder sein. Ein Label o. Ä. darüber ist in Ordnung, ein deckendes
- *  Panel nicht. */
+/**
+ * Zusicherung 5: Kein Bedienelement ist verdeckt.
+ *
+ * PO-2026-09-12-004 (ADR-0023 Punkt 6/7) ändert drei Dinge gegenüber der
+ * ursprünglichen Fassung:
+ *
+ * 1. Geprüft werden Mittelpunkt UND die vier Kantenmitten statt nur des
+ *    Mittelpunkts. Eine Überlagerung, die nur einen Rand trifft (z. B. eine
+ *    knapp zu kurze Hinweisfläche, die den oberen Rand des nächsten Felds
+ *    streift), bliebe am Mittelpunkt unentdeckt. Kantenmitten statt Ecken,
+ *    weil `border-radius` an echten Ecken Randpixel abrundet und dort
+ *    fälschlich „nichts" träfe.
+ * 2. Liegt ein Prüfpunkt jenseits der Viewport-BREITE, ist das jetzt selbst
+ *    ein Befund statt eines stillen `continue` bei `elementFromPoint ===
+ *    null` — eine aus dem Bildschirm ragende Zeile war sonst grundsätzlich
+ *    unauffindbar, nicht nur bei falscher Breite (Befund 2,
+ *    PO-2026-09-12-002). Jenseits der Viewport-HÖHE ist dagegen normales
+ *    Scrollen (die Seite darf länger sein als der Bildschirm) und bleibt
+ *    kein Befund — nur dieser eine Prüfpunkt liefert dann keine Aussage,
+ *    ein anderer Prüfpunkt desselben Elements entscheidet. Ein Element, das
+ *    komplett außerhalb des Ansichtsfensters liegt (z. B. das
+ *    Skip-Link-Muster, das erst bei Tastaturfokus einblendet), wird
+ *    weiterhin gar nicht erst geprüft — das ist kein Überlauf-Bug, sondern
+ *    Absicht, und wird durch den bestehenden Sichtbarkeits-Vorfilter
+ *    ausgeschlossen (siehe unten, jetzt auch für die Breite).
+ * 3. Eine aktiv bediente Auswahlliste (Trefferliste der Ortssuche,
+ *    Tag-Vorschlagsliste — design-conventions.md „Vorschlagsliste
+ *    (Autocomplete)", PO-2026-09-12-003) darf das nachfolgende Feld
+ *    überlagern; das ist kein Befund. Erkannt wird die BAUFORM
+ *    (`istOffeneAuswahlliste`), nie eine Datei-ID oder ein Klassenname.
+ * 4. Neu durch die Telefonbreiten (dieses Paket öffnet erstmals Ansichten
+ *    unterhalb `--breakpoint-lg`, wo `Bereichsnavigation.vue` als fixierte
+ *    Bottom-Tab-Leiste rendert statt als Nav-Rail): persistente, fixierte
+ *    App-Chrome (`position: fixed`) wird ausgenommen, wenn das verdeckte
+ *    Element selbst nicht ebenfalls fixiert ist (`istFixierteChrome`).
+ *    Dieser Rauchtest scrollt nicht; `AppRahmen.vue` reserviert die Höhe der
+ *    Leiste bereits über `padding-bottom` am Inhalt, echter Inhalt am Ende
+ *    einer langen Ansicht liegt deshalb nur VOR dem Scrollen unter der
+ *    Leiste — anders als eine lokale Überlagerungsfläche (Punkt 3), die im
+ *    selben Scrollkontext liegt und dauerhaft überlappt.
+ */
 function pruefeVerdeckung() {
+  function bezeichner(el) {
+    if (el.id) return '#' + el.id
+    const klasse = typeof el.className === 'string' ? el.className : el.getAttribute('class') || ''
+    return el.tagName.toLowerCase() + (klasse ? '.' + klasse.trim().replace(/\s+/g, '.') : '')
+  }
+
+  /** Die Ausnahme steht als Bedingung, nie als Liste von IDs/Klassennamen
+   *  einzelner Dateien (ADR-0023 Punkt 7) — sie gilt strukturell für jedes
+   *  Vorkommen des Musters: eine absolut positionierte Fläche, die im
+   *  selben Elternknoten wie ein Eingabefeld liegt UND mindestens einen
+   *  anklickbaren Vorschlag enthält. Eine Fläche, die nur einen Hinweistext
+   *  ohne Button zeigt (lädt/keine Treffer/Fehler), erfüllt das NICHT —
+   *  das ist genau der noch offene Befund 3 (PO-2026-09-12-003).
+   */
+  function istOffeneAuswahlliste(element) {
+    let kandidat = element
+    while (kandidat && kandidat !== document.body) {
+      if (getComputedStyle(kandidat).position === 'absolute') {
+        const hatNachbarfeld = kandidat.parentElement?.querySelector('input') != null
+        const hatVorschlagsButton = kandidat.querySelector('button') != null
+        return hatNachbarfeld && hatVorschlagsButton
+      }
+      kandidat = kandidat.parentElement
+    }
+    return false
+  }
+
+  /** Persistente, fixierte App-Chrome (Bottom-Tab-Leiste/Nav-Rail,
+   *  `position: fixed`, AppRahmen.vue) wird von dieser Prüfung ausgenommen,
+   *  wenn das verdeckte Element selbst nicht ebenfalls fixiert ist: Dieser
+   *  Rauchtest scrollt nicht, `AppRahmen.vue` reserviert die Höhe der Leiste
+   *  aber bereits über `padding-bottom` am Inhalt — ob darunterliegender
+   *  Inhalt beim tatsächlichen Scrollen erreichbar ist, hängt vom
+   *  Scrollzustand ab, den dieser Test nicht verändert, und ist nicht
+   *  dieselbe Eigenschaft wie eine lokale, absolut positionierte
+   *  Überlagerungsfläche (Ortssuche/Tag-Vorschlagsliste), die IM SELBEN
+   *  Scrollkontext wie das verdeckte Feld liegt und sich beim Scrollen mit
+   *  ihm mitbewegt — deren Überlappung bleibt dauerhaft, diese hier nicht. */
+  function istFixierteChrome(element) {
+    let kandidat = element
+    while (kandidat && kandidat !== document.body) {
+      if (getComputedStyle(kandidat).position === 'fixed') return true
+      kandidat = kandidat.parentElement
+    }
+    return false
+  }
+
   const verdeckt = []
   const auswahl = 'button, input, select, textarea, a[href], [role="button"], [tabindex]:not([tabindex="-1"])'
   for (const el of document.querySelectorAll(auswahl)) {
@@ -140,19 +330,160 @@ function pruefeVerdeckung() {
     if (el.closest('[aria-hidden="true"]')) continue
     const kasten = el.getBoundingClientRect()
     if (kasten.width < 4 || kasten.height < 4) continue
+    // Komplett außerhalb des Ansichtsfensters (oben/unten wie bisher, jetzt
+    // auch links/rechts) ist kein Überlauf-Bug, sondern z. B. das
+    // Skip-Link-Muster oder schlicht noch nicht heruntergescrollter Inhalt —
+    // das ist NICHT dasselbe wie ein Element, das nur TEILWEISE herausragt
+    // (Befund 2 aus -002: sichtbarer linker Rand, Rest jenseits der Breite).
     if (kasten.bottom < 0 || kasten.top > innerHeight) continue
+    if (kasten.right < 0 || kasten.left > innerWidth) continue
     const stil = getComputedStyle(el)
     if (stil.visibility === 'hidden' || stil.opacity === '0') continue
-    const x = kasten.x + kasten.width / 2
-    const y = kasten.y + kasten.height / 2
-    const oben = document.elementFromPoint(x, y)
-    if (!oben) continue
-    if (oben === el || el.contains(oben) || oben.contains(el)) continue
-    verdeckt.push(
-      (el.id || el.tagName.toLowerCase()) + ' verdeckt von ' + oben.tagName.toLowerCase() + '.' + oben.className,
-    )
+
+    const mitteX = kasten.x + kasten.width / 2
+    const mitteY = kasten.y + kasten.height / 2
+    const pruefpunkte = [
+      [mitteX, mitteY],
+      [mitteX, kasten.top + 1],
+      [mitteX, kasten.bottom - 1],
+      [kasten.left + 1, mitteY],
+      [kasten.right - 1, mitteY],
+    ]
+
+    for (const [x, y] of pruefpunkte) {
+      // Jenseits der Viewport-BREITE ist in dieser App nie vorgesehen
+      // (ADR-0012) — anders als vertikales Scrollen (das Dokument darf
+      // länger sein als der Bildschirm) ist das immer ein Befund, sofort
+      // und ohne `elementFromPoint`: genau die Lücke aus Befund 2
+      // (PO-2026-09-12-002), die `elementFromPoint` bisher still verschluckt
+      // hat, weil der Punkt dort schlicht `null` liefert.
+      if (x < 0 || x > innerWidth) {
+        verdeckt.push(`${bezeichner(el)} liegt an Punkt (${Math.round(x)},${Math.round(y)}) jenseits der Viewport-Breite`)
+        break
+      }
+      // Jenseits der Viewport-HÖHE ist dagegen normales Scrollen (eine
+      // Seite darf länger sein als der Bildschirm) — kein Befund, nur
+      // dieser eine Prüfpunkt liefert hier keine Aussage.
+      if (y < 0 || y > innerHeight) continue
+      const oben = document.elementFromPoint(x, y)
+      // `null` trotz Punkt innerhalb beider Achsen (z. B. Rundung am
+      // abgerundeten Rand) ist nicht zuordenbar — anderer Prüfpunkt
+      // entscheidet.
+      if (!oben) continue
+      if (oben === el || el.contains(oben) || oben.contains(el)) continue
+      if (istOffeneAuswahlliste(oben)) continue
+      if (stil.position !== 'fixed' && istFixierteChrome(oben)) continue
+      verdeckt.push(`${bezeichner(el)} verdeckt von ${bezeichner(oben)}`)
+      break
+    }
   }
   return verdeckt
+}
+
+/**
+ * Neue Zusicherung ab PO-2026-09-12-004 (ADR-0023 Punkt 6): nichts ragt aus
+ * dem Bildschirm. Geprüft wird die Eigenschaft über zwei Wege — ein
+ * horizontal scrollbares Dokument insgesamt, und jedes einzelne Element,
+ * dessen Rand über die Viewport-Breite hinausreicht. Befund 2
+ * (PO-2026-09-12-002, die Koordinatenzeile ab ~390px) ist der bekannte,
+ * noch nicht behobene Fall.
+ */
+function pruefeUeberlauf() {
+  function bezeichner(el) {
+    if (el.id) return '#' + el.id
+    const klasse = typeof el.className === 'string' ? el.className : el.getAttribute('class') || ''
+    return el.tagName.toLowerCase() + (klasse ? '.' + klasse.trim().replace(/\s+/g, '.') : '')
+  }
+
+  const befunde = []
+  const breite = document.documentElement.clientWidth
+
+  if (document.documentElement.scrollWidth > breite + 1) {
+    befunde.push(
+      `Dokument ist horizontal scrollbar: Inhalt ${document.documentElement.scrollWidth}px breit, Ansichtsfenster ${breite}px`,
+    )
+  }
+
+  for (const el of document.querySelectorAll('body *')) {
+    if (el.getAttribute('tabindex') === '-1') continue
+    if (el.closest('[aria-hidden="true"]')) continue
+    const stil = getComputedStyle(el)
+    if (stil.visibility === 'hidden' || stil.opacity === '0' || stil.display === 'none') continue
+    const kasten = el.getBoundingClientRect()
+    if (kasten.width < 4 || kasten.height < 4) continue
+    // Komplett außerhalb (z. B. das Skip-Link-Muster, das erst bei Fokus
+    // einblendet) ist kein Überlauf-Befund — nur ein Element, das
+    // TEILWEISE sichtbar ist und darüber hinaus ragt, zählt (genau die
+    // Eigenschaft „ragt aus dem Bildschirm", nicht „ist gerade unsichtbar").
+    if (kasten.right <= 0 || kasten.left >= breite) continue
+    if (kasten.right > breite + 1) {
+      befunde.push(`${bezeichner(el)} ragt ${Math.round(kasten.right - breite)}px über den rechten Bildschirmrand hinaus`)
+    } else if (kasten.left < -1) {
+      befunde.push(`${bezeichner(el)} ragt ${Math.round(-kasten.left)}px über den linken Bildschirmrand hinaus`)
+    }
+  }
+  return befunde
+}
+
+/** Öffnet jede Ansicht bei einer Breite und prüft die Zusicherungen 1-5
+ *  (Zusicherung 2 — Laufzeitfehler — hängt an Listenern auf `seite`, die
+ *  der Aufrufer vor dem Aufruf registriert). */
+async function pruefeAnsichtenBeiBreite(seite, breite, befunde) {
+  for (const ansicht of ANSICHTEN) {
+    await seite.goto(BASIS + ansicht.pfad, { waitUntil: 'networkidle' })
+    if (ansicht.vorbereiten) await ansicht.vorbereiten(seite)
+    await seite.waitForTimeout(400)
+
+    // Zusicherung 1 + 3: die Ansicht ist geöffnet und nicht leer.
+    const textLaenge = await seite.evaluate(() => document.body.innerText.trim().length)
+    if (textLaenge === 0) befunde.push(`${breite.name}/${ansicht.name}: Ansicht ist leer`)
+
+    for (const eintrag of await seite.evaluate(pruefeCssRessourcen)) {
+      befunde.push(`${breite.name}/${ansicht.name}: ${eintrag}`)
+    }
+    for (const eintrag of await seite.evaluate(pruefeVerdeckung)) {
+      befunde.push(`${breite.name}/${ansicht.name}: ${eintrag}`)
+    }
+    for (const eintrag of await seite.evaluate(pruefeUeberlauf)) {
+      befunde.push(`${breite.name}/${ansicht.name}: ${eintrag}`)
+    }
+
+    await seite.screenshot({ path: `${FOTOS}/${breite.name}-${ansicht.name}.png` })
+    console.log(`  ${breite.name}/${ansicht.name} — geöffnet, Bildschirmfoto in ${FOTOS}/${breite.name}-${ansicht.name}.png`)
+  }
+}
+
+/**
+ * Zusicherung 5 über alle vier Hinweiszustände der Ortssuche im
+ * Ortsdetail (ADR-0023 Punkt 3, PO-2026-09-12-004) — vorher nur offline.
+ * Läuft je Breite auf der bereits geöffneten Ortsdetail-Seite aus
+ * `pruefeAnsichtenBeiBreite` weiter, damit kein zweiter Ort angelegt werden
+ * muss. Photon wird NIE wirklich aufgerufen (ADR-0020 Punkt 3) — jeder
+ * Zustand entsteht über Request-Interception, siehe `ORTSSUCHE_ZUSTAENDE`.
+ */
+async function pruefeOrtssucheZustaende(seite, breite, befunde) {
+  await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+  await legeOrtAnUndOeffneIhn(seite)
+
+  for (const zustand of ORTSSUCHE_ZUSTAENDE) {
+    await zustand.einrichten(seite)
+    try {
+      if (zustand.suchtext !== null) {
+        await seite.locator('#ortssuche-feld').fill(zustand.suchtext)
+      }
+      await seite.waitForTimeout(zustand.wartenMs)
+      for (const eintrag of await seite.evaluate(pruefeVerdeckung)) {
+        befunde.push(`${breite.name}/ortsdetail (Ortssuche: ${zustand.name}): ${eintrag}`)
+      }
+      await seite.screenshot({ path: `${FOTOS}/${breite.name}-ortsdetail-ortssuche-${zustand.name}.png` })
+    } finally {
+      await zustand.aufraeumen?.(seite)
+      await seite.unroute(PHOTON_MUSTER).catch(() => {})
+    }
+  }
+  console.log(
+    `  ${breite.name}/ortsdetail — Ortssuche-Zustände geprüft (${ORTSSUCHE_ZUSTAENDE.map((z) => z.name).join(', ')})`,
+  )
 }
 
 async function main() {
@@ -160,7 +491,9 @@ async function main() {
   if (!playwright) {
     console.log('Playwright nicht gefunden — Rauchtest übersprungen.')
     console.log('Installation: npm i -D playwright && npx playwright install chromium')
-    console.log('Die fünf Zusicherungen bleiben damit UNGEPRÜFT (VERIFICATION.md).')
+    console.log('Die Zusicherungen bleiben damit UNGEPRÜFT (VERIFICATION.md, ADR-0023) —')
+    console.log('inklusive der Telefonbreiten, des Überlauf-Checks und der vier')
+    console.log('Ortssuche-Hinweiszustände.')
     return
   }
 
@@ -177,37 +510,36 @@ async function main() {
     }
 
     browser = await playwright.chromium.launch()
-    const seite = await browser.newPage({ viewport: { width: 1280, height: 900 } })
 
-    // Zusicherung 2: keine unbehandelten Laufzeitfehler.
-    seite.on('pageerror', (fehler) => befunde.push(`Laufzeitfehler: ${fehler.message}`))
-    seite.on('console', (nachricht) => {
-      if (nachricht.type() === 'error') befunde.push(`Konsole: ${nachricht.text().slice(0, 160)}`)
-    })
+    for (const breite of BREITEN) {
+      const seite = await browser.newPage({ viewport: { width: breite.width, height: breite.height } })
 
-    for (const ansicht of ANSICHTEN) {
-      await seite.goto(BASIS + ansicht.pfad, { waitUntil: 'networkidle' })
-      if (ansicht.vorbereiten) await ansicht.vorbereiten(seite)
-      await seite.waitForTimeout(400)
+      // Zusicherung 2: keine unbehandelten Laufzeitfehler. Ausgenommen sind
+      // Konsolenmeldungen zum abgefangenen Photon-Endpunkt selbst: Die
+      // Zustände „fehler"/„laedt" (`ORTSSUCHE_ZUSTAENDE`) erzeugen bewusst
+      // einen 5xx/abgebrochenen Request, und Chromium protokolliert jeden
+      // gescheiterten Request unabhängig vom App-Code als
+      // "Failed to load resource" — das ist der Rauchtest, der sich selbst
+      // meldet, kein App-Fehler. `sucheOrt()` fängt das bereits ab
+      // (Ergebnis statt Ausnahme, ADR-0020 Punkt 4).
+      seite.on('pageerror', (fehler) => befunde.push(`${breite.name}: Laufzeitfehler: ${fehler.message}`))
+      seite.on('console', (nachricht) => {
+        if (nachricht.type() !== 'error') return
+        if (nachricht.location()?.url?.includes('photon.komoot.io')) return
+        befunde.push(`${breite.name}: Konsole: ${nachricht.text().slice(0, 160)}`)
+      })
 
-      // Zusicherung 1 + 3: die Ansicht ist geöffnet und nicht leer.
-      const textLaenge = await seite.evaluate(() => document.body.innerText.trim().length)
-      if (textLaenge === 0) befunde.push(`${ansicht.name}: Ansicht ist leer`)
+      await pruefeAnsichtenBeiBreite(seite, breite, befunde)
+      await pruefeOrtssucheZustaende(seite, breite, befunde)
 
-      for (const eintrag of await seite.evaluate(pruefeCssRessourcen)) {
-        befunde.push(`${ansicht.name}: ${eintrag}`)
-      }
-      for (const eintrag of await seite.evaluate(pruefeVerdeckung)) {
-        befunde.push(`${ansicht.name}: ${eintrag}`)
-      }
-
-      await seite.screenshot({ path: `${FOTOS}/${ansicht.name}.png` })
-      console.log(`  ${ansicht.name} — geöffnet, Bildschirmfoto in ${FOTOS}/${ansicht.name}.png`)
+      await seite.close()
     }
 
     // Zusicherung ab -001 (ADR-0023 Punkt 2, PO-2026-09-12-001): Ein
     // angelegter Ort übersteht ein Neuladen. Das ist der eine Beleg, den
-    // Vitest (fake-indexeddb) grundsätzlich nicht liefern kann.
+    // Vitest (fake-indexeddb) grundsätzlich nicht liefern kann. Unabhängig
+    // von der Breite — läuft einmal, auf einer frischen Seite.
+    const seite = await browser.newPage({ viewport: { width: 1280, height: 900 } })
     await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
     await seite.getByRole('button', { name: /hinzuf|anlegen/i }).first().click()
     await seite.waitForTimeout(300)
@@ -225,20 +557,7 @@ async function main() {
     }
     await seite.screenshot({ path: `${FOTOS}/ort-ueberlebt-neuladen.png` })
     console.log(`  ort-ueberlebt-neuladen — geprüft, Bildschirmfoto in ${FOTOS}/ort-ueberlebt-neuladen.png`)
-
-    // Zusicherung 5 im Ausnahmezustand: ohne Netz darf die Ortssuche das
-    // Feld „Adresse" nicht verdecken. Genau dieser Fall ist einmal
-    // durchgerutscht, deshalb steht er hier ausdrücklich.
-    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
-    await legeOrtAnUndOeffneIhn(seite)
-    await seite.context().setOffline(true)
-    await seite.waitForTimeout(500)
-    for (const eintrag of await seite.evaluate(pruefeVerdeckung)) {
-      befunde.push(`ortsdetail ohne Netz: ${eintrag}`)
-    }
-    await seite.screenshot({ path: `${FOTOS}/ortsdetail-ohne-netz.png` })
-    console.log(`  ortsdetail ohne Netz — geprüft, Bildschirmfoto in ${FOTOS}/ortsdetail-ohne-netz.png`)
-    await seite.context().setOffline(false)
+    await seite.close()
   } finally {
     await browser?.close()
     beendeVorschau(server)
@@ -250,9 +569,13 @@ async function main() {
     process.exitCode = 1
     return
   }
-  console.log('\nRauchtest erfolgreich: alle Ansichten geöffnet, keine Laufzeitfehler,')
-  console.log('CSS-Ressourcen aufgelöst, kein Bedienelement verdeckt, ein angelegter Ort')
-  console.log('übersteht ein Neuladen.')
+  console.log('\nRauchtest erfolgreich:')
+  console.log(`  Breiten: ${BREITEN.map((b) => `${b.name} (${b.width}px)`).join(', ')}`)
+  console.log(`  Ansichten: ${ANSICHTEN.map((a) => a.name).join(', ')}`)
+  console.log(`  Ortssuche-Zustände: ${ORTSSUCHE_ZUSTAENDE.map((z) => z.name).join(', ')}`)
+  console.log('Alle Ansichten geöffnet, keine Laufzeitfehler, CSS-Ressourcen aufgelöst,')
+  console.log('kein Bedienelement verdeckt, nichts ragt aus dem Bildschirm, ein angelegter')
+  console.log('Ort übersteht ein Neuladen.')
 }
 
 await main()
