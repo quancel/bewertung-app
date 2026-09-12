@@ -43,9 +43,28 @@ Type-ahead-Suche ohne Button — Ortssuche war dort das falsche Beispiel und
 ist entfernt. Der zugehörige Eintrag unter „Listen" trägt jetzt zusätzlich
 den bislang nur paketbezogen (`design_notes` PO-2026-09-07-008) notierten
 Ladehinweis-Text nach, damit er als wiederkehrende Konvention und nicht nur
-als Einzelfall-Notiz steht.
+als Einzelfall-Notiz steht. Eine dritte Korrektur-Runde (2026-09-12,
+Abnahmebefund PO-2026-09-12-003 — Wiederkehr des am 2026-09-11 nur
+teilweise behobenen Befundes) revidiert „Netzabhängige Type-ahead-Aktion"
+grundlegend: „dieselbe Stelle unter dem Feld" war als gemeinsame,
+überlagernde Fläche gelesen worden und hatte auf schmalen Bildschirmen
+weiterhin drei der vier Hinweistexte über das nachfolgende Feld gelegt,
+ohne Escape-Möglichkeit auf Touchgeräten. Nur die tatsächliche Trefferliste
+bleibt jetzt eine Überlagerung; die vier Hinweistexte stehen im
+Dokumentfluss. Die „Vorschlagsliste (Autocomplete)"-Konvention bekommt im
+selben Zug einen Blur-Schließt-Zusatz. Eine weitere Korrektur-Runde
+(2026-09-12, PO-2026-09-12-002 — die Koordinatenzeile ragt auf 320-390px
+schmalen Geräten aus dem Bildschirm) ersetzt das bisherige Nebeneinander von
+Breite/Länge durch ein Untereinander, je ein volles Feld pro Zeile wie
+Bezeichnung/Adresse; die neue Regel zu Zahlenfeld-Paaren unter „Formulare"
+hält das als wiederkehrende Konvention fest, nicht nur als Einzelfall. Eine
+dritte Design-Runde von PO-2026-09-12 (005 — Koordinatenfelder werden vom
+gleichberechtigten Feldpaar zum Notnagel für eine erfolglose Ortssuche)
+ergänzt den neuen Abschnitt „Bedingt sichtbare Formularabschnitte (Reveal
+ohne Rückweg)" und löst damit den bislang nur vorausschauenden Hinweis unter
+„Netzabhängige Type-ahead-Aktion" ein.
 
-- **Zuletzt kuratiert**: 2026-09-11
+- **Zuletzt kuratiert**: 2026-09-12
 
 ## Zustände
 
@@ -91,6 +110,61 @@ unten und für die beiden Karten-Leerzustände, siehe „Karte").
 - Zahleneingabe ist bei Regler-Pendants die primäre Quelle; der Regler ist
   unterstützend, ohne sichtbaren Thumb solange kein Wert gesetzt ist,
   danach bidirektional synchron.
+- **Zahlenfeld-Paare (z. B. Koordinaten) stehen standardmäßig untereinander**,
+  je ein volles Feld pro Zeile wie jedes andere Formularfeld — kein
+  Nebeneinander per Flex-Row. Grund (PO-2026-09-12-002, durchgerechnet):
+  bei 320px Gerätebreite bleiben zwei nebeneinander stehenden Feldern nur
+  ~136px je Feld; ein Extremwert wie „-179.999999" (11 Zeichen) braucht bei
+  16px Inter/tabular-nums allein rund 120px Text + Innenabstand — der Rest
+  reicht kaum als Puffer und wird von einem nativen Zahlenfeld-Spinner
+  (Desktop-Browser) bereits aufgezehrt. Untereinander steht derselbe Wert
+  immer vor der vollen Feldbreite (mind. ~270px auch im schmalsten Fall),
+  ohne Breitenumbruch oder Container Query. **Ausnahme**: das
+  Zahl+Regler-Paar der Bewertungsachse (feste 64px-Zahl neben
+  schrumpfendem Regler, `min-width: 0`) — dort ist die Zahl kurz (0–10,
+  max. 2 Nachkommastellen) und kein Vergleichsfall für längere Werte wie
+  Koordinaten.
+
+## Bedingt sichtbare Formularabschnitte (Reveal ohne Rückweg)
+
+Erstmals für die Koordinatenfelder als Notnagel (PO-2026-09-12-005) — gilt
+für jeden künftigen Formularabschnitt, der nur unter bestimmten Bedingungen
+sichtbar sein soll, während ein anderer Weg (hier: die Ortssuche) im
+Normalfall vorrangig ist.
+
+- **Reveal statt Toggle**: ein verborgener Abschnitt hat genau **ein**
+  Bedienelement, das ihn zeigt — kein Wiedereinklappen. An der Stelle des
+  Abschnitts steht bis dahin ein einzelner, zurückhaltender Text-Button
+  (`--color-primary-700`, kein Rahmen/keine Fläche, wie ein Link),
+  min. 44×44px Tap-Ziel, `aria-expanded="false"` und `aria-controls` auf die
+  (stabile) ID des Wrapper-Elements. Sobald aktiviert, ersetzt der
+  Abschnitt selbst den Button an genau dieser Stelle (kein Nebeneinander,
+  kein toter Button daneben).
+- **Einmal sichtbar, bleibt sichtbar** — für die Lebensdauer der aktuell
+  geöffneten Instanz (z. B. eines Detaildatensatzes), unabhängig davon, ob
+  der ursprüngliche Auslöser danach wieder entfällt (Grundsatz: ein
+  zustandsgesteuertes Erscheinen darf kein zustandsgesteuertes Verschwinden
+  nach sich ziehen). Beim erneuten Öffnen **derselben oder einer anderen**
+  Instanz gilt die Sichtbarkeitsregel wieder von vorn — der aufgeklappte
+  Zustand wird nicht gespeichert (keine Anzeigeeinstellung,
+  ADR-0006/ADR-0009 gilt sinngemäß auch ohne Persistenzbezug). Bei
+  mehreren Instanzen in derselben Ansicht (z. B. Master-Detail-Wechsel
+  zwischen zwei Datensätzen ohne Schließen der Detailspalte) muss die
+  Sichtbarkeits-Kennung an die jeweilige Instanz-ID gebunden sein, sonst
+  überlebt sie fälschlich den Wechsel.
+- **Fokus wandert NUR bei manueller Auslösung** in den neu sichtbaren
+  Abschnitt (erstes Feld). Wird der Abschnitt durch einen automatischen
+  Zustandswechsel eingeblendet (z. B. ein im Hintergrund fehlgeschlagener
+  Abruf), bewegt sich der Fokus **nicht** — die Nutzerin bedient zu diesem
+  Zeitpunkt typischerweise noch ein anderes Feld, ein Fokus-Sprung wäre eine
+  Unterbrechung, kein Komfort.
+- **Mehrere unabhängige Auslöser derselben Sichtbarkeit** (z. B. „Wert
+  bereits vorhanden" ODER „ein anderer Vorgang ist erfolglos" ODER
+  „manuell geöffnet") werden ODER-verknüpft, nie exklusiv — ein einzelner
+  erfüllter Grund genügt und schließt keinen anderen aus.
+- Ein-/Ausblenden des Abschnitts 180ms ease-out wie jeder andere bedingte
+  Formularteil (design-concept.md „Motion"), reduzierte Bewegung ersetzt
+  statt entfällt.
 
 ## Werte mit Bereich, bei denen 0 gültig ist
 
@@ -178,21 +252,59 @@ Eigenschaft.
   Rahmen.
 - **Vorschlagsliste (Autocomplete)**: erstmals für Tag-Eingabe, wiederholt
   für die Ortssuche (008). Erscheint unter dem Feld, max. ~6 Einträge,
-  Teilstring-Treffer case-insensitive, Pfeiltasten + Enter, Escape
-  schließt. Ein am selben Ort bereits vergebener Tag, erneut exakt
-  eingetippt und bestätigt: nichts passiert (kein zweiter Pill, keine
-  Fehlermeldung).
+  Teilstring-Treffer case-insensitive, Pfeiltasten + Enter, Escape **und**
+  Blur/Tap außerhalb schließen (Ergänzung 2026-09-12, PO-2026-09-12-003 —
+  ohne Blur-Schluss könnte eine volle 6er-Liste auf einem Touchgerät ohne
+  Escape-Taste ein direkt darunterliegendes Feld ebenso verdecken wie die
+  Hinweistexte, die dieser Befund für die Ortssuche korrigiert; gilt für
+  jedes Vorkommen, auch das bestehende `TagEingabe.vue`). Ein am selben Ort
+  bereits vergebener Tag, erneut exakt eingetippt und bestätigt: nichts
+  passiert (kein zweiter Pill, keine Fehlermeldung).
 - **Netzabhängige Type-ahead-Aktion (z. B. Ortssuche)**: läuft beim Tippen,
   ohne eigenes auslösendes Bedienelement (kein „Suchen"-Button) — die
   allgemeine „Lädt"-Regel unter „Zustände", die ein solches Element
-  voraussetzt, greift hier bewusst **nicht**. Stattdessen trägt dieselbe
-  Stelle unter dem Feld (die spätere Vorschlagsliste) je nach Zustand
-  einen anderen, immer gemuteten Text, kein Icon, keine Warn-/Fehlerfarbe:
-  **lädt** (z. B. „Suche läuft…", Schwelle wie sonst auch spürbar > 400 ms
-  nach der letzten Eingabe, kein Spinner-Icon nötig), **kein Netz**,
-  **kein Treffer**, **Suchfehler/Zeitüberschreitung** — vier
-  unterscheidbare Texte an derselben Stelle. Feld bleibt in allen Fällen
-  bedienbar, Werte weiterhin von Hand eintragbar.
+  voraussetzt, greift hier bewusst **nicht**. Vier unterscheidbare, immer
+  gemutete Texte ohne Icon/Warn-/Fehlerfarbe: **lädt** (z. B. „Suche
+  läuft…", Schwelle wie sonst auch spürbar > 400 ms nach der letzten
+  Eingabe, kein Spinner-Icon nötig), **kein Netz**, **kein Treffer**,
+  **Suchfehler/Zeitüberschreitung**.
+  **Korrektur (2026-09-12, Abnahmebefund PO-2026-09-12-003, Wiederkehr
+  eines am 2026-09-11 nur für „kein Netz" behobenen Befundes)**: „dieselbe
+  Stelle unter dem Feld" hieß bislang eine gemeinsame, absolut
+  positionierte Überlagerungsfläche — auf schmalen/kurzen Bildschirmen
+  legte sie sich dauerhaft über das nachfolgende Feld, ohne dass ein
+  Touchgerät eine Escape-Taste zum Befreien hätte. Jetzt gilt:
+  - **Nur die tatsächliche Trefferliste** (Vorschlagsliste + Attribution)
+    bleibt eine überlagernde, absolut positionierte Fläche unter dem Feld
+    — sie ist ein aktiv bedientes Auswahlmenü (Pfeiltasten, Enter, Escape
+    **und** Blur/Tap außerhalb schließen, siehe „Vorschlagsliste
+    (Autocomplete)" oben), kein stehenbleibender Hinweis.
+  - **Alle vier Hinweistexte** (lädt/kein Netz/kein Treffer/Fehler)
+    erscheinen stattdessen **im normalen Dokumentfluss** unter dem Feld —
+    sie schieben nachfolgende Felder nach unten, statt sie zu verdecken.
+    Das gilt bewusst auch für „lädt", obwohl der Zustand meist nur
+    Millisekunden steht: eine Sonderbehandlung nur für die drei länger
+    stehenden Texte würde beim Wechsel zwischen ihnen (z. B. lädt →
+    Fehler) einen Sprung zwischen Überlagerung und Fluss erzeugen, statt
+    dass der Block ruhig an Ort und Stelle bleibt.
+  - Ein-/Ausblenden dieses Hinweis-Blocks 180ms ease-out
+    (design-concept.md „Motion"), reduzierte Bewegung ersetzt statt
+    entfällt (design-concept.md „Reduced Motion").
+  - **PO-2026-09-12-005** (Koordinatenfelder als Notnagel für eine
+    erfolglose Ortssuche): Weil der Hinweistext bereits im Fluss steht,
+    erscheint der bedingt sichtbare Koordinaten-Abschnitt (Reveal-Button
+    oder die beiden Felder, siehe „Bedingt sichtbare Formularabschnitte
+    (Reveal ohne Rückweg)") direkt darunter im selben Fluss — beide teilen
+    sich die Stelle, ohne um eine Überlagerungsfläche zu konkurrieren.
+    Sichtbarkeits-Auslöser (ODER-verknüpft): ein bereits hinterlegter Wert
+    (`breite !== null || laenge !== null`, `0` ist gültig, ADR-0020
+    Punkt 6) · einer der drei erfolglosen Zustände dieser Suche — **kein
+    Netz** (`zeigeKeinNetzHinweis`, gilt unverändert auch bei bestehender
+    Verbindung, sobald sie tatsächlich fehlt), **keine Treffer** oder
+    **Fehler/Zeitüberschreitung** (`zustand.status`) — · der manuelle
+    Reveal. `laedt`, `treffer` und `inaktiv` lösen nicht aus.
+  Feld bleibt in allen Fällen bedienbar, Werte weiterhin von Hand
+  eintragbar.
 - **Verknüpfungs-Umschalter (UND/ODER) für Mehrfachfilter**: fester,
   nicht scrollender Segment-Control (zwei Tap-Ziele, gleiche Höhe wie die
   Pills, Radius 999px) fest am linken Rand von Zeile 2, außerhalb der
