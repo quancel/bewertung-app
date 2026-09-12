@@ -6,7 +6,11 @@
 > Halte sie kompakt (Faustregel: < 100 Zeilen). Sie ist ein Register,
 > kein Design-Dokument — Details gehören in ADRs unter `adr/`.
 
-- **Stand**: 2026-09-11 (Nachpflege nach der Abnahme aller zwölf Pakete:
+- **Stand**: 2026-09-12 (Einordnen der Korrekturrunde PO-2026-09-12-001…-005:
+  `shared/` trägt jetzt auch projektweite Interaktionsregeln und ist
+  ausdrücklich kein Context, ADR-0024; der Sichtbarkeitszustand aus -005 ist
+  keine Anzeigeeinstellung, ADR-0025; Verifikationsebenen in ADR-0023).
+  Davor 2026-09-11 (Nachpflege nach der Abnahme aller zwölf Pakete:
   Import-Gegenrichtung um reine `lib`-Funktionen erweitert, ADR-0022).
   Angelegt beim Einordnen von PO-2026-09-07-010,
   fortgeschrieben beim Einordnen von PO-2026-09-07-001 (Gerätespeicher), von
@@ -36,6 +40,14 @@ identisch mit dem `bounded_context` im Handoff (ADR-0002).
 **Kein Bounded Context, sondern geteilte Infrastruktur**: `src/persistence/`
 (einziger Zugriff auf den Gerätespeicher, Formatversion und Migrationskette,
 ADR-0003) und `src/shared/` (zustandslose UI-Bausteine, ab zwei Nutzern).
+Weil `shared/` kein Context ist, erzeugt ein Baustein dort **keine**
+Beziehung zwischen den Contexts, die ihn benutzen — ADR-0013/0022 sind davon
+nicht berührt. Dort liegen ab -006/-008 auch die **projektweit entschiedenen
+Interaktionsregeln** als Composables (`useNetzzustand.ts`, ADR-0021; ab -003
+das Schließen einer Auswahlliste bei Blur/Tap außerhalb für `Ortssuche.vue`
+und `TagEingabe.vue`, ADR-0024). Ein Paket darf eine solche Regel in einem
+fremden Context **anbinden**, ohne dass daraus ein eigenes Paket wird; jede
+fachliche Änderung an einem fremden Context bleibt eines.
 
 `src/persistence/` entsteht mit PO-2026-09-07-001: **IndexedDB über `idb`**,
 Object Stores `meta` · `orte` · `einstellungen` (`bilder` ab -005),
@@ -110,6 +122,10 @@ vollständiges Sequenzdiagramm.
   `orte.sortierung` (-003), `orte.tagfilter` (-004). Beide gehören dem
   Context `orte`, auch der zweite: Zuständig ist, wem die konfigurierte
   **Ansicht** gehört, nicht wem die gefilterten Daten gehören (ADR-0009).
+  Es bleibt bei diesen zwei Schlüsseln: Der bedingt sichtbare
+  Koordinaten-Abschnitt aus -005 ist **keine** Anzeigeeinstellung, sondern
+  eine flüchtige, an die Ort-ID gebundene Kennung in `Ortebereich.vue`
+  (ADR-0025).
 - **Das Tag-Vokabular ist abgeleitet, nicht gespeichert** (ADR-0014): Es
   entsteht als reine Funktion über alle Orte in `src/shared/lib/`. Es gibt
   kein Tag-Register, keine referenzielle Integrität zwischen `einstellungen`

@@ -14,14 +14,20 @@
 
 - **Modus**: `vorgegeben` (Greenfield, festgelegt in **ADR-0002**; kein
   Anwendungscode vorhanden, geprüft 2026-09-08)
-- **Zuletzt geprüft**: 2026-09-11, **Nachpflege nach der Abnahme aller zwölf
+- **Zuletzt geprüft**: 2026-09-12, beim Einordnen der **Korrekturrunde**
+  PO-2026-09-12-001…-005 (Befunde aus echter Nutzung auf einem iPhone).
+  Neu bzw. präzisiert: `min-width: 0` gilt für **jedes** schrumpfende
+  Flex-Item, nicht nur für Layout-Spalten (-002); projektweite
+  Interaktionsregeln in `src/shared/composables/` (ADR-0024, -003); der
+  Abschnitt „Tests und Verifikation" (ADR-0023, -001/-004).
+- **Davor geprüft**: 2026-09-11, **Nachpflege nach der Abnahme aller zwölf
   Pakete** (`notes_for_conventions` der Leads plus drei Beobachtungen des
   `product-owner`). Neu bzw. präzisiert: `lib`-Import über Context-Grenzen
   (ADR-0022), Container-Schwellenwert in geteilten Bausteinen,
   Schreib-Warteschlange nur bei änderbaren Datensätzen, `scripts/` und
   `Sheet.vue` in der Struktur, Tokenwerte in JavaScript, Schatten-Token-Lücke,
   `watch` auf abgeleitete Arrays.
-- **Davor geprüft**: 2026-09-11 (beim Einordnen von PO-2026-09-07-006 und
+- **Und davor**: 2026-09-11 (beim Einordnen von PO-2026-09-07-006 und
   -008; Stand im Repo: zehn Pakete gebaut und committet, 173 Tests grün,
   `SCHEMA_VERSION` = 4, `IDB_STRUKTUR_VERSION` = 2, `features/karte/` noch
   leer). Ergänzt: `lib/` als vorhandener Feature-Unterordner (vier Features
@@ -163,6 +169,16 @@ src/
   einem freigegebenen Paket steht** — nicht erst, wenn er gebaut ist; ein
   späteres Verschieben wäre reine Umbenennung. Was nur ein Paket je braucht,
   bleibt trotzdem draußen.
+- **Eine projektweit entschiedene Interaktionsregel steht einmal in
+  `src/shared/composables/`, nicht je Feature nachgebaut** (ADR-0024;
+  Bauform wie `useNetzzustand.ts`, ADR-0021 Punkt 5). Ab -003 betrifft das
+  das Schließen einer Auswahlliste bei Blur/Tap außerhalb, genutzt von
+  `features/orte/components/Ortssuche.vue` **und**
+  `features/tags/components/TagEingabe.vue`. `shared/` ist kein Bounded
+  Context: Ein Baustein dort erzeugt **keinen** Feature-zu-Feature-Import,
+  ADR-0013/0022 bleiben unberührt. Ein Paket darf dafür die Datei eines
+  fremden Contexts anfassen — aber **nur** zum Anbinden der geteilten Regel;
+  jede fachliche Änderung an einem fremden Context bleibt ein eigenes Paket.
 - **`components/` kennt keinen Store**, bekommt alles über Props und meldet
   über Emits zurück. `views/` sind die einzige Stelle, die Stores anbindet.
 - **Ein `watch` auf ein abgeleitetes Array feuert bei jeder Neuberechnung**,
@@ -376,9 +392,19 @@ src/
   `position: sticky; top: 0` **innerhalb** des scrollenden Spaltenelements.
   Ein `sticky` gegen den Viewport wirkt dort nicht wie erwartet, und ein
   `overflow` auf einem Vorfahren macht es wirkungslos.
-- **Spalten in Grid/Flex bekommen `min-width: 0`.** Sonst hält
-  `min-width: auto` die Spalte auf Inhaltsbreite auf, und die
-  Container-Abfrage misst eine Breite, die es nie gibt.
+- **Alles, was in Grid/Flex schrumpfen soll, bekommt `min-width: 0`** — nicht
+  nur Layout-Spalten, sondern **jedes Flex-Item mit eigener Inhaltsbreite**,
+  insbesondere `input`. Sonst hält `min-width: auto` es auf seiner
+  Inhaltsbreite auf: Die Container-Abfrage misst eine Breite, die es nie
+  gibt (ADR-0012 Punkt 4), oder das Element läuft aus dem Bildschirm.
+  Formularfelder tragen eine browserabhängige Standard-`size`, ein
+  `type="number"` zusätzlich einen Spinner — sie sind die häufigste Stelle,
+  an der diese Regel vergessen wird (PO-2026-09-12-002: die Koordinatenzeile
+  ragte ab ~390px aus dem Bildschirm). **Zahlenfeld-Paare stehen ohnehin
+  untereinander** (`design-conventions.md` „Formulare"), ohne Umbruchpunkt
+  und ohne Container-Abfrage — eine gestapelte Zeile braucht keine, und
+  ADR-0012 verlangt keine Breitenabhängigkeit, sondern regelt nur, wie eine
+  vorhandene gefragt wird.
 - **Custom Properties funktionieren nicht in `@media`/`@container`.** Dort
   steht die Zahl wörtlich (`1024px`), mit Kommentar auf den Tokennamen.
   `var(--breakpoint-lg)` in einer Bedingung trifft stillschweigend nie zu.
@@ -532,6 +558,30 @@ src/
   prüft ab -006 zusätzlich, dass in `dist/sw.js` **kein Fremd-Host** vorkommt.
 - Der Registrierungspunkt (`virtual:pwa-register/vue`) braucht die
   Typreferenz in `src/vite-env.d.ts`.
+
+## Tests und Verifikation (ADR-0023)
+
+- **Drei Ebenen, keine ersetzt die andere**: Vitest (`environment: 'node'` +
+  `fake-indexeddb/auto`) prüft Logik und Verträge · `npm run smoke` prüft am
+  echten Build in einer echten Browser-Engine, ob es benutzbar ist · die
+  Abnahme prüft die Kriterien.
+- **Grün gegen `fake-indexeddb` heißt nicht, dass der Browser schreibt.**
+  `fake-indexeddb` bildet den strukturierten Klon in JavaScript nach; Werte,
+  die eine echte IndexedDB nicht klonen kann, gehen dort durch. Jede
+  Zusicherung „Daten überleben ein Neuladen" gehört deshalb in den
+  Rauchtest, nicht in Vitest.
+- **Die Naht Store → Repository wird nicht vollständig wegmockt.** Je Store
+  bleibt mindestens ein Test, der das **echte** Repository benutzt und den
+  Wert übergibt, den der Store im Betrieb auch übergibt. Vorhandene
+  Mock-Tests bleiben daneben stehen.
+- **Neue Ansicht, neue Breite, neuer Zustand?** In die zentralen Listen oben
+  in `scripts/smoke.mjs` eintragen — sonst prüft sie niemand. Ausnahmen von
+  einer Zusicherung stehen als benannte Bedingung im Skript, nie als Liste
+  einzelner Element-IDs.
+- **Ein roter Rauchtest, der einen bekannten, bereits geschnittenen Befund
+  meldet, wird nicht abgeschwächt** — er wird durch das zugehörige Paket
+  grün. Fehlt Playwright oder eine Engine: überspringen, Exit-Code 0, und im
+  Bericht ausdrücklich „ungeprüft" sagen.
 
 ## Backend
 

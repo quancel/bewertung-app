@@ -13,7 +13,17 @@
 > Eine Zeile pro ADR. Keine Zusammenfassung des Inhalts — der Titel muss
 > reichen, um zu entscheiden, ob das ADR relevant ist.
 
-**Stand: 2026-09-11** — zweiundzwanzig ADRs. 0022 ist in der **Nachpflege
+**Stand: 2026-09-12** — fünfundzwanzig ADRs. 0023–0025 beim Einordnen der
+**Korrekturrunde vom 2026-09-12** (PO-2026-09-12-001 bis -005, Befunde aus
+echter Nutzung auf einem iPhone): 0023 zu den Verifikationsebenen (Anlass:
+der Datenverlust aus -001 kam durch 224 grüne Tests), 0024 zur Reichweite
+einer projektweiten Interaktionsregel über Context-Grenzen (-003), 0025 zum
+Zustand über die Komponentengrenze im Ortsdetail (-005). **Kein ADR** bekommen
+hat PO-2026-09-12-002 (gestapelte Koordinatenfelder): ADR-0012 ist davon nicht
+berührt und die Ursache — fehlendes `min-width: 0` — steht dort bereits als
+Punkt 4.
+
+0022 ist in der **Nachpflege
 nach der Abnahme** entstanden (Präzisierung von ADR-0013). Bei derselben
 Nachpflege wurde die **Begründung** zu ADR-0011 Punkt 4 korrigiert — die
 Entscheidung selbst ist unverändert, deshalb kein `superseded by`; die alte
@@ -60,6 +70,9 @@ PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
 | [0020](0020-ortssuche-anbieter-und-abfragemodell.md) | Ortssuche — Photon als Geocoder, Suche beim Tippen, im Context `orte` statt `karte` | orte, karte, app-shell | accepted | 2026-09-11 |
 | [0021](0021-netzzustand-im-ui.md) | Netzzustand im UI — erlaubt an der netzabhängigen Bedienstelle, verboten in der Auslieferungsmechanik (Präzisierung von ADR-0015 Punkt 6) | app-shell, karte, orte | accepted | 2026-09-10 |
 | [0022](0022-reine-lib-funktionen-ueber-context-grenzen.md) | Reine `lib`-Funktionen über Context-Grenzen (Präzisierung von ADR-0013 Punkt 2/3) | orte, karte, bewertungen, tags, medien, datensicherung | accepted | 2026-09-11 |
+| [0023](0023-verifikationsebenen-vitest-und-rauchtest.md) | Verifikationsebenen — was Vitest prüft, was der Rauchtest prüft, und warum kein Browser-Test-Runner dazukommt | app-shell, orte, medien, datensicherung | accepted | 2026-09-12 |
+| [0024](0024-projektweite-interaktionsregeln-in-shared.md) | Projektweite Interaktionsregeln liegen einmal in `src/shared/`, und ein Paket darf sie über die Context-Grenze hinweg anbinden | orte, tags | accepted | 2026-09-12 |
+| [0025](0025-zustand-ueber-die-komponentengrenze-im-ortsdetail.md) | Zustand über die Komponentengrenze im Ortsdetail — Ortssuche meldet ihren wirksamen Zustand, die Sichtbarkeit rastet an der Ort-ID ein | orte | accepted | 2026-09-12 |
 
 **Status-Werte** wörtlich wie im ADR selbst: `proposed` · `accepted` ·
 `superseded by ADR-NNNN`.
