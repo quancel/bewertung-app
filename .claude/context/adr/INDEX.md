@@ -18,7 +18,12 @@
 echter Nutzung auf einem iPhone): 0023 zu den Verifikationsebenen (Anlass:
 der Datenverlust aus -001 kam durch 224 grüne Tests), 0024 zur Reichweite
 einer projektweiten Interaktionsregel über Context-Grenzen (-003), 0025 zum
-Zustand über die Komponentengrenze im Ortsdetail (-005). **Kein ADR** bekommen
+Zustand über die Komponentengrenze im Ortsdetail (-005). **0023 Punkt 5 ist
+noch am selben Tag neu gefasst worden**, nachdem der Nutzer die zugehörige
+`user_question` anders entschieden hat als der Architekt angenommen hatte
+(kein WebKit im Rauchtest statt Engine-Liste); der frühere Entwurf steht im
+Abschnitt „Revision" — kein `superseded by`, er war nie in Kraft. **Kein ADR**
+bekommen
 hat PO-2026-09-12-002 (gestapelte Koordinatenfelder): ADR-0012 ist davon nicht
 berührt und die Ursache — fehlendes `min-width: 0` — steht dort bereits als
 Punkt 4.

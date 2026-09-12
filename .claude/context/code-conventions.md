@@ -580,8 +580,17 @@ src/
   einzelner Element-IDs.
 - **Ein roter Rauchtest, der einen bekannten, bereits geschnittenen Befund
   meldet, wird nicht abgeschwächt** — er wird durch das zugehörige Paket
-  grün. Fehlt Playwright oder eine Engine: überspringen, Exit-Code 0, und im
-  Bericht ausdrücklich „ungeprüft" sagen.
+  grün. Fehlt Playwright: überspringen, Exit-Code 0, und im Bericht
+  ausdrücklich „ungeprüft" sagen.
+- **Der Rauchtest fährt genau eine Engine: Chromium** (Nutzerentscheidung
+  2026-09-12, ADR-0023 Punkt 5). **WebKit prüft kein Automatismus** — obwohl
+  dort der Datenverlust aus -001 aufgetreten ist. Folge für jedes Paket, das
+  eine Browser-Eigenschaft zusichert: Ein Akzeptanzkriterium, das eine Engine
+  nennt, die der Rauchtest nicht fährt, ist **nur manuell prüfbar**, wird im
+  Handoff so markiert und bleibt bei der Abnahme **offen**, bis der Nutzer
+  bestätigt hat. Und: Ist eine Ursache engine-spezifisch, ist ein grüner
+  Chromium-Lauf **kein** Nachweis — das gehört in den Bericht, nicht
+  weggelassen.
 
 ## Backend
 

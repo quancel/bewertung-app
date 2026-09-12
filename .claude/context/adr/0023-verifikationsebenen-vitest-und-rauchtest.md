@@ -66,15 +66,34 @@ Browser-Klon und keine echte IndexedDB.
    dritte Simulationsschicht. Component-Test-Infrastruktur
    (`@vue/test-utils`) entsteht weiterhin erst, wenn ein Paket sie fachlich
    braucht (CLAUDE.md) — dieses ADR ist kein Auftrag dazu.
-5. **Der Rauchtest läuft über eine Engine-Liste, nicht fest gegen
-   `chromium`.** Eine nicht installierte Engine wird behandelt wie ein
-   fehlendes Playwright: übersprungen, Exit-Code 0, und im Bericht
-   ausdrücklich als **ungeprüft** benannt (Nutzerentscheidung 2026-09-12:
-   Playwright bleibt optional, Überspringen endet mit 0). Die Skip-Mechanik
-   selbst wird dabei nicht umgebaut — sie gilt nur zusätzlich je Engine.
-   Grund: -001 ist auf WebKit aufgefallen und nur dort sicher nachweisbar;
-   eine fest verdrahtete Engine macht „grün" zu einer Aussage über genau
-   einen Browser, ohne das zu sagen.
+5. **Der Rauchtest läuft in genau einer Engine: Chromium**
+   (**Nutzerentscheidung vom 2026-09-12, gesetzt — nicht vom Architekten
+   abgeleitet**; siehe „Revision" am Ende). Keine Engine-Liste, kein WebKit
+   im Skript. Der Nachweis auf WebKit — der Engine, auf der der Datenverlust
+   aus -001 überhaupt aufgefallen ist — läuft **ausschließlich über die
+   Bestätigung des Nutzers am eigenen Gerät** und wird im Bericht
+   dokumentiert. Die bestehende Skip-Regel bleibt unverändert: fehlt
+   Playwright, endet der Rauchtest mit 0 und nennt die Zusicherungen
+   ausdrücklich **ungeprüft**.
+
+   Daraus folgt eine Regel über die **Aussagekraft** eines grünen Laufs, die
+   jedes Paket dieser Art mitführen muss — sie ist der Preis der
+   Entscheidung und darf nicht stillschweigend verschwinden:
+   - Ist die Ursache **engine-unabhängig** (z. B. ein Wert, den *keine*
+     echte IndexedDB klonen kann), ist der Chromium-Lauf ein vollwertiger
+     Nachweis; die Bestätigung am Gerät ist dann eine Gegenprobe.
+   - Ist die Ursache **WebKit-spezifisch**, ist der Chromium-Lauf **kein**
+     Nachweis: Er bleibt grün, während der Fehler besteht. Ein grüner
+     Rauchtest sagt dann nichts über den Browser aus, in dem die App
+     tatsächlich benutzt wird.
+
+   Welcher der beiden Fälle vorliegt, steht erst mit der ermittelten Ursache
+   fest. Der Bericht sagt es ausdrücklich, statt „grün" unkommentiert stehen
+   zu lassen. Ein Akzeptanzkriterium, das eine Engine nennt, die der
+   Rauchtest nicht fährt, ist **nur manuell prüfbar** und bleibt bei der
+   Abnahme offen, bis der Nutzer bestätigt hat — der `product-owner` prüft am
+   Code und kann es nicht ausführen. Ein Häkchen ohne Deckung ist genau das,
+   wogegen `VERIFICATION.md` geschrieben ist.
 6. **Ein Prüfwerkzeug, das einen bekannten, bereits geschnittenen Befund
    meldet, wird nicht abgeschwächt.** Der mit -004 erweiterte Rauchtest
    meldet Befund 2 (-002) und Befund 3 (-003), solange diese Pakete nicht
@@ -100,6 +119,13 @@ Browser-Klon und keine echte IndexedDB.
   einzige Ebene, die diese Fehler fängt — fehlt Playwright, bleiben sie
   ungeprüft. Genau deshalb verlangt Punkt 5, dass das im Bericht steht,
   statt als „erfolgreich" durchzugehen.
+- Negativ/Trade-off, der aus Punkt 5 folgt und benannt bleiben muss: **Die
+  Engine, auf der der schwerste Befund des Projekts aufgetreten ist, prüft
+  kein Automatismus.** Ein zweiter WebKit-Fehler derselben Art fällt wieder
+  erst in echter Nutzung auf. Das ist eine bewusste Abwägung des Nutzers
+  gegen einen zweiten Browser-Download in jeder Umgebung — kein Versehen
+  und nichts, was ein späteres Paket „nachbessern" darf, ohne die
+  Entscheidung neu zu stellen.
 - Negativ/Trade-off: Punkt 6 heißt, dass `npm run smoke` zwischen -004 und
   -002/-003 rot ist. Das ist beabsichtigt; wer in diesem Fenster einen
   grünen Lauf braucht, hat die falsche Erwartung an ein Prüfwerkzeug.
@@ -126,4 +152,28 @@ Browser-Klon und keine echte IndexedDB.
 - **-004 erst nach -002/-003 bauen, damit der Rauchtest nie rot ist** —
   verworfen: Dann gäbe es keinen Nachweis, dass die neuen Zusicherungen die
   beiden realen Befunde überhaupt fangen. Die freigegebene Reihenfolge stellt
-  den Nachweis bewusst vor die Korrektur.
+  den Nachweis bewusst vor die Korrektur. **Vom Nutzer am 2026-09-12
+  ausdrücklich bestätigt.**
+- **Engine-Liste im Rauchtest (chromium + webkit), fehlende Engine wird wie
+  fehlendes Playwright übersprungen** — war der Vorschlag des Architekten vom
+  2026-09-12 und ist durch **Nutzerentscheidung ersetzt** (Punkt 5, siehe
+  „Revision"). Bleibt die naheliegende Rückfallposition, falls sich ein
+  zweiter engine-spezifischer Befund zeigt.
+- **WebKit als Pflicht-Engine (Exit 1, wenn nicht installiert)** — verworfen:
+  Das machte Playwright faktisch zur Projekt-Abhängigkeit und widerspräche
+  der gesetzten Entscheidung „Überspringen endet mit 0".
+
+## Revision
+
+Punkt 5 stand im Entwurf vom 2026-09-12 als **Engine-Liste** (chromium +
+webkit, fehlende Engine übersprungen wie fehlendes Playwright). Das war eine
+Ableitung des Architekten und stand unter Vorbehalt einer offenen
+`user_question`. Der Nutzer hat am **2026-09-12** anders entschieden: **kein
+WebKit im Rauchtest**, der Nachweis läuft manuell am eigenen Gerät. Punkt 5
+ist entsprechend neu gefasst; die Regel zur Aussagekraft eines grünen Laufs
+und die Markierung „nur manuell prüfbar" für betroffene Akzeptanzkriterien
+sind mit der Entscheidung **dazugekommen**, nicht weggefallen — ohne sie
+hakte die Abnahme ein Kriterium ab, das niemand geprüft hat.
+
+Kein `superseded by`: Der Entwurf war nie in Kraft, es existierte kein Code
+dagegen — gleiche Behandlung wie bei ADR-0019/0020 am 2026-09-11.
