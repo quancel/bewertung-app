@@ -63,6 +63,35 @@
   statt sie aus dem Komponentenverhalten mitlaufen zu lassen; Gegenprobe beim
   Schreiben ist der eigene Alternativen-Abschnitt, der hier bereits das
   Gegenteil sagte. (task_id: PO-2026-09-12-005, ADR-0025/0026)
+- [2026-09-13] projektweit: Ein Testdouble, das eine **Plattformgrenze**
+  nachbildet (`fake-indexeddb` bildet den strukturierten Klon in JS nach),
+  kann die Fehlerklasse an genau dieser Grenze strukturell nicht fangen —
+  224 grüne Tests und eine Code-Abnahme haben einen vollständigen
+  Datenverlust durchgelassen. Beim Einordnen eines Pakets mit der Zusicherung
+  „Daten überleben X" die **Prüfebene** mitentscheiden und als `constraint`
+  setzen, statt sie dem Lead zu überlassen.
+  (task_id: PO-2026-09-12-001, ADR-0023)
+- [2026-09-13] projektweit: Ein Beleg für **Engine-Unabhängigkeit** darf nicht
+  auf einer zweiten Implementierung derselben Familie ruhen — Node/V8 *ist*
+  Chromiums Klon-Implementierung und sagt über WebKit nichts; tragend war
+  allein das Spezifikations-Argument. Bei jeder Zusicherung der Form „gilt in
+  jeder Engine" prüfen, ob die Begründung das Behauptete stützt oder nur
+  plausibel klingt — eine zirkuläre Teilbegründung überlebt sonst jede
+  spätere Kürzung des Kommentars. (task_id: PO-2026-09-12-001)
+- [2026-09-13] projektweit: Wer eine Fehlerklasse behebt, entscheidet
+  ausdrücklich zwischen **Aufrufkonvention** (dokumentiert, hält nur solange
+  jemand daran denkt) und **Struktur** (Code oder Test erzwingt sie). -001
+  wurde zur Konvention: `db.put` bleibt an drei Stellen ohne Wrapper
+  erreichbar, kein Test fängt einen künftigen Verstoß. Beim Einordnen eines
+  Korrekturpakets gehört diese Wahl in `constraints`, sonst wird es
+  stillschweigend die billigere. (task_id: PO-2026-09-12-001)
+- [2026-09-13] projektweit: Ein Paket, das eine **vorhandene Zusicherung auf
+  eine neue Dimension ausweitet** (Verdeckungsprüfung → Telefonbreiten), ist
+  keine Listenerweiterung: Die Hauptarbeit ist das generische Abgrenzen
+  falscher Befunde (Viewport-Höhe ≠ Breite; fixierte Chrome; die Prüfumgebung
+  meldet sich selbst). Im Handoff als Teil des Scopes benennen, sonst wird
+  der Aufwand unterschätzt und die Ausnahme am Ende an Klassennamen
+  festgemacht. (task_id: PO-2026-09-12-004, ADR-0023 Punkt 7)
 - [2026-09-11] orte/tags/karte: Leerzustände sind je **Filterstufe** zu
   zählen, nicht pauschal einer. Bestand leer · Filter ohne Treffer · gefiltert,
   aber nichts davon darstellbar (Orte ohne Koordinaten) sind drei verschiedene
