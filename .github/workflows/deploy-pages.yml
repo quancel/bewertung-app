@@ -62,8 +62,15 @@ jobs:
       # Browser-Download nach sich, den dieses Paket nicht einführen soll.
       # Lint, Test, Build und verify:pwa oben sind die Deploy-Gates.
 
+      # `enablement: true` legt die Pages-Seite ueber die API selbst an, statt
+      # sie vorauszusetzen -- sonst scheitert dieser Schritt mit "Get Pages
+      # site failed", solange niemand in den Repo-Einstellungen von Hand
+      # Settings -> Pages -> Source auf "GitHub Actions" gestellt hat. Ist die
+      # Seite bereits eingerichtet, ist der Parameter wirkungslos.
       - name: GitHub Pages konfigurieren
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Build-Ausgabe als Pages-Artefakt hochladen
         uses: actions/upload-pages-artifact@v3

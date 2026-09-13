@@ -178,10 +178,11 @@ build` (enthält den Typecheck) und `npm run verify:pwa` — erst wenn alle
 durchlaufen, wird nach Pages veröffentlicht. Die App liegt danach unter
 `https://quancel.github.io/bewertung-app/`.
 
-Damit der Workflow greift, muss in den Repo-Einstellungen unter
-*Settings → Pages → Build and deployment* als Quelle **„GitHub Actions"**
-gewählt sein (nicht „Deploy from a branch"). Das ist eine einmalige
-Einstellung außerhalb des Repos.
+Die Pages-Seite legt der Workflow selbst an (`configure-pages` mit
+`enablement: true`) — in den Repo-Einstellungen ist nichts von Hand zu
+tun. Das Repo muss dafür **öffentlich** sein oder der Kontoplan Pages für
+private Repos erlauben; sonst scheitert der Schritt mit `Get Pages site
+failed`.
 
 Eine Projektseite liefert unter einem **Unterpfad** aus, nicht unter `/`.
 Dieser Pfad steht als `BASE` in `vite.config.ts` und ist die einzige
