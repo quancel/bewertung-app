@@ -62,9 +62,19 @@ dritte Design-Runde von PO-2026-09-12 (005 — Koordinatenfelder werden vom
 gleichberechtigten Feldpaar zum Notnagel für eine erfolglose Ortssuche)
 ergänzt den neuen Abschnitt „Bedingt sichtbare Formularabschnitte (Reveal
 ohne Rückweg)" und löst damit den bislang nur vorausschauenden Hinweis unter
-„Netzabhängige Type-ahead-Aktion" ein.
+„Netzabhängige Type-ahead-Aktion" ein. Eine vierte Korrektur-Runde
+(2026-09-13, PO-2026-09-13-001/-002 — ein Nutzer fand den Regler einer
+frisch angelegten Achse „nicht existent", weil dessen Thumb bei `null` per
+`opacity: 0` vollständig ausgeblendet war, dazu ein zweiter, unabhängiger
+Fehler im Commit-Pfad) ersetzt unter „Formulare" und „Werte mit Bereich, bei
+denen 0 gültig ist" die Sichtbarkeits-basierte Unterscheidung des
+Regler-Thumbs durch eine Farb-basierte: der Thumb bleibt jetzt in jedem
+Zustand sichtbar und bedienbar, „nicht gesetzt" und „gesetzt" unterscheiden
+sich über `accent-color` (neutral vs. Primärton) statt über Sichtbarkeit —
+die dahinterliegende Absicht („nicht bewertet" sieht nie wie eine gesetzte 0
+aus) bleibt dabei erhalten.
 
-- **Zuletzt kuratiert**: 2026-09-12
+- **Zuletzt kuratiert**: 2026-09-13
 
 ## Zustände
 
@@ -108,8 +118,17 @@ unten und für die beiden Karten-Leerzustände, siehe „Karte").
   kein Wert und wird nie auf die Untergrenze geklemmt**, sonst wäre
   Zurücksetzen unmöglich.
 - Zahleneingabe ist bei Regler-Pendants die primäre Quelle; der Regler ist
-  unterstützend, ohne sichtbaren Thumb solange kein Wert gesetzt ist,
-  danach bidirektional synchron.
+  unterstützend, bidirektional synchron und **immer mit sichtbarem,
+  bedienbarem Thumb** — auch ohne gesetzten Wert (PO-2026-09-13-002: ein
+  komplett ausgeblendeter Thumb machte den Regler unauffindbar). Wie sich
+  „nicht gesetzt" und „gesetzt 0" beim Regler unterscheiden, steht unter
+  „Werte mit Bereich, bei denen 0 gültig ist" → „Regler-Thumb". Der Regler
+  committet auf **jedes** `input`-Ereignis, nicht erst auf `change` — ein
+  natives `range`-Element liefert bei jedem Ereignis bereits einen gültigen,
+  auf Step/Min/Max geklemmten Wert, eine zusätzliche Klemmung entfällt hier
+  (nur die Zahleneingabe braucht die Runden-und-Klemmen-Logik, da dort
+  Freitext möglich ist). Ein Tipp auf die Bahn löst dasselbe `input`-Ereignis
+  aus wie ein Zwischenschritt beim Ziehen — keine Sonderbehandlung nötig.
 - **Zahlenfeld-Paare (z. B. Koordinaten) stehen standardmäßig untereinander**,
   je ein volles Feld pro Zeile wie jedes andere Formularfeld — kein
   Nebeneinander per Flex-Row. Grund (PO-2026-09-12-002, durchgerechnet):
@@ -188,6 +207,25 @@ Eigenschaft.
   zwischen `--color-neutral-100` (0) und `--color-primary-600` (10), keine
   Stufenfarben. „Nicht gesetzt" zeigt **keinen** Balken, nur den
   Platzhaltertext.
+- **Regler-Thumb** (PO-2026-09-13-002): „nicht gesetzt" und „gesetzt" (inkl.
+  0) unterscheiden sich über die Akzentfarbe, nie über Sichtbarkeit — der
+  Thumb bleibt in **jedem** Zustand sichtbar und bedienbar. Eine frühere
+  Fassung blendete ihn bei `null` per `opacity: 0` vollständig aus; dadurch
+  war der Regler erst nach mehrfachem zufälligem Antippen auffindbar. Jetzt:
+  ungesetzt `accent-color: var(--text-muted)` (dieselbe neutrale Farbe wie
+  jede andere fehlende Angabe, design-concept.md „Fehlende Daten sind
+  neutral"); gesetzt (inkl. 0) `accent-color: var(--color-primary-600)`,
+  unverändert. Der Thumb steht dabei immer auf der Position des aktuellen
+  `value`-Attributs (`wert ?? 0`) — **die Farbe, nicht die Position, trägt
+  die Unterscheidung**. `aria-valuenow`/`aria-valuetext` bleiben davon
+  unberührt (siehe „Barrierefreiheit (Baseline)"): bei `null` weiterhin kein
+  `aria-valuenow`, sondern `aria-valuetext="nicht bewertet"` — assistive
+  Technologie meldet nie eine Zahl für einen ungesetzten Wert, auch wenn der
+  Thumb visuell auf 0 steht. **Trefferfläche**: die 44×44px-Mindestgröße
+  (design-concept.md „Barrierefreiheit") gilt unabhängig von der optisch
+  dünnen Spur — z. B. über vertikales Padding auf dem
+  `<input type="range">`, nicht über eine sichtbar vergrößerte Spur oder
+  einen vergrößerten Thumb.
 
 ## Listen: Sortieren, Filtern, Gruppierung
 
