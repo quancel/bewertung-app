@@ -4,6 +4,12 @@
 - **Datum**: 2026-09-12
 - **Bounded Context(s)**: `orte`
 - **task_id**: `PO-2026-09-12-005`
+- **Präzisiert durch**: ADR-0026 (Punkt 3 — die Kennung gilt für die
+  **geöffnete Detailinstanz**, nicht für die Ort-ID: „wird nie
+  zurückgenommen" ist auf die geöffnete Ansicht begrenzt und endet mit dem
+  Schließen. Der Satz war zu weit gefasst und widersprach dem eigenen
+  Alternativen-Abschnitt unten. Punkt 4 gilt sinngemäß mitpräzisiert; das
+  Watcher-Verbot für den **Ortswechsel** bleibt unverändert in Kraft.)
 
 ## Kontext
 

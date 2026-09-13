@@ -13,7 +13,13 @@
 > Eine Zeile pro ADR. Keine Zusammenfassung des Inhalts — der Titel muss
 > reichen, um zu entscheiden, ob das ADR relevant ist.
 
-**Stand: 2026-09-12** — fünfundzwanzig ADRs. 0023–0025 beim Einordnen der
+**Stand: 2026-09-13** — sechsundzwanzig ADRs. **0026** ist nach der Umsetzung
+von PO-2026-09-12-005 entstanden: Der `frontend-lead` hat gemeldet, dass
+ADR-0025 Punkt 3 („die Kennung wird nie zurückgenommen") mit
+Akzeptanzkriterium 8 desselben Pakets kollidiert, weil `Ortebereich.vue` beim
+Schließen nicht unmountet. Kein `superseded by` — **Präzisierung** eines
+Punktes wie bei ADR-0021/0022, beide ADRs bleiben `accepted`; ADR-0025 trägt
+den Verweis im Kopf. 0023–0025 beim Einordnen der
 **Korrekturrunde vom 2026-09-12** (PO-2026-09-12-001 bis -005, Befunde aus
 echter Nutzung auf einem iPhone): 0023 zu den Verifikationsebenen (Anlass:
 der Datenverlust aus -001 kam durch 224 grüne Tests), 0024 zur Reichweite
@@ -77,7 +83,8 @@ PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
 | [0022](0022-reine-lib-funktionen-ueber-context-grenzen.md) | Reine `lib`-Funktionen über Context-Grenzen (Präzisierung von ADR-0013 Punkt 2/3) | orte, karte, bewertungen, tags, medien, datensicherung | accepted | 2026-09-11 |
 | [0023](0023-verifikationsebenen-vitest-und-rauchtest.md) | Verifikationsebenen — was Vitest prüft, was der Rauchtest prüft, und warum kein Browser-Test-Runner dazukommt | app-shell, orte, medien, datensicherung | accepted | 2026-09-12 |
 | [0024](0024-projektweite-interaktionsregeln-in-shared.md) | Projektweite Interaktionsregeln liegen einmal in `src/shared/`, und ein Paket darf sie über die Context-Grenze hinweg anbinden | orte, tags | accepted | 2026-09-12 |
-| [0025](0025-zustand-ueber-die-komponentengrenze-im-ortsdetail.md) | Zustand über die Komponentengrenze im Ortsdetail — Ortssuche meldet ihren wirksamen Zustand, die Sichtbarkeit rastet an der Ort-ID ein | orte | accepted | 2026-09-12 |
+| [0025](0025-zustand-ueber-die-komponentengrenze-im-ortsdetail.md) | Zustand über die Komponentengrenze im Ortsdetail — Ortssuche meldet ihren wirksamen Zustand, die Sichtbarkeit rastet an der Ort-ID ein | orte | accepted (Punkt 3 präzisiert durch 0026) | 2026-09-12 |
+| [0026](0026-lebensdauer-der-sichtbarkeits-kennung.md) | Die Sichtbarkeits-Kennung gilt für die geöffnete Detailinstanz, nicht für die Ort-ID (Präzisierung von ADR-0025 Punkt 3) | orte | accepted | 2026-09-13 |
 
 **Status-Werte** wörtlich wie im ADR selbst: `proposed` · `accepted` ·
 `superseded by ADR-NNNN`.

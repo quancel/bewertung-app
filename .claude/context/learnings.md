@@ -54,6 +54,15 @@
   war **Inhalt**. Beim Formulieren dazusagen, was der Auslöser vergleicht —
   sonst ist die Abweichung weder im Review noch in der Abnahme sichtbar.
   (task_id: PO-2026-09-07-006, `useLeafletKarte.ts`)
+- [2026-09-13] projektweit: Absolute Wörter im ADR („nie", „immer") kosten
+  beim Schreiben nichts, wenn die aktuelle Struktur den teuren Fall gar nicht
+  erzeugt — ADR-0025 schrieb „die Kennung wird nie zurückgenommen", weil
+  `Ortebereich.vue` nicht unmountet, und überschoss damit ein
+  Akzeptanzkriterium desselben Pakets. Bei zustandsbindenden Entscheidungen
+  die **Lebensdauer** ausdrücklich benennen (geöffnete Instanz? Route? Sitzung?)
+  statt sie aus dem Komponentenverhalten mitlaufen zu lassen; Gegenprobe beim
+  Schreiben ist der eigene Alternativen-Abschnitt, der hier bereits das
+  Gegenteil sagte. (task_id: PO-2026-09-12-005, ADR-0025/0026)
 - [2026-09-11] orte/tags/karte: Leerzustände sind je **Filterstufe** zu
   zählen, nicht pauschal einer. Bestand leer · Filter ohne Treffer · gefiltert,
   aber nichts davon darstellbar (Orte ohne Koordinaten) sind drei verschiedene
