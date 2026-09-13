@@ -54,10 +54,21 @@
  * ist `router.push` (nie `replace`, ADR-0019 Punkt 6), ausgelöst über das
  * `ansicht-umschalten`-Emit von `Werkzeugleiste.vue` (die selbst store- und
  * routerfrei bleibt, Constraint UMSCHALTER).
+ *
+ * Koordinaten-Notnagel (PO-2026-09-12-005, ADR-0025): `koordinatenAufgeklapptFuerOrtId`
+ * ist die EINE einrastende Sichtbarkeits-Kennung für den bedingt sichtbaren
+ * Koordinaten-Abschnitt — die ID des Ortes, für den aufgeklappt ist (`null`,
+ * solange keiner). Sie wird NIE zurückgenommen; „einmal sichtbar bleibt
+ * sichtbar" (Kriterium 7) und „Ort B zeigt nur seinen eigenen Zustand"
+ * (Kriterium 9) folgen daraus ohne Watcher/Reset (ADR-0025 Punkt 3). `Ortssuche`
+ * wird dafür mit `:key="ortId"` eingebunden (ADR-0025 Punkt 5): ein
+ * Ortswechsel verwirft Eingabetext/Client-Zustand der vorigen Instanz
+ * strukturell, statt sie einzeln zurückzusetzen.
  */
 import { computed, defineAsyncComponent, nextTick, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import PrimaerButton from '../../../shared/ui/PrimaerButton.vue'
+import TextButton from '../../../shared/ui/TextButton.vue'
 import MasterDetail from '../../../shared/ui/MasterDetail.vue'
 import AdresseOhneZiel from '../../../shared/ui/AdresseOhneZiel.vue'
 import IconPlus from '../../../shared/ui/icons/IconPlus.vue'
@@ -75,7 +86,7 @@ import Werkzeugleiste from '../components/Werkzeugleiste.vue'
 import TagFilterleiste from '../../tags/components/TagFilterleiste.vue'
 import TagEingabe from '../../tags/components/TagEingabe.vue'
 import Bilderbereich from '../../medien/components/Bilderbereich.vue'
-import type { OrtsvorschlagWerte } from '../lib/geocoding'
+import type { OrtssucheZustand, OrtsvorschlagWerte } from '../lib/geocoding'
 import { SORTIER_KRITERIUM_LABEL, type SortierKriterium, type TagVerknuepfung } from '../model/ansicht'
 import { leiteAnsichtAusAdresse } from '../lib/ansichtAusAdresse'
 import { filtereOrteMitKoordinaten } from '../../karte/lib/koordinatenFilter'
@@ -91,6 +102,13 @@ const store = useOrteStore()
 
 const sheetOffen = ref(false)
 const loeschenOffen = ref(false)
+
+/** Einrastende Sichtbarkeits-Kennung für den Koordinaten-Notnagel
+ * (PO-2026-09-12-005, ADR-0025 Punkt 3): die ID des Ortes, für den der
+ * Abschnitt aufgeklappt ist (`null`, solange keiner). Wird NIE
+ * zurückgenommen — siehe Modulkommentar oben und `zeigeKoordinatenAbschnitt`
+ * weiter unten. */
+const koordinatenAufgeklapptFuerOrtId = ref<string | null>(null)
 
 // Einzige Quelle der Auswahl (ADR-0011 Punkt 4): `null` auf `/orte`, sonst
 // die Ort-ID aus der Adresse — unabhängig davon, ob sie sich auflöst.
@@ -428,6 +446,44 @@ function aufOrtssucheUebernommen(werte: OrtsvorschlagWerte): void {
   if (!ortId.value) return
   store.aktualisiereFeld(ortId.value, werte)
   persistiereJetzt()
+}
+
+// --- Koordinaten-Notnagel (PO-2026-09-12-005, ADR-0025) --------------------
+
+/** Sichtbar, wenn die Kennung mit dem geöffneten Ort übereinstimmt ODER für
+ * diesen Ort bereits eine Koordinate hinterlegt ist — geprüft gegen `null`,
+ * nicht gegen den Wahrheitswert (`0` ist eine gültige Koordinate, ADR-0020
+ * Punkt 6/ADR-0025 Punkt 3). */
+const zeigeKoordinatenAbschnitt = computed(
+  () =>
+    !!ort.value &&
+    (koordinatenAufgeklapptFuerOrtId.value === ortId.value ||
+      ort.value.breite !== null ||
+      ort.value.laenge !== null),
+)
+
+const breiteFeldRef = ref<HTMLInputElement | null>(null)
+
+/** Auslöser 1 von 2 (ADR-0025 Punkt 2/3): einer der drei erfolglosen
+ * Suchzustände rastet die Kennung ein — `Ortssuche.vue` meldet dafür bereits
+ * den WIRKSAMEN, tatsächlich angezeigten Zustand (kein zusätzlicher
+ * `useNetzzustand`-Aufruf hier nötig). Automatischer Auslöser: bewegt den
+ * Fokus NICHT (design-conventions.md „Bedingt sichtbare Formularabschnitte",
+ * Kriterium 6). */
+function aufOrtssucheZustandGeaendert(zustand: OrtssucheZustand['status']): void {
+  if (!ortId.value) return
+  if (zustand === 'kein_netz' || zustand === 'keine_treffer' || zustand === 'fehler') {
+    koordinatenAufgeklapptFuerOrtId.value = ortId.value
+  }
+}
+
+/** Auslöser 2 von 2: manueller Reveal — jederzeit möglich, unabhängig von
+ * Netz-/Suchzustand (Kriterium 5). Einzige Stelle, die den Fokus bewegt, und
+ * zwar ins Feld Breite (Kriterium 6). */
+function aufKoordinatenReveal(): void {
+  if (!ortId.value) return
+  koordinatenAufgeklapptFuerOrtId.value = ortId.value
+  void nextTick(() => breiteFeldRef.value?.focus())
 }
 
 function aufAdresseEingabe(event: Event): void {
@@ -781,7 +837,15 @@ async function aufLoeschenBestaetigt(): Promise<void> {
             >
           </div>
 
-          <Ortssuche @uebernommen="aufOrtssucheUebernommen" />
+          <!-- `:key="ortId"` (ADR-0025 Punkt 5): Ortswechsel verwirft
+               Eingabetext, laufende Anfrage und Client-Zustand der vorigen
+               Instanz strukturell (Remount statt Reset), Grundlage für
+               Kriterium 9. -->
+          <Ortssuche
+            :key="ortId ?? undefined"
+            @uebernommen="aufOrtssucheUebernommen"
+            @zustand-geaendert="aufOrtssucheZustandGeaendert"
+          />
 
           <div class="ortsdetail__feld">
             <label for="ortsdetail-adresse">Adresse</label>
@@ -797,37 +861,57 @@ async function aufLoeschenBestaetigt(): Promise<void> {
             >
           </div>
 
-          <div class="ortsdetail__koordinaten">
-            <div class="ortsdetail__feld">
-              <label for="ortsdetail-breite">Breite</label>
-              <input
-                id="ortsdetail-breite"
-                type="number"
-                step="any"
-                class="ortsdetail__eingabe"
-                :class="{ 'ortsdetail__eingabe--leer': ort.breite === null }"
-                :value="ort.breite ?? ''"
-                placeholder="noch nichts eingetragen"
-                @input="aufBreiteEingabe"
-                @change="persistiereJetzt"
-              >
-            </div>
+          <!-- Koordinaten-Notnagel (PO-2026-09-12-005, ADR-0025): Button und
+               Felder erscheinen nie gleichzeitig (Kriterium 1). Sichtbarkeit
+               über `zeigeKoordinatenAbschnitt`, siehe Skript-Kommentar. -->
+          <Transition name="ortsdetail-koordinaten">
+            <div
+              v-if="zeigeKoordinatenAbschnitt"
+              id="ortsdetail-koordinaten"
+              class="ortsdetail__koordinaten"
+            >
+              <div class="ortsdetail__feld">
+                <label for="ortsdetail-breite">Breite</label>
+                <input
+                  id="ortsdetail-breite"
+                  ref="breiteFeldRef"
+                  type="number"
+                  step="any"
+                  class="ortsdetail__eingabe"
+                  :class="{ 'ortsdetail__eingabe--leer': ort.breite === null }"
+                  :value="ort.breite ?? ''"
+                  placeholder="noch nichts eingetragen"
+                  @input="aufBreiteEingabe"
+                  @change="persistiereJetzt"
+                >
+              </div>
 
-            <div class="ortsdetail__feld">
-              <label for="ortsdetail-laenge">Länge</label>
-              <input
-                id="ortsdetail-laenge"
-                type="number"
-                step="any"
-                class="ortsdetail__eingabe"
-                :class="{ 'ortsdetail__eingabe--leer': ort.laenge === null }"
-                :value="ort.laenge ?? ''"
-                placeholder="noch nichts eingetragen"
-                @input="aufLaengeEingabe"
-                @change="persistiereJetzt"
-              >
+              <div class="ortsdetail__feld">
+                <label for="ortsdetail-laenge">Länge</label>
+                <input
+                  id="ortsdetail-laenge"
+                  type="number"
+                  step="any"
+                  class="ortsdetail__eingabe"
+                  :class="{ 'ortsdetail__eingabe--leer': ort.laenge === null }"
+                  :value="ort.laenge ?? ''"
+                  placeholder="noch nichts eingetragen"
+                  @input="aufLaengeEingabe"
+                  @change="persistiereJetzt"
+                >
+              </div>
             </div>
-          </div>
+          </Transition>
+
+          <TextButton
+            v-if="!zeigeKoordinatenAbschnitt"
+            type="button"
+            aria-expanded="false"
+            aria-controls="ortsdetail-koordinaten"
+            @click="aufKoordinatenReveal"
+          >
+            Koordinaten von Hand eintragen
+          </TextButton>
 
           <div class="ortsdetail__feld">
             <span>Tags</span>
@@ -1163,6 +1247,26 @@ async function aufLoeschenBestaetigt(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
+}
+
+/* Koordinaten-Notnagel (PO-2026-09-12-005, ADR-0025, design-conventions.md
+   „Bedingt sichtbare Formularabschnitte (Reveal ohne Rückweg)"): Ein-/
+   Ausblenden 180ms ease-out/ease-in, dieselbe Bauform wie
+   `.ortssuche-hinweis` in Ortssuche.vue. Die Leave-Transition greift
+   praktisch nie (die Kennung wird nie zurückgenommen, ADR-0025 Punkt 3),
+   bleibt aber konsistent zum übrigen Motion-Muster der App. Reduzierte
+   Bewegung ersetzt statt entfällt (globale Regel in base.css). */
+.ortsdetail-koordinaten-enter-active {
+  transition: opacity var(--duration-180) var(--ease-out);
+}
+
+.ortsdetail-koordinaten-leave-active {
+  transition: opacity var(--duration-180) var(--ease-in);
+}
+
+.ortsdetail-koordinaten-enter-from,
+.ortsdetail-koordinaten-leave-to {
+  opacity: 0;
 }
 
 .ortsdetail__eingabe {

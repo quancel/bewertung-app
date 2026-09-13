@@ -41,14 +41,26 @@
  * - Escape/Blur/Tap außerhalb schließen weiterhin nur die Trefferliste; der
  *   Kein-Netz-Hinweis ist kein Zwischenergebnis einer Suche, sondern eine
  *   fortbestehende Aussage und bleibt von `unterdrueckt` unabhängig.
+ *
+ * Zustand über die Komponentengrenze (2026-09-12, PO-2026-09-12-005,
+ * ADR-0025 Punkt 1/2): Zusätzlich zum übernommenen Treffer meldet die
+ * Komponente per Emit den WIRKSAMEN, tatsächlich angezeigten Zustand
+ * (`wirksamerZustand.status`) — kein vorverdichteter Wahrheitswert
+ * „erfolglos". `Ortebereich.vue` entscheidet daraus, ob der
+ * Koordinaten-Notnagel einrastet; diese Komponente bleibt store- und
+ * entscheidungsfrei. `immediate: true` meldet auch den Startzustand einer
+ * frischen Instanz sofort — relevant, weil `Ortebereich.vue` diese
+ * Komponente mit `:key="ortId"` einbindet (ADR-0025 Punkt 5) und beim
+ * Ortswechsel eine neue Instanz entsteht.
  */
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useNetzzustand } from '../../../shared/composables/useNetzzustand'
 import { useSchliesseBeiAussenaktion } from '../../../shared/composables/useSchliesseBeiAussenaktion'
 import { erstelleOrtssucheClient, type OrtssucheZustand, type Ortsvorschlag, type OrtsvorschlagWerte } from '../lib/geocoding'
 
 const emit = defineEmits<{
   uebernommen: [werte: OrtsvorschlagWerte]
+  'zustand-geaendert': [status: OrtssucheZustand['status']]
 }>()
 
 const { online } = useNetzzustand()
@@ -80,6 +92,16 @@ const wirksamerZustand = computed<OrtssucheZustand>(() => {
   if (unterdrueckt.value) return { status: 'inaktiv' }
   return clientZustand.value
 })
+
+// ADR-0025 Punkt 1/2: der übliche Rückweg einer Komponente, derselbe wie
+// beim übernommenen Treffer — meldet den WIRKSAMEN Zustand, nicht den rohen
+// Client-Zustand. `immediate` deckt auch den Startzustand einer frischen,
+// per `:key` gemounteten Instanz ab.
+watch(
+  wirksamerZustand,
+  (zustand) => emit('zustand-geaendert', zustand.status),
+  { immediate: true },
+)
 
 const vorschlaege = computed<Ortsvorschlag[]>(() =>
   wirksamerZustand.value.status === 'treffer' ? wirksamerZustand.value.vorschlaege : [],

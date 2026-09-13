@@ -84,6 +84,11 @@ const BREITEN = [
 const ANSICHTEN = [
   { name: 'ortsliste', pfad: '/orte' },
   { name: 'ortsdetail', pfad: '/orte', vorbereiten: legeOrtAnUndOeffneIhn },
+  // PO-2026-09-12-005 (ADR-0025), Kriterium 11: der neue Sichtbarkeitszustand
+  // des Koordinaten-Notnagels läuft durch dieselben Zusicherungen wie jede
+  // andere Ansicht (Verdeckung, Überlauf, CSS-Ressourcen) — ausgelöst über
+  // den Reveal-Button, nie über einen echten Photon-Aufruf.
+  { name: 'ortsdetail-koordinaten-sichtbar', pfad: '/orte', vorbereiten: legeOrtAnUndOeffneIhnMitKoordinatenReveal },
   { name: 'kartenansicht', pfad: '/orte?ansicht=karte' },
   { name: 'datenbereich', pfad: '/daten' },
   { name: 'adresse-ohne-ziel', pfad: '/gibtesnicht' },
@@ -215,6 +220,16 @@ async function legeOrtAnUndOeffneIhn(seite) {
   await seite.locator('input[type="text"]:visible').first().fill('Rauchtest-Ort')
   await seite.keyboard.press('Enter')
   await seite.waitForTimeout(700)
+}
+
+/** PO-2026-09-12-005 (ADR-0025), Kriterium 11: öffnet einen frischen Ort
+ *  (ohne Koordinaten, ohne Suche) und klickt den Reveal-Button „Koordinaten
+ *  von Hand eintragen" — der einzige Weg, den Sichtbarkeitszustand ohne
+ *  echten Photon-Aufruf oder Offline-Simulation zu erzeugen. */
+async function legeOrtAnUndOeffneIhnMitKoordinatenReveal(seite) {
+  await legeOrtAnUndOeffneIhn(seite)
+  await seite.getByRole('button', { name: 'Koordinaten von Hand eintragen' }).click()
+  await seite.waitForTimeout(300)
 }
 
 /** Zusicherung 4: Was über CSS geladen wird, ist aufgelöst. Ein `.icon`
