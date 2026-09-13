@@ -1,0 +1,85 @@
+name: Deploy to GitHub Pages
+
+# Projektseite unter https://quancel.github.io/bewertung-app/ — der
+# Unterpfad steckt in `vite.config.ts` (`BASE`), nicht hier.
+
+on:
+  push:
+    branches:
+      - claude/orchestrate-file-prompt-akz7tw
+  # Manueller Nachlauf, z. B. um dieselbe Version ohne neuen Commit erneut
+  # auszuliefern.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Nur ein Deploy gleichzeitig; ein neuer Push wartet nicht auf einen alten,
+# überholten Lauf, sondern löst ihn ab.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Quellcode auschecken
+        uses: actions/checkout@v4
+
+      - name: Node einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit-Tests (Vitest)
+        run: npm run test
+
+      # Vorhandene Build-Kette (führt vue-tsc-Typecheck + vite build aus) —
+      # keine eigene Build-Kette daneben.
+      - name: Build
+        run: npm run build
+
+      # Prüft dist/sw.js: Precache-Liste vollständig (index.html, JS/CSS,
+      # woff2), navigateFallback auf den App-Einstieg unter dem
+      # GitHub-Pages-Unterpfad, keine Fremd-Hosts im Service Worker
+      # (ADR-0015, ADR-0018 Punkt 5).
+      - name: Offline-Auslieferung prüfen (verify:pwa)
+        run: npm run verify:pwa
+
+      # `npm run smoke` bewusst NICHT Teil dieses Workflows: Playwright ist
+      # bewusst keine Projekt-Abhängigkeit (Nutzerentscheidung 2026-09-12,
+      # siehe CLAUDE.md „Rauchtest") — ein Lauf hier zöge einen
+      # Browser-Download nach sich, den dieses Paket nicht einführen soll.
+      # Lint, Test, Build und verify:pwa oben sind die Deploy-Gates.
+
+      - name: GitHub Pages konfigurieren
+        uses: actions/configure-pages@v5
+
+      - name: Build-Ausgabe als Pages-Artefakt hochladen
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Auf GitHub Pages veröffentlichen
+        id: deployment
+        uses: actions/deploy-pages@v4

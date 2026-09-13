@@ -15,6 +15,13 @@
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+// `vite.config.ts` ist die einzige Quelle für den GitHub-Pages-Unterpfad
+// (`BASE`). Node (≥ 22.18, Type Stripping standardmäßig an) kann eine
+// `.ts`-Datei ohne reine Typ-Syntax direkt importieren — geprüft, läuft
+// sauber, keine Build-/Transpile-Abhängigkeit nötig. `scripts/smoke.mjs`
+// importiert denselben Weg; ändert sich `BASE` dort, zieht dieses Skript
+// automatisch mit, ohne zweite Stelle zum Nachpflegen.
+import viteConfig from '../vite.config.ts'
 
 const distDir = resolve(import.meta.dirname, '..', 'dist')
 const swPfad = resolve(distDir, 'sw.js')
@@ -51,8 +58,14 @@ const hatIndexHtml = urls.includes('index.html')
 const hatWoff2 = urls.some((u) => u.endsWith('.woff2'))
 const hatJsBundle = urls.some((u) => u.startsWith('assets/') && u.endsWith('.js'))
 const hatCssBundle = urls.some((u) => u.startsWith('assets/') && u.endsWith('.css'))
+// GitHub-Pages-Projektseite liefert unter einem Unterpfad aus
+// (PO-2026-09-07-013) — der App-Einstieg liegt deshalb nicht unter
+// `/index.html`, sondern unter `${BASE_PATH}index.html`. `BASE_PATH` kommt
+// aus `vite.config.ts` (Import oben), keine zweite Konstante hier.
+const BASE_PATH = viteConfig.base
 const hatNavigateFallback =
-  inhalt.includes('NavigationRoute') && inhalt.includes('createHandlerBoundToURL("/index.html")')
+  inhalt.includes('NavigationRoute') &&
+  inhalt.includes(`createHandlerBoundToURL("${BASE_PATH}index.html")`)
 const hatCleanup = inhalt.includes('cleanupOutdatedCaches()')
 
 console.log(`Precache-Einträge (${urls.length}):`)
@@ -64,7 +77,9 @@ if (!hatWoff2)
 if (!hatJsBundle) fehler('Kein JS-Bundle in der Precache-Liste.')
 if (!hatCssBundle) fehler('Kein CSS-Bundle in der Precache-Liste.')
 if (!hatNavigateFallback)
-  fehler("`navigateFallback: '/index.html'` nicht im generierten Service Worker gefunden (ADR-0015 Punkt 4).")
+  fehler(
+    `\`navigateFallback\` auf \`${BASE_PATH}index.html\` nicht im generierten Service Worker gefunden (ADR-0015 Punkt 4).`,
+  )
 if (!hatCleanup) fehler('`cleanupOutdatedCaches()` fehlt (ADR-0015 Punkt 7).')
 
 // ADR-0018 Punkt 5 (PO-2026-09-07-006): Kartenkacheln (tile.openstreetmap.org)

@@ -170,6 +170,32 @@ Component-Test-Infrastruktur (`@vue/test-utils`) — bislang reichen reine
 Store-/Persistenz-Tests; das erste Paket mit Testbedarf für
 Komponentenverhalten richtet das ein und ergänzt diese Zeile.
 
+## Auslieferung: GitHub Pages
+
+Jeder Push auf den Arbeitsbranch löst
+`.github/workflows/deploy-pages.yml` aus: `npm ci`, Lint, Vitest, `npm run
+build` (enthält den Typecheck) und `npm run verify:pwa` — erst wenn alle
+durchlaufen, wird nach Pages veröffentlicht. Die App liegt danach unter
+`https://quancel.github.io/bewertung-app/`.
+
+Damit der Workflow greift, muss in den Repo-Einstellungen unter
+*Settings → Pages → Build and deployment* als Quelle **„GitHub Actions"**
+gewählt sein (nicht „Deploy from a branch"). Das ist eine einmalige
+Einstellung außerhalb des Repos.
+
+Eine Projektseite liefert unter einem **Unterpfad** aus, nicht unter `/`.
+Dieser Pfad steht als `BASE` in `vite.config.ts` und ist die einzige
+Quelle dafür: `createWebHistory(import.meta.env.BASE_URL)` im Router,
+`navigateFallback` in der PWA-Konfiguration sowie `scripts/smoke.mjs` und
+`scripts/verify-precache.mjs` (beide importieren `vite.config.ts` direkt)
+ziehen ihn von dort. Wer die App unter einem anderen Pfad ausliefert,
+ändert **nur** `BASE`.
+
+`npm run smoke` läuft bewusst **nicht** im Workflow: Playwright ist keine
+Projekt-Abhängigkeit (siehe unten), ein Lauf in CI zöge einen
+Browser-Download nach sich. Der Rauchtest bleibt die Pflicht des Leads vor
+der `done`-Meldung.
+
 ## Rauchtest: `npm run smoke`
 
 Die **Minimalverifikation** aus `.claude/agent-team/rules/VERIFICATION.md`,

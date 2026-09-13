@@ -62,9 +62,21 @@ import { spawn } from 'node:child_process'
 import { mkdir, rm } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import process from 'node:process'
+// `vite.config.ts` ist die einzige Quelle für den GitHub-Pages-Unterpfad
+// (`BASE`) — `vite preview` liefert genau darunter aus, nicht unter `/`.
+// Node (≥ 22.18, Type Stripping standardmäßig an) importiert die `.ts`-Datei
+// direkt, ohne eigene Typ-Syntax zur Laufzeit; `scripts/verify-precache.mjs`
+// nutzt denselben Weg. Ändert sich `BASE` dort, ziehen beide Skripte
+// automatisch mit, ohne eine dritte Stelle zum Nachpflegen.
+import viteConfig from '../vite.config.ts'
 
 const PORT = 4173
-const BASIS = `http://localhost:${PORT}`
+// `viteConfig.base` endet auf `/` (z. B. `/bewertung-app/`), jeder Eintrag
+// in `ANSICHTEN[].pfad` beginnt selbst mit `/` (z. B. `/orte`) — den
+// abschließenden Schrägstrich hier abschneiden, sonst verdoppelt er sich
+// bei jedem `BASIS + pfad` unten.
+const BASE_PATH = viteConfig.base.replace(/\/$/, '')
+const BASIS = `http://localhost:${PORT}${BASE_PATH}`
 const FOTOS = '.smoke'
 
 /** Geprüfte Breiten (ADR-0012: ein Prüfparameter des Skripts, keine
@@ -204,7 +216,11 @@ function beendeVorschau(server) {
 async function warteAufServer() {
   for (let versuch = 0; versuch < 60; versuch += 1) {
     try {
-      const antwort = await fetch(BASIS)
+      // `BASIS` selbst (ohne Endschrägstrich) liefert unter dem
+      // GitHub-Pages-Unterpfad einen echten 404 (geprüft), kein Redirect —
+      // der Health-Check braucht deshalb den Schrägstrich, den `BASIS +
+      // pfad` unten bewusst nicht hat.
+      const antwort = await fetch(`${BASIS}/`)
       if (antwort.ok) return true
     } catch {
       /* noch nicht da */

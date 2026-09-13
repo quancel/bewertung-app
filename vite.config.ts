@@ -3,10 +3,19 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// Rein statisches Bundle, base-URL '/' (Nutzerentscheidung 2026-09-08:
-// Auslieferung über statischen Host). Kein Server-Laufzeitanteil (ADR-0001).
+// Rein statisches Bundle (Nutzerentscheidung 2026-09-08: Auslieferung über
+// statischen Host). Kein Server-Laufzeitanteil (ADR-0001).
+//
+// GitHub-Pages-Projektseite liefert unter einem Unterpfad aus
+// (https://quancel.github.io/bewertung-app/), deshalb hier fest verdrahtet
+// statt '/'. `createWebHistory(import.meta.env.BASE_URL)`
+// (src/app/router/index.ts) zieht denselben Wert automatisch — dort keine
+// Änderung nötig. `navigateFallback` unten wird bewusst aus derselben
+// Konstante gebildet, damit beide nie auseinanderlaufen (siehe dort).
+const BASE = '/bewertung-app/'
+
 export default defineConfig({
-  base: '/',
+  base: BASE,
   plugins: [
     vue(),
     // Offline-Auslieferung (PO-2026-09-07-007, ADR-0015): generierter
@@ -37,8 +46,13 @@ export default defineConfig({
         // Tiefenlinks laufen über den App-Einstieg, nicht über eine im
         // Service Worker gepflegte Routenliste (ADR-0015 Punkt 4) — so
         // deckt der Fallback auch später ergänzte Bereiche (-006, -009)
-        // ab, ohne dass dieses Paket sie kennen muss.
-        navigateFallback: '/index.html',
+        // ab, ohne dass dieses Paket sie kennen muss. Der App-Einstieg
+        // liegt unter GitHub Pages nicht unter `/index.html`, sondern unter
+        // dem Unterpfad der Projektseite — ADR-0015 legt den Mechanismus
+        // fest (Fallback auf den App-Einstieg statt Routenliste), nicht das
+        // Literal; der Pfad folgt deshalb `BASE` statt fest verdrahtet zu
+        // sein.
+        navigateFallback: `${BASE}index.html`,
         // Versionswechsel leert veraltete Workbox-Caches, fasst
         // IndexedDB nie an (ADR-0004, ADR-0015 Punkt 7) — der
         // Gerätespeicher ist der Datenbestand, nicht Teil der
