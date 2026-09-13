@@ -62,15 +62,20 @@ jobs:
       # Browser-Download nach sich, den dieses Paket nicht einführen soll.
       # Lint, Test, Build und verify:pwa oben sind die Deploy-Gates.
 
-      # `enablement: true` legt die Pages-Seite ueber die API selbst an, statt
-      # sie vorauszusetzen -- sonst scheitert dieser Schritt mit "Get Pages
-      # site failed", solange niemand in den Repo-Einstellungen von Hand
-      # Settings -> Pages -> Source auf "GitHub Actions" gestellt hat. Ist die
-      # Seite bereits eingerichtet, ist der Parameter wirkungslos.
+      # Setzt eine bereits eingerichtete Pages-Seite voraus: einmalig
+      # Settings -> Pages -> Source auf "GitHub Actions" stellen, sonst
+      # scheitert dieser Schritt mit "Get Pages site failed".
+      #
+      # `enablement: true` waere der Parameter, der die Seite selbst anlegt --
+      # er funktioniert hier NICHT und ist bewusst nicht gesetzt: der
+      # GITHUB_TOKEN des Workflows darf eine Pages-Seite nicht erzeugen, auch
+      # mit `pages: write` nicht (das Anlegen verlangt Admin-Rechte). Gemessen
+      # am 2026-09-13, Lauf 34785943594:
+      #   Create Pages site failed. Error: Resource not accessible by
+      #   integration
+      # Nicht erneut versuchen.
       - name: GitHub Pages konfigurieren
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Build-Ausgabe als Pages-Artefakt hochladen
         uses: actions/upload-pages-artifact@v3
