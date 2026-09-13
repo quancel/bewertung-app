@@ -172,8 +172,7 @@ Komponentenverhalten richtet das ein und ergänzt diese Zeile.
 
 ## Auslieferung: GitHub Pages
 
-Jeder Push auf den Arbeitsbranch löst
-`.github/workflows/deploy-pages.yml` aus: `npm ci`, Lint, Vitest, `npm run
+Jeder Push auf **`main`** löst `.github/workflows/deploy-pages.yml` aus: `npm ci`, Lint, Vitest, `npm run
 build` (enthält den Typecheck) und `npm run verify:pwa` — erst wenn alle
 durchlaufen, wird nach Pages veröffentlicht. Die App liegt danach unter
 `https://quancel.github.io/bewertung-app/`.
@@ -187,6 +186,13 @@ Parameter `enablement: true` an `configure-pages` scheitert am
 (`Resource not accessible by integration`) — auch mit `pages: write`
 nicht, denn das Anlegen verlangt Admin-Rechte. Im Workflow als Kommentar
 festgehalten, damit es niemand ein zweites Mal versucht.
+
+Ausgeliefert wird **von `main`, und `main` ist der Default-Branch** — das
+ist keine Stilfrage: Die Umgebung `github-pages` erlaubt Deployments
+standardmäßig nur vom Default-Branch. Von einem Feature-Branch aus wird
+der `deploy`-Job abgelehnt, bevor er startet: keine Schritte, kein
+Runner, kein Log, nach einer Sekunde rot — während `build` grün
+durchläuft. Wer das Muster kennt, sucht den Fehler nicht im Workflow.
 
 Eine Projektseite liefert unter einem **Unterpfad** aus, nicht unter `/`.
 Dieser Pfad steht als `BASE` in `vite.config.ts` und ist die einzige

@@ -6,7 +6,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - claude/orchestrate-file-prompt-akz7tw
+      - main
   # Manueller Nachlauf, z. B. um dieselbe Version ohne neuen Commit erneut
   # auszuliefern.
   workflow_dispatch:
@@ -82,6 +82,11 @@ jobs:
         with:
           path: dist
 
+  # Die Umgebung `github-pages` erlaubt Deployments standardmaessig nur vom
+  # Default-Branch des Repos. Deshalb liefert dieser Workflow von `main` aus
+  # und `main` ist der Default-Branch; von einem Feature-Branch aus wird der
+  # deploy-Job ohne Log und ohne Runner abgelehnt (gemessen 2026-09-13, Lauf
+  # 34786100809: build gruen, deploy nach einer Sekunde rot).
   deploy:
     needs: build
     runs-on: ubuntu-latest
