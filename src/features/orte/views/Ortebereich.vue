@@ -55,15 +55,21 @@
  * `ansicht-umschalten`-Emit von `Werkzeugleiste.vue` (die selbst store- und
  * routerfrei bleibt, Constraint UMSCHALTER).
  *
- * Koordinaten-Notnagel (PO-2026-09-12-005, ADR-0025): `koordinatenAufgeklapptFuerOrtId`
- * ist die EINE einrastende Sichtbarkeits-Kennung für den bedingt sichtbaren
- * Koordinaten-Abschnitt — die ID des Ortes, für den aufgeklappt ist (`null`,
- * solange keiner). Sie wird NIE zurückgenommen; „einmal sichtbar bleibt
- * sichtbar" (Kriterium 7) und „Ort B zeigt nur seinen eigenen Zustand"
- * (Kriterium 9) folgen daraus ohne Watcher/Reset (ADR-0025 Punkt 3). `Ortssuche`
- * wird dafür mit `:key="ortId"` eingebunden (ADR-0025 Punkt 5): ein
- * Ortswechsel verwirft Eingabetext/Client-Zustand der vorigen Instanz
- * strukturell, statt sie einzeln zurückzusetzen.
+ * Koordinaten-Notnagel (PO-2026-09-12-005, ADR-0025, präzisiert durch
+ * ADR-0026): `koordinatenAufgeklapptFuerOrtId` ist die EINE einrastende
+ * Sichtbarkeits-Kennung für den bedingt sichtbaren Koordinaten-Abschnitt —
+ * die ID des Ortes, für den aufgeklappt ist (`null`, solange keiner). Sie
+ * gilt für die GEÖFFNETE DETAILINSTANZ, nicht für die Ort-ID an sich: Beim
+ * Schließen der Detailansicht (Zweig `!neu && alt` im bestehenden
+ * `watch(ortId, …)` unten) wird sie auf `null` zurückgenommen (ADR-0026
+ * Punkt 3). „Einmal sichtbar bleibt sichtbar" (Kriterium 7) gilt weiter
+ * INNERHALB der geöffneten Instanz. „Ort B zeigt nur seinen eigenen
+ * Zustand" (Kriterium 9) bleibt zusätzlich über den ID-Vergleich in
+ * `zeigeKoordinatenAbschnitt` abgesichert — bewusst doppelt, kein Reset-
+ * Watcher auf dem Ortswechsel A→B (ADR-0026 Punkt 2). `Ortssuche` wird
+ * dafür mit `:key="ortId"` eingebunden (ADR-0025 Punkt 5): ein Ortswechsel
+ * verwirft Eingabetext/Client-Zustand der vorigen Instanz strukturell,
+ * statt sie einzeln zurückzusetzen.
  */
 import { computed, defineAsyncComponent, nextTick, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
@@ -104,10 +110,11 @@ const sheetOffen = ref(false)
 const loeschenOffen = ref(false)
 
 /** Einrastende Sichtbarkeits-Kennung für den Koordinaten-Notnagel
- * (PO-2026-09-12-005, ADR-0025 Punkt 3): die ID des Ortes, für den der
- * Abschnitt aufgeklappt ist (`null`, solange keiner). Wird NIE
- * zurückgenommen — siehe Modulkommentar oben und `zeigeKoordinatenAbschnitt`
- * weiter unten. */
+ * (PO-2026-09-12-005, ADR-0025 Punkt 3, präzisiert durch ADR-0026): die ID
+ * des Ortes, für den der Abschnitt aufgeklappt ist (`null`, solange
+ * keiner). Gilt für die geöffnete Detailinstanz — wird beim Schließen der
+ * Detailansicht zurückgenommen, siehe Modulkommentar oben und den
+ * `watch(ortId, …)` weiter unten. */
 const koordinatenAufgeklapptFuerOrtId = ref<string | null>(null)
 
 // Einzige Quelle der Auswahl (ADR-0011 Punkt 4): `null` auf `/orte`, sonst
@@ -359,6 +366,17 @@ function fokussiereListeNachSchliessen(vorherigeId: string): void {
 }
 
 watch(ortId, async (neu, alt) => {
+  if (!neu && alt) {
+    // Rücknahme der Koordinaten-Sichtbarkeits-Kennung beim Schließen der
+    // Detailansicht (ADR-0026 Punkt 3) — SYNCHRON und VOR dem `await
+    // nextTick()` unten zugewiesen, damit sie wirksam ist, bevor derselbe
+    // Ort in dieser Sitzung erneut geöffnet wird und rendert (sonst könnte
+    // ein erneutes Öffnen kurz nach dem Schließen die Zuweisung
+    // überholen). Nur dieser Zweig setzt zurück, nicht der Ortswechsel
+    // A→B — der Vergleich in `zeigeKoordinatenAbschnitt` bleibt dafür
+    // bewusst zusätzlich bestehen (ADR-0026 Punkt 2).
+    koordinatenAufgeklapptFuerOrtId.value = null
+  }
   await nextTick()
   if (neu && !alt) {
     fokussiereDetailNachOeffnen()
@@ -1249,13 +1267,18 @@ async function aufLoeschenBestaetigt(): Promise<void> {
   gap: var(--space-16);
 }
 
-/* Koordinaten-Notnagel (PO-2026-09-12-005, ADR-0025, design-conventions.md
-   „Bedingt sichtbare Formularabschnitte (Reveal ohne Rückweg)"): Ein-/
-   Ausblenden 180ms ease-out/ease-in, dieselbe Bauform wie
-   `.ortssuche-hinweis` in Ortssuche.vue. Die Leave-Transition greift
-   praktisch nie (die Kennung wird nie zurückgenommen, ADR-0025 Punkt 3),
-   bleibt aber konsistent zum übrigen Motion-Muster der App. Reduzierte
-   Bewegung ersetzt statt entfällt (globale Regel in base.css). */
+/* Koordinaten-Notnagel (PO-2026-09-12-005, ADR-0025, präzisiert durch
+   ADR-0026, design-conventions.md „Bedingt sichtbare Formularabschnitte
+   (Reveal ohne Rückweg)"): Ein-/Ausblenden 180ms ease-out/ease-in, dieselbe
+   Bauform wie `.ortssuche-hinweis` in Ortssuche.vue. Die Leave-Transition
+   greift weiterhin praktisch nie — aber aus einem anderen Grund als zuvor
+   hier vermerkt: Beim Schließen der Detailansicht hängt `v-else-if="ort"`
+   im Template den gesamten Detailblock aus, der Abschnitt animiert dabei
+   nicht einzeln aus. INNERHALB der geöffneten Instanz wird die Sichtbarkeit
+   weiterhin nicht zurückgenommen (kein Toggle, ADR-0025 Punkt 3) — nur dort
+   bliebe die Leave-Transition ungenutzt. Sie bleibt trotzdem konsistent zum
+   übrigen Motion-Muster der App. Reduzierte Bewegung ersetzt statt entfällt
+   (globale Regel in base.css). */
 .ortsdetail-koordinaten-enter-active {
   transition: opacity var(--duration-180) var(--ease-out);
 }
