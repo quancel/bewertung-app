@@ -67,6 +67,15 @@ const hatNavigateFallback =
   inhalt.includes('NavigationRoute') &&
   inhalt.includes(`createHandlerBoundToURL("${BASE_PATH}index.html")`)
 const hatCleanup = inhalt.includes('cleanupOutdatedCaches()')
+// `dist/404.html` (GitHub-Pages-Tiefenlink-Fallback, vite.config.ts:
+// `pagesTiefenlinkFallback`) ist eine byteidentische Kopie von `index.html`
+// und gehört bewusst NICHT in die Precache-Liste: Sobald der Service Worker
+// eine Navigation kontrolliert, beantwortet `navigateFallback` sie auf
+// `index.html` — GitHub Pages' 404-Antwort wird dann nie mehr angefragt,
+// ein zweiter Precache-Eintrag mit identischem Inhalt wäre reiner
+// Speicher-Ballast. Gesichert über `globIgnores: ['404.html']` in
+// vite.config.ts; diese Prüfung fängt eine versehentliche Entfernung davon.
+const hat404 = urls.includes('404.html')
 
 console.log(`Precache-Einträge (${urls.length}):`)
 for (const url of urls) console.log(`  - ${url}`)
@@ -81,6 +90,10 @@ if (!hatNavigateFallback)
     `\`navigateFallback\` auf \`${BASE_PATH}index.html\` nicht im generierten Service Worker gefunden (ADR-0015 Punkt 4).`,
   )
 if (!hatCleanup) fehler('`cleanupOutdatedCaches()` fehlt (ADR-0015 Punkt 7).')
+if (hat404)
+  fehler(
+    '`404.html` liegt in der Precache-Liste — sollte über `globIgnores` in vite.config.ts ausgeschlossen sein (dupliziert index.html ohne Nutzen).',
+  )
 
 // ADR-0018 Punkt 5 (PO-2026-09-07-006): Kartenkacheln (tile.openstreetmap.org)
 // und Ortssuche (photon.komoot.io, PO-2026-09-07-008) sind Fremd-Hosts, die

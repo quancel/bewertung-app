@@ -1,5 +1,7 @@
 import { fileURLToPath, URL } from 'node:url'
-import { defineConfig } from 'vite'
+import { copyFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { defineConfig, type Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 
@@ -14,10 +16,43 @@ import { VitePWA } from 'vite-plugin-pwa'
 // Konstante gebildet, damit beide nie auseinanderlaufen (siehe dort).
 const BASE = '/bewertung-app/'
 
+// GitHub Pages ist ein reiner Dateiserver ohne serverseitiges Rewrite: Für
+// einen Tiefenlink, unter dem keine Datei liegt (z. B. `/bewertung-app/orte`
+// direkt geöffnet oder dort neu geladen), liefert Pages seine eigene
+// 404-Seite aus — die App startet dort gar nicht erst, der vue-router
+// bekommt den Pfad nie zu Gesicht. Das betrifft nur das Fenster VOR einem
+// aktiven Service Worker: Sobald der kontrolliert, beantwortet
+// `navigateFallback` (ADR-0015 Punkt 4) dieselbe Navigation client-seitig,
+// ohne den Server je zu fragen — dieses Plugin ändert daran nichts und
+// dupliziert auch keine Routenliste, es schließt nur die Lücke davor.
+// Übliches Pages-Muster: `404.html` als exakte Kopie von `index.html`
+// ausliefern. Pages liefert sie für jeden unbekannten Pfad aus, der Router
+// übernimmt danach den Pfad aus der Adresszeile wie gewohnt.
+//
+// Die Kopie entsteht hier im Build (`writeBundle`, nachdem `index.html` auf
+// der Platte liegt), nicht von Hand gepflegt — sonst liefe sie beim
+// nächsten Asset-Hash unbemerkt auseinander. Kein zweiter Build-Lauf, kein
+// zusätzliches npm-Skript: `writeBundle` ist Teil dieses einen `vite
+// build`-Aufrufs, vor dem `closeBundle` von `vite-plugin-pwa`, das die
+// Precache-Liste erzeugt (s. `globIgnores` unten).
+function pagesTiefenlinkFallback(): Plugin {
+  return {
+    name: 'pages-tiefenlink-fallback',
+    apply: 'build',
+    writeBundle(options) {
+      const outDir = options.dir ?? resolve(process.cwd(), 'dist')
+      copyFileSync(resolve(outDir, 'index.html'), resolve(outDir, '404.html'))
+    },
+  }
+}
+
 export default defineConfig({
   base: BASE,
   plugins: [
     vue(),
+    // Tiefenlink-Fallback für GitHub Pages (reiner Dateiserver, kein
+    // Server-Rewrite) — s. Kommentar bei der Funktion oben.
+    pagesTiefenlinkFallback(),
     // Offline-Auslieferung (PO-2026-09-07-007, ADR-0015): generierter
     // Service Worker über Workbox (`generateSW`), kein handgeschriebener
     // und kein `injectManifest` (keine eigene SW-Logik).
@@ -43,6 +78,15 @@ export default defineConfig({
         // Systemschrift (ADR-0015 Punkt 3, code-conventions.md „Service
         // Worker"). Ausdrücklich überschrieben, nicht ergänzt.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // `404.html` (s. `pagesTiefenlinkFallback` oben) ist byteidentisch
+        // mit `index.html` und würde ohne diesen Ausschluss doppelt in die
+        // Precache-Liste geraten — ohne jeden Nutzen: Sobald der Service
+        // Worker eine Navigation kontrolliert, entscheidet `navigateFallback`
+        // auf `index.html`, GitHub Pages' 404-Antwort wird dann nie mehr
+        // angefragt. Der Ausschluss hält die Precache-Liste bei ihrer
+        // bisherigen Bedeutung: das, was ein Offline-Start tatsächlich
+        // braucht.
+        globIgnores: ['404.html'],
         // Tiefenlinks laufen über den App-Einstieg, nicht über eine im
         // Service Worker gepflegte Routenliste (ADR-0015 Punkt 4) — so
         // deckt der Fallback auch später ergänzte Bereiche (-006, -009)
