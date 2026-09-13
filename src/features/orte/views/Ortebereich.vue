@@ -1150,13 +1150,19 @@ async function aufLoeschenBestaetigt(): Promise<void> {
   gap: var(--space-8);
 }
 
+/* Untereinander statt nebeneinander (PO-2026-09-12-002, design-conventions.md
+   "Formulare" -> "Zahlenfeld-Paare stehen standardmäßig untereinander"):
+   nebeneinander blieben bei 320px Gerätebreite nur ~136px je Feld, zu wenig
+   für Extremwerte wie "-179.999999" samt nativem Zahlenfeld-Spinner. Gilt in
+   jeder Breite bis zur Container-Obergrenze (640px), bewusst ohne
+   Umbruchpunkt/Container Query (ADR-0012 verlangt nur, wie ein
+   breitenabhängiges Layout seine Breite erfragt, nicht dass es
+   breitenabhängig sein muss). Der Wrapper bleibt als Element/Klasse
+   bestehen, da Paket 005 seine ID für aria-controls bindet. */
 .ortsdetail__koordinaten {
   display: flex;
+  flex-direction: column;
   gap: var(--space-16);
-}
-
-.ortsdetail__koordinaten .ortsdetail__feld {
-  flex: 1;
 }
 
 .ortsdetail__eingabe {
