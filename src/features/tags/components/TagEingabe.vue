@@ -2,8 +2,8 @@
 /**
  * Tag-Eingabe am Ort (PO-2026-09-07-004, ADR-0013): Freitext-Feld, vergebene
  * Tags als entfernbare Pills, Vorschlagsliste darunter (max. ~6 Einträge,
- * Teilstring-Treffer case-insensitive, Pfeiltasten + Enter, Escape
- * schließt). Bereits am Ort vergebene Tags werden aus den Vorschlägen
+ * Teilstring-Treffer case-insensitive, Pfeiltasten + Enter, Escape/Blur/Tap
+ * außerhalb schließen). Bereits am Ort vergebene Tags werden aus den Vorschlägen
  * ausgeblendet (design_notes). Präsentational, kennt keinen Store
  * (ADR-0013 Punkt 3) — Identität/Dedup/Kanonisierung laufen ausschließlich
  * im aufrufenden Store (`useOrteStore.fuegeTagHinzu`, ADR-0014); diese
@@ -11,8 +11,15 @@
  *
  * Eingebunden ausschließlich von `features/orte/views/Ortebereich.vue`
  * (ADR-0013 Punkt 5) — kennt `useOrteStore` selbst nicht.
+ *
+ * Blur/Tap außerhalb schließen die Vorschlagsliste zusätzlich zu Escape
+ * (design-conventions.md „Vorschlagsliste (Autocomplete)", Ergänzung
+ * PO-2026-09-12-003) über das gemeinsame, in `orte` entschiedene Composable
+ * `useSchliesseBeiAussenaktion` (ADR-0024) — reines Anbinden, keine eigene
+ * Implementierung dieser Regel in `tags`.
  */
 import { computed, ref } from 'vue'
+import { useSchliesseBeiAussenaktion } from '../../../shared/composables/useSchliesseBeiAussenaktion'
 import IconKreuz from '../../../shared/ui/icons/IconKreuz.vue'
 
 const props = defineProps<{
@@ -35,11 +42,12 @@ const tagsSortiert = computed(() => [...props.tags].sort(tagCollator.compare))
 
 const MAX_VORSCHLAEGE = 6
 
+const feldbereichRef = ref<HTMLElement | null>(null)
 const eingabe = ref('')
 const aktiverIndex = ref(-1)
-// Escape schließt nur die Vorschlagsliste (design-conventions.md
-// „Vorschlagsliste (Autocomplete)"), löscht aber nicht die Eingabe — bei
-// erneutem Tippen erscheint die Liste wieder.
+// Escape/Blur/Tap außerhalb schließen nur die Vorschlagsliste
+// (design-conventions.md „Vorschlagsliste (Autocomplete)"), löschen aber
+// nicht die Eingabe — bei erneutem Tippen erscheint die Liste wieder.
 const vorschlaegeUnterdrueckt = ref(false)
 
 const vorschlaege = computed(() => {
@@ -51,6 +59,13 @@ const vorschlaege = computed(() => {
     .filter((tag) => !bereitsAmOrt.has(tag.toLocaleLowerCase('de')))
     .filter((tag) => tag.toLocaleLowerCase('de').includes(suchtext))
     .slice(0, MAX_VORSCHLAEGE)
+})
+
+const vorschlagslisteOffen = computed(() => vorschlaege.value.length > 0)
+
+useSchliesseBeiAussenaktion(vorschlagslisteOffen, feldbereichRef, () => {
+  vorschlaegeUnterdrueckt.value = true
+  aktiverIndex.value = -1
 })
 
 function aufEingabeTippen(event: Event): void {
@@ -111,7 +126,10 @@ function aufEscape(): void {
       </span>
     </div>
 
-    <div class="tag-eingabe__feldbereich">
+    <div
+      ref="feldbereichRef"
+      class="tag-eingabe__feldbereich"
+    >
       <input
         type="text"
         class="tag-eingabe__feld"

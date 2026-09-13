@@ -7,37 +7,44 @@
  * Adresse/Breite/Länge; nur die View schreibt über `useOrteStore`.
  *
  * Kein Pflichtfeld, keine Validierung (design_notes). Vorschlagsliste unter
- * dem Feld, max. 6 Treffer, Pfeiltasten + Enter, Escape schließt — gleiches
- * Muster wie `features/tags/components/TagEingabe.vue`
- * (design-conventions.md „Vorschlagsliste (Autocomplete)").
+ * dem Feld, max. 6 Treffer, Pfeiltasten + Enter, Escape/Blur/Tap außerhalb
+ * schließen — gleiches Muster wie `features/tags/components/TagEingabe.vue`
+ * (design-conventions.md „Vorschlagsliste (Autocomplete)"), Blur/Tap
+ * außerhalb über das gemeinsame Composable `useSchliesseBeiAussenaktion`
+ * (ADR-0024).
  *
  * Netzabhängige Zustände (ADR-0021): Fehlt das Netz bereits beim Öffnen,
  * überstimmt das jeden Zwischenzustand der Suche — der Nutzer erlebt keinen
  * Fehlschlag, bevor er überhaupt getippt hat. Das Feld bleibt in jedem
  * Zustand fokussierbar, nie `disabled`.
  *
- * Nacharbeit aus der Abnahme (2026-09-11, Befund 2): Der „kein Netz"-Hinweis
- * ist der einzige der vier Hinweistexte, der ohne jede Nutzeraktion und
- * DAUERHAFT erscheint (solange offline) — anders als Trefferliste/„lädt"/
- * „keine Treffer"/„Fehler", die erst nach einer Eingabe entstehen und mit der
- * nächsten Eingabe oder Escape wieder verschwinden. In der überlagernden,
- * absolut positionierten `.ortssuche__ergebnisse`-Fläche verdeckte er dadurch
- * dauerhaft das darunterliegende Feld „Adresse" — auf einem Touchgerät ohne
- * Escape-Taste ohne jeden Ausweg (verletzt AC4 aus PO-2026-09-07-008: „das
- * Formular bleibt vollständig bedienbar"). Deshalb rendert der Kein-Netz-Text
- * jetzt AUSSERHALB dieser Fläche, im normalen Dokumentfluss unter dem
- * Suchfeld — er schiebt nachfolgende Felder nach unten, statt sie zu
- * verdecken. Die überlagernde Fläche bleibt ausschließlich für die
- * tatsächliche Trefferliste sowie die beiden vorübergehenden Hinweise „lädt"
- * und „keine Treffer"/„Fehler" reserviert — Zustände, die stets aus einer
- * expliziten Eingabe folgen und bei der nächsten Eingabe wieder verschwinden,
- * also nie unbegrenzt stehen bleiben. Unverändert: gemuteter Text, kein
- * Icon, keine Warn-/Fehlerfarbe (design-conventions.md „Listen“ →
- * „Netzabhängige Aktion ohne Erfolg"); nur die Platzierung ist neu, Wortlaut
- * und „sofort beim Öffnen" bleiben wie in den design_notes festgelegt.
+ * Korrektur (2026-09-12, Abnahmebefund PO-2026-09-12-003, Wiederkehr eines
+ * am 2026-09-11 nur für „kein Netz" behobenen Befundes): Die vorherige
+ * Fassung hatte NUR den Kein-Netz-Hinweis in den Dokumentfluss verschoben;
+ * „lädt"/„keine Treffer"/„Fehler" lagen weiterhin in der überlagernden,
+ * absolut positionierten `.ortssuche__ergebnisse`-Fläche und verdeckten dort
+ * dauerhaft das Feld „Adresse" — der Fehlerzustand steht, bis erneut
+ * getippt wird, und auf einem Touchgerät gibt es kein Escape (verletzt AC4
+ * aus PO-2026-09-07-008). Jetzt gilt (design-conventions.md „Netzabhängige
+ * Type-ahead-Aktion"):
+ * - Die überlagernde Fläche bleibt AUSSCHLIESSLICH der Trefferliste
+ *   vorbehalten — ein aktiv bedientes Auswahlmenü.
+ * - Alle vier Hinweistexte (lädt/kein Netz/keine Treffer/Fehler) rendern in
+ *   EINEM gemeinsamen Slot im Dokumentfluss, ein `v-if` auf dem Inhalt statt
+ *   vier Geschwister an verschiedenen Stellen — ein Wechsel zwischen zwei
+ *   Zuständen bewegt den Text nicht. „lädt" ist bewusst dabei, obwohl es nur
+ *   Millisekunden steht: eine Ausnahme erzeugte beim Übergang lädt → Fehler
+ *   einen Sprung zwischen Überlagerung und Fluss.
+ * - `kein_netz` ist wieder ein regulärer Wert des wirksamen Zustands
+ *   (`wirksamerZustand`) statt eines Sonderflags neben `inaktiv` — Grundlage
+ *   für PO-2026-09-12-005, das diesen wirksamen Zustand nach außen meldet.
+ * - Escape/Blur/Tap außerhalb schließen weiterhin nur die Trefferliste; der
+ *   Kein-Netz-Hinweis ist kein Zwischenergebnis einer Suche, sondern eine
+ *   fortbestehende Aussage und bleibt von `unterdrueckt` unabhängig.
  */
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { useNetzzustand } from '../../../shared/composables/useNetzzustand'
+import { useSchliesseBeiAussenaktion } from '../../../shared/composables/useSchliesseBeiAussenaktion'
 import { erstelleOrtssucheClient, type OrtssucheZustand, type Ortsvorschlag, type OrtsvorschlagWerte } from '../lib/geocoding'
 
 const emit = defineEmits<{
@@ -46,10 +53,12 @@ const emit = defineEmits<{
 
 const { online } = useNetzzustand()
 
+const feldbereichRef = ref<HTMLElement | null>(null)
 const eingabe = ref('')
 const aktiverIndex = ref(-1)
-// Escape schließt nur die Ergebnis-/Hinweisfläche (design-conventions.md),
-// löscht aber nicht die Eingabe — bei erneutem Tippen erscheint sie wieder.
+// Escape/Blur/Tap außerhalb schließen nur die Trefferliste
+// (design-conventions.md), löschen aber nicht die Eingabe — bei erneutem
+// Tippen erscheint sie wieder.
 const unterdrueckt = ref(false)
 const clientZustand = ref<OrtssucheZustand>({ status: 'inaktiv' })
 
@@ -59,25 +68,32 @@ const client = erstelleOrtssucheClient((zustand) => {
 
 onBeforeUnmount(() => client.zerstoere())
 
-/** Fehlt das Netz bereits, überstimmt das jeden Client-Zustand — Vorab-
- * Hinweis ohne dass der Nutzer erst tippen und einen Fehlschlag erleben
- * muss (design_notes, ADR-0021 Punkt 2/4). `online.value === true` ist
- * dagegen keine Zusage; in dem Fall zählt ausschließlich das tatsächliche
- * Abrufergebnis aus `clientZustand`.
- *
- * `kein_netz` läuft NICHT mehr durch diesen Zustand (Befund 2, siehe
- * Modul-Kommentar): Solange offline, blendet dieser Computed die
- * überlagernde Ergebnisfläche komplett aus (`inaktiv`) — der separate,
- * dauerhafte Hinweis dafür steht weiter unten im normalen Fluss. */
-const zustand = computed<OrtssucheZustand>(() => {
+/** Der wirksame, tatsächlich angezeigte Zustand (Korrektur PO-2026-09-12-003):
+ * Fehlt das Netz, überstimmt das jeden Client-Zustand UND `unterdrueckt` —
+ * ein Vorab-Hinweis ohne dass der Nutzer erst tippen und einen Fehlschlag
+ * erleben muss (ADR-0021 Punkt 2/4), und eine fortbestehende Aussage, die
+ * Escape/Blur nicht wegwischen. `online.value === true` ist dagegen keine
+ * Zusage; in dem Fall zählt ausschließlich das tatsächliche Abrufergebnis
+ * aus `clientZustand`, das `unterdrueckt` auf `inaktiv` zurückfallen lässt. */
+const wirksamerZustand = computed<OrtssucheZustand>(() => {
+  if (!online.value) return { status: 'kein_netz' }
   if (unterdrueckt.value) return { status: 'inaktiv' }
-  if (!online.value) return { status: 'inaktiv' }
   return clientZustand.value
 })
 
 const vorschlaege = computed<Ortsvorschlag[]>(() =>
-  zustand.value.status === 'treffer' ? zustand.value.vorschlaege : [],
+  wirksamerZustand.value.status === 'treffer' ? wirksamerZustand.value.vorschlaege : [],
 )
+
+/** Nur die Trefferliste ist die überlagernde Fläche und damit ein aktiv
+ * bedientes Auswahlmenü, das Blur/Tap außerhalb schließen kann
+ * (design-conventions.md). */
+const trefferlisteOffen = computed(() => wirksamerZustand.value.status === 'treffer')
+
+useSchliesseBeiAussenaktion(trefferlisteOffen, feldbereichRef, () => {
+  unterdrueckt.value = true
+  aktiverIndex.value = -1
+})
 
 const HINWEISTEXT: Partial<Record<OrtssucheZustand['status'], string>> = {
   laedt: 'Suche läuft…',
@@ -86,13 +102,10 @@ const HINWEISTEXT: Partial<Record<OrtssucheZustand['status'], string>> = {
   fehler: "Suche gerade nicht möglich. Versuch's später erneut oder trag die Daten von Hand ein.",
 }
 
-const hinweistext = computed(() => HINWEISTEXT[zustand.value.status] ?? '')
-
-/** Dauerhafter, nicht überlagernder Hinweis (Befund 2) — unabhängig von
- * `unterdrueckt`: Escape schließt die Ergebnisfläche, aber „kein Netz" ist
- * kein Zwischenergebnis einer Suche, sondern eine fortbestehende Aussage
- * über den Verbindungsstatus, die erst mit der Verbindung selbst endet. */
-const zeigeKeinNetzHinweis = computed(() => !online.value)
+/** Gemeinsamer Hinweistext für alle vier nicht-überlagernden Zustände
+ * (lädt/kein Netz/keine Treffer/Fehler) — leer für `treffer`/`inaktiv`, dann
+ * zeigt genau dieser eine `v-if` im Template nichts. */
+const hinweistext = computed(() => HINWEISTEXT[wirksamerZustand.value.status] ?? '')
 
 function aufEingabe(event: Event): void {
   eingabe.value = (event.target as HTMLInputElement).value
@@ -104,7 +117,7 @@ function aufEingabe(event: Event): void {
 function uebernehmen(vorschlag: Ortsvorschlag): void {
   emit('uebernommen', vorschlag.werte)
   // Feld bleibt stehen und bleibt für eine neue Suche nutzbar (design_notes)
-  // — nur die Ergebnisfläche schließt, die Eingabe wird nicht gelöscht.
+  // — nur die Trefferliste schließt, die Eingabe wird nicht gelöscht.
   unterdrueckt.value = true
   aktiverIndex.value = -1
 }
@@ -133,7 +146,10 @@ function aufEscape(): void {
 <template>
   <div class="ortssuche">
     <label for="ortssuche-feld">Adresse oder Ort suchen</label>
-    <div class="ortssuche__feldbereich">
+    <div
+      ref="feldbereichRef"
+      class="ortssuche__feldbereich"
+    >
       <input
         id="ortssuche-feld"
         type="text"
@@ -147,61 +163,52 @@ function aufEscape(): void {
         @keydown.esc="aufEscape"
       >
 
-      <!-- Gemeinsame ÜBERLAGERNDE Fläche für Trefferliste, „lädt" und
-           „keine Treffer"/„Fehler" (Befund 2 aus der Abnahme, 2026-09-11):
-           alle drei entstehen erst durch eine Eingabe und verschwinden mit
-           der nächsten wieder — anders als der dauerhafte Kein-Netz-Hinweis
-           unten, der deshalb NICHT mehr hier, sondern im Fluss steht. -->
+      <!-- Ausschließlich die Trefferliste bleibt eine überlagernde,
+           absolut positionierte Fläche (design-conventions.md, Korrektur
+           PO-2026-09-12-003) — ein aktiv bedientes Auswahlmenü, das
+           Escape/Blur/Tap außerhalb schließen. -->
       <div
-        v-if="zustand.status !== 'inaktiv'"
+        v-if="trefferlisteOffen"
         class="ortssuche__ergebnisse"
       >
-        <template v-if="zustand.status === 'treffer'">
-          <ul class="ortssuche__vorschlaege">
-            <li
-              v-for="(vorschlag, index) in vorschlaege"
-              :key="vorschlag.werte.adresse"
+        <ul class="ortssuche__vorschlaege">
+          <li
+            v-for="(vorschlag, index) in vorschlaege"
+            :key="vorschlag.werte.adresse"
+          >
+            <button
+              type="button"
+              class="ortssuche__vorschlag"
+              :class="{ 'ortssuche__vorschlag--aktiv': index === aktiverIndex }"
+              @mousedown.prevent="uebernehmen(vorschlag)"
             >
-              <button
-                type="button"
-                class="ortssuche__vorschlag"
-                :class="{ 'ortssuche__vorschlag--aktiv': index === aktiverIndex }"
-                @mousedown.prevent="uebernehmen(vorschlag)"
-              >
-                {{ vorschlag.anzeige }}
-              </button>
-            </li>
-          </ul>
-          <p class="ortssuche__attribution">
-            Kartendaten © <a
-              href="https://www.openstreetmap.org/copyright"
-              target="_blank"
-              rel="noopener"
-            >OpenStreetMap</a>-Mitwirkende, ODbL
-          </p>
-        </template>
-
-        <p
-          v-else
-          class="ortssuche__hinweis"
-        >
-          {{ hinweistext }}
+              {{ vorschlag.anzeige }}
+            </button>
+          </li>
+        </ul>
+        <p class="ortssuche__attribution">
+          Kartendaten © <a
+            href="https://www.openstreetmap.org/copyright"
+            target="_blank"
+            rel="noopener"
+          >OpenStreetMap</a>-Mitwirkende, ODbL
         </p>
       </div>
     </div>
 
-    <!-- Kein-Netz-Hinweis (Befund 2): im normalen Dokumentfluss statt in der
-         überlagernden Fläche — schiebt nachfolgende Felder (u. a. „Adresse")
-         nach unten, statt sie zu verdecken. Erscheint sofort beim Öffnen,
-         solange offline (design_notes), unabhängig von `unterdrueckt`/
-         Escape. Gleiche Optik wie die übrigen Hinweistexte: gemuteter Text,
-         kein Icon, keine Warn-/Fehlerfarbe. -->
-    <p
-      v-if="zeigeKeinNetzHinweis"
-      class="ortssuche__hinweis ortssuche__hinweis--in-fluss"
-    >
-      {{ HINWEISTEXT.kein_netz }}
-    </p>
+    <!-- EIN gemeinsamer Slot im Dokumentfluss für alle vier Hinweistexte
+         (lädt/kein Netz/keine Treffer/Fehler, Korrektur PO-2026-09-12-003)
+         — schiebt nachfolgende Felder nach unten, statt sie zu verdecken.
+         `v-if` auf dem Inhalt, nicht vier Geschwister an verschiedenen
+         Stellen: ein Wechsel zwischen zwei Zuständen bewegt den Text nicht. -->
+    <Transition name="ortssuche-hinweis">
+      <p
+        v-if="hinweistext"
+        class="ortssuche__hinweis"
+      >
+        {{ hinweistext }}
+      </p>
+    </Transition>
   </div>
 </template>
 
@@ -277,22 +284,31 @@ function aufEscape(): void {
   color: var(--text-muted);
 }
 
-/* Netzabhängige Aktion ohne Erfolg / Ladezustand (design-conventions.md):
-   gemuteter Text, kein Icon, keine Warn-/Fehlerfarbe — in derselben Fläche
-   wie die Vorschlagsliste (design_notes "dieselbe Stelle unter dem Feld"). */
+/* Netzabhängige Type-ahead-Aktion (design-conventions.md): gemuteter Text,
+   kein Icon, keine Warn-/Fehlerfarbe — jetzt im normalen Dokumentfluss
+   unter dem Feldbereich statt in der überlagernden Trefferfläche
+   (Korrektur PO-2026-09-12-003). Abstand kommt bereits vom `gap` des
+   `.ortssuche`-Flex-Containers, kein `position`. */
 .ortssuche__hinweis {
-  padding: var(--space-8) var(--space-12);
+  padding: 0 var(--space-12);
   color: var(--text-muted);
   font-size: var(--font-size-14);
 }
 
-/* Kein-Netz-Hinweis (Befund 2, Abnahme 2026-09-11): NICHT Teil der
-   überlagernden `.ortssuche__ergebnisse`-Fläche, sondern regulärer Fluss-
-   Nachfolger von `.ortssuche__feldbereich` — Abstand kommt bereits vom
-   `gap` des `.ortssuche`-Flex-Containers, kein `position`. Gleiche
-   Innenabstände/Optik wie `.ortssuche__hinweis`, damit der Text nicht
-   „springt", nur wenn er von der Fläche in den Fluss wechselt. */
-.ortssuche__hinweis--in-fluss {
-  padding: 0 var(--space-12);
+/* Ein-/Ausblenden 180ms ease-out/ease-in (design-concept.md „Motion",
+   design-conventions.md); globale prefers-reduced-motion-Regel in
+   base.css ersetzt die Bewegung durch ein nahezu unmittelbares Umschalten,
+   statt sie ersatzlos zu streichen. */
+.ortssuche-hinweis-enter-active {
+  transition: opacity var(--duration-180) var(--ease-out);
+}
+
+.ortssuche-hinweis-leave-active {
+  transition: opacity var(--duration-180) var(--ease-in);
+}
+
+.ortssuche-hinweis-enter-from,
+.ortssuche-hinweis-leave-to {
+  opacity: 0;
 }
 </style>
