@@ -13,7 +13,18 @@
 > Eine Zeile pro ADR. Keine Zusammenfassung des Inhalts — der Titel muss
 > reichen, um zu entscheiden, ob das ADR relevant ist.
 
-**Stand: 2026-09-13** — sechsundzwanzig ADRs. **0026** ist nach der Umsetzung
+**Stand: 2026-09-14** — achtundzwanzig ADRs. **0027–0028** beim Einordnen der
+**Reglerrunde vom 2026-09-13** (PO-2026-09-13-001 bis -003): 0027 legt fest,
+welche Verifikationsebene Komponentenverhalten trägt, und führt dafür
+`@vue/test-utils` + jsdom als datei-lokales Opt-in ein (Erweiterung von
+ADR-0023 Punkt 4, kein `superseded by` — beide bleiben `accepted`); 0028
+präzisiert ADR-0012 Punkt 3 an dem Kriterium, das dort fehlte: Chrome, das an
+„ist die Liste daneben sichtbar" hängt, folgt dem Rahmen-Breakpoint per
+`@media` und teilt wörtlich dieselbe Bedingung wie das Element, das es
+ersetzt. **Kein ADR** bekommen hat die Prüffrage aus -001, ob
+`rundenUndKlemmen` im Regler-Pfad entfällt: ADR-0007 Punkt 7 beantwortet sie
+bereits (bestätigt, die `design_note` ist verworfen), und die Umkehr wäre ein
+gestrichener Funktionsaufruf. **0026** ist nach der Umsetzung
 von PO-2026-09-12-005 entstanden: Der `frontend-lead` hat gemeldet, dass
 ADR-0025 Punkt 3 („die Kennung wird nie zurückgenommen") mit
 Akzeptanzkriterium 8 desselben Pakets kollidiert, weil `Ortebereich.vue` beim
@@ -85,6 +96,8 @@ PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
 | [0024](0024-projektweite-interaktionsregeln-in-shared.md) | Projektweite Interaktionsregeln liegen einmal in `src/shared/`, und ein Paket darf sie über die Context-Grenze hinweg anbinden | orte, tags | accepted | 2026-09-12 |
 | [0025](0025-zustand-ueber-die-komponentengrenze-im-ortsdetail.md) | Zustand über die Komponentengrenze im Ortsdetail — Ortssuche meldet ihren wirksamen Zustand, die Sichtbarkeit rastet an der Ort-ID ein | orte | accepted (Punkt 3 präzisiert durch 0026) | 2026-09-12 |
 | [0026](0026-lebensdauer-der-sichtbarkeits-kennung.md) | Die Sichtbarkeits-Kennung gilt für die geöffnete Detailinstanz, nicht für die Ort-ID (Präzisierung von ADR-0025 Punkt 3) | orte | accepted | 2026-09-13 |
+| [0027](0027-komponentenverhalten-verifizieren.md) | Komponentenverhalten verifizieren — `@vue/test-utils` + jsdom als datei-lokales Opt-in, sichtbare Bedienelemente im Rauchtest (Erweiterung von ADR-0023 Punkt 4) | bewertungen, orte, app-shell | accepted | 2026-09-14 |
+| [0028](0028-detail-chrome-folgt-dem-rahmen-breakpoint.md) | Chrome der Detailspalte folgt dem Rahmen-Breakpoint per `@media`, nicht der Containerbreite (Präzisierung von ADR-0012 Punkt 3) | orte, app-shell | accepted | 2026-09-14 |
 
 **Status-Werte** wörtlich wie im ADR selbst: `proposed` · `accepted` ·
 `superseded by ADR-NNNN`.
