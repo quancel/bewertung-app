@@ -195,6 +195,18 @@ src/
   wörtlich derselben Bedingung — sonst gibt es ein Breitenfenster mit beiden
   oder keinem. „Ab `lg` nicht vorhanden" ist `display: none` (nimmt Bild,
   Tabfolge und Accessibility-Baum in einem), nie `visibility`/`opacity`.
+- **Schaltet ein Elternteil die Sichtbarkeit eines gemeinsam genutzten
+  Bausteins um, bekommt der Baustein einen eigenen Wrapper** — das
+  `display: none` liegt auf dem Wrapper, nie auf einer Klasse am
+  Wurzelelement des Kind-Bausteins. Grund: Vue hängt an das eigenständige
+  Root-Element eines Kindes **beide** scoped-CSS-Attribute (seins und das des
+  Elternteils); Elternregel und die eigene Regel des Bausteins
+  (`.primaer-button { display: inline-flex }`) haben dann dieselbe
+  Spezifität, und wer gewinnt, hängt an der Bündelungs-/Importreihenfolge
+  statt an der Quelle. Der Wrapper umgeht das strukturell. Vorbilder:
+  `shared/ui/MasterDetail.vue`, `.ortsdetail__fertig` in `Ortebereich.vue`.
+  Layoutangaben für den Baustein selbst (z. B. `width: 100%`) bleiben an
+  seiner eigenen Klasse — die kollidieren nicht.
 - **Ein Baustein, der in zwei verschieden breiten Containern steht, wird
   selbst zum Container** und schaltet zwischen Kurz- und Langform um, statt
   die Elternbreite anzunehmen. Vorbild: `orte/components/Werkzeugleiste.vue`.
@@ -328,6 +340,12 @@ src/
   Vorgabe, die Spec setzt in Zeile 1 `// @vitest-environment jsdom` — die
   globale Umgebung wird **nicht** umgestellt. Gemountet wird die
   präsentationale Komponente mit Props, gelesen werden Emits; kein Store.
+  `vitest.config.ts` trägt dafür zweierlei, das zur Infrastruktur gehört und
+  nicht je Paket neu gefunden werden soll: **`plugins: [vue()]`** (ohne den
+  SFC-Transform „Failed to parse source … Install @vitejs/plugin-vue") und
+  **denselben `@assets`-Resolve-Alias wie `vite.config.ts`** (sonst scheitert
+  jede Spec, die einen Icon-Wrapper mitmountet, z. B. `IconKreuz.vue`).
+  Wer einen Alias in `vite.config.ts` ergänzt, zieht ihn hier mit.
   **Nicht** in jsdom zusichern: Sichtbarkeit, Trefferfläche, Verdeckung,
   Pseudo-Element- oder `accent-color`-Wirkung, „überlebt ein Neuladen" —
   jsdom hat kein Layout und keine Pseudo-Element-Stile.
@@ -336,6 +354,21 @@ src/
   einer echten Engine geprüft, inklusive `::-webkit-slider-thumb`, und als
   Eigenschaft formuliert — nie als Prüfung auf eine bestimmte Klasse.
   Ungeprüft bleiben `::-moz-range-thumb` und WebKit-Touchverhalten.
+- **Stile eines UA-Pseudo-Elements (`::-webkit-*`) werden über das Chrome
+  DevTools Protocol gelesen, nie über `getComputedStyle(el, '::-webkit-…')`**
+  (ADR-0027 P5, korrigiert): Letzteres liefert in Chromium die UA-Vorgabe
+  statt des Autoren-Stils — zweifach nachgewiesen, die Zusicherung wäre
+  dauerhaft grün geblieben. Bauform in `pruefeReglerGreifbarkeit()`
+  (`scripts/smoke.mjs`): `DOM.getDocument({ pierce: true })` →
+  Knoten über **matchende Selektoren** finden
+  (`CSS.getMatchedStylesForNode`, nicht über interne `id`-Namen) →
+  `CSS.getComputedStyleForNode`. Wirkt umständlich, ist es nicht — nicht
+  „vereinfachen".
+- **Eine neue Zusicherung ist erst eingerichtet, wenn sie gegen einen
+  verletzenden Stand rot wird** (ADR-0027 P8) — Vor-Korrektur-Stand aus der
+  Historie oder eine Wegwerf-Änderung; der Nachweis steht im Bericht. Ein
+  Prüfweg, der die Eigenschaft gar nicht erreicht, sieht aus wie ein
+  erfülltes Kriterium.
 - **Grün gegen `fake-indexeddb` heißt nicht, dass der Browser schreibt** — es
   bildet den strukturierten Klon in JavaScript nach. Jede Zusicherung „Daten
   überleben ein Neuladen" gehört in den Rauchtest. Für die Klonbarkeit selbst

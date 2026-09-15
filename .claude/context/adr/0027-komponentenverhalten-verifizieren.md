@@ -1,6 +1,7 @@
 # ADR-0027: Komponentenverhalten verifizieren — `@vue/test-utils` + jsdom als datei-lokales Opt-in, sichtbare Bedienelemente im Rauchtest (Erweiterung von ADR-0023 Punkt 4)
 
-- **Status**: accepted
+- **Status**: accepted (Punkt 5 am 2026-09-15 korrigiert — siehe „Korrektur",
+  der dort zuerst vorgeschriebene Prüfweg funktioniert nicht)
 - **Datum**: 2026-09-14
 - **Bounded Context(s)**: `bewertungen`, `orte`, `app-shell` (projektweit)
 - **task_id**: `PO-2026-09-13-001` (Anlass, richtet die Infrastruktur ein),
@@ -82,15 +83,35 @@ Keine der drei Ebenen aus ADR-0023 trägt heute eine der beiden Zusicherungen:
    geöffneten Ansicht gilt: sein Thumb ist nicht durch `opacity: 0`,
    `visibility: hidden` oder eine Größe unter der Mindest-Trefferfläche
    unbedienbar gemacht, und das Element selbst erfüllt die
-   44×44px-Trefferfläche. Geprüft wird über
-   `getComputedStyle(el, '::-webkit-slider-thumb')` — die Bauform, nicht eine
-   Liste von IDs oder Klassennamen (ADR-0023 Punkt 7). Ein Nachfolger, der
-   die Unterscheidung anders löst als über `accent-color`, bleibt damit
+   44×44px-Trefferfläche. Geprüft wird die **Bauform**, nicht eine Liste von
+   IDs oder Klassennamen (ADR-0023 Punkt 7) — ein Nachfolger, der die
+   Unterscheidung anders löst als über `accent-color`, bleibt damit
    zugesichert.
+
+   **Der Prüfweg ist das Chrome DevTools Protocol, nicht
+   `getComputedStyle`.** `getComputedStyle(el, '::-webkit-slider-thumb')` aus
+   Seiten-JavaScript liefert **nicht** den Autoren-Stil des Thumbs, sondern
+   die UA-Vorgabe — die Zusicherung wäre damit dauerhaft grün (Nachweis und
+   Vorgeschichte unter „Korrektur"). Verbindlich ist stattdessen: den
+   UA-Schattenbaum des `<input>` über `DOM.getDocument({ pierce: true })`
+   einlesen, den Thumb-Knoten über seine **tatsächlich matchenden CSS-Regeln**
+   identifizieren (`CSS.getMatchedStylesForNode`, Selektortext enthält
+   `-webkit-slider-thumb` — nicht über einen internen `id`-Namen, der
+   versionsabhängig ist) und den Wert dort mit
+   `CSS.getComputedStyleForNode` lesen. Umgesetzt in
+   `pruefeReglerGreifbarkeit()` in `scripts/smoke.mjs`; der Grund steht als
+   Kommentar an der Funktion, damit ihn niemand für Umständlichkeit hält und
+   „vereinfacht".
+
+   **Jede künftige Zusicherung über ein UA-Pseudo-Element** (`::-webkit-*`
+   an `range`, `file`, `search`, `progress`, …) nimmt diesen Weg — oder weist
+   vorher gegen einen Stand nach, in dem die Eigenschaft **verletzt** ist,
+   dass ihr Prüfweg dort rot wird (Punkt 8).
 6. **Die Grenze dieser Zusicherung steht im Bericht, nicht nur im Kopf des
    Autors** (Konsequenz aus ADR-0023 Punkt 5): Der Rauchtest fährt Chromium.
-   `::-webkit-slider-thumb` ist dort ausgewertet und deckt dieselbe
-   Pseudo-Element-Familie ab, die auch WebKit benutzt — für den konkreten
+   `::-webkit-slider-thumb` ist dort **angewandt** (nur über die öffentliche
+   `getComputedStyle`-API nicht **auslesbar**, siehe Punkt 5) und deckt
+   dieselbe Pseudo-Element-Familie ab, die auch WebKit benutzt — für den konkreten
    Befund aus -002 (`opacity: 0` auf genau diesem Pseudo-Element) ist der
    Chromium-Lauf deshalb ein tragfähiger Nachweis. **Ungeprüft bleiben**
    `::-moz-range-thumb` (in Chromium nicht vorhanden) und das eigentliche
@@ -105,6 +126,50 @@ Keine der drei Ebenen aus ADR-0023 trägt heute eine der beiden Zusicherungen:
    **präsentationale** Komponente mit Props und liest Emits, er bindet keinen
    Store an. Das hält die Testebene an derselben Grenze wie ADR-0013 Punkt 3
    den Code.
+8. **Eine neue Zusicherung gilt erst als eingerichtet, wenn sie gegen einen
+   Stand, der die Eigenschaft verletzt, nachweislich rot wird** — und der
+   Nachweis steht im Bericht des Leads. Das ist keine Fleißaufgabe, sondern
+   die einzige Absicherung gegen den Fehlermodus aus „Korrektur": ein
+   Prüfweg, der die Eigenschaft gar nicht erreicht, ist von einem erfüllten
+   Kriterium nicht zu unterscheiden. Gibt es keinen solchen Stand in der
+   Historie, erzeugt der Lead ihn als Wegwerf-Änderung. Trägt ein
+   vorgeschriebener Prüfweg diesen Nachweis nicht, wird **er** korrigiert,
+   nicht die Zusicherung abgeschwächt (ADR-0023 Punkt 6).
+
+## Korrektur (2026-09-15) — Punkt 5 schrieb einen nicht funktionierenden Prüfweg vor
+
+Ursprünglich stand in Punkt 5: „Geprüft wird über
+`getComputedStyle(el, '::-webkit-slider-thumb')`". **Das funktioniert nicht.**
+Der `frontend-lead` hat es beim Umsetzen von PO-2026-09-13-002 festgestellt,
+der `product-owner` bei der Abnahme bestätigt: In der hier verfügbaren
+Chromium-Version (141, Playwright 1.56.1) liefert dieser Aufruf aus
+Seiten-JavaScript durchgängig die **UA-Vorgabe** (`opacity: '1'`, Breite/Höhe
+identisch zum äußeren `<input>`) statt des Autoren-Stils. Vermutlich eine
+Einschränkung dieser Blink-Version bei der Style-Auflösung von
+UA-Shadow-Pseudoelementen über die öffentliche API.
+
+Zweifach nachgewiesen:
+- **Isolierter Repro**: eine Regel setzt `opacity: 0` auf
+  `::-webkit-slider-thumb`, `getComputedStyle` meldet trotzdem `1`.
+- **Gegen den echten Vor-Korrektur-Stand dieses Projekts**: mit der in der
+  ADR vorgeschriebenen Methode wäre der Rauchtest **nicht rot geworden**,
+  obwohl der Thumb per `.bewertungsachse__regler--leer::-webkit-slider-thumb
+  { opacity: 0 }` sichtbar ausgeblendet war — also genau der Befund, für den
+  diese Zusicherung geschnitten wurde.
+
+Der **normative Kern von Punkt 5 ist unberührt**: Zuständigkeit Rauchtest,
+Eigenschaft statt ID-/Klassenliste (ADR-0023 Punkt 7), dieselben
+Grenzwerte. Falsch war allein das benannte Werkzeug; deshalb kein
+`superseded by` und kein neues ADR, sondern dieselbe Bauform wie bei der
+Korrektur von ADR-0011 Punkt 4. Der CDP-Weg ist gegen denselben
+Vor-Korrektur-Stand als **rot** verifiziert.
+
+**Warum das hier so ausführlich steht**: Der Schaden wäre nicht ein einmalig
+falscher Test gewesen, sondern eine Zusicherung, die **nie rot wird** — sie
+sieht in jedem Lauf aus wie ein erfülltes Kriterium. `getComputedStyle` ist
+der kürzere, bekanntere und beim Lesen naheliegendere Weg; ohne diesen
+Abschnitt wechselt der nächste Autor beim „Aufräumen" von `scripts/smoke.mjs`
+zurück und merkt nichts davon. Punkt 8 ist die verallgemeinerte Lehre.
 
 ## Konsequenzen
 
