@@ -92,6 +92,32 @@
   meldet sich selbst). Im Handoff als Teil des Scopes benennen, sonst wird
   der Aufwand unterschätzt und die Ausnahme am Ende an Klassennamen
   festgemacht. (task_id: PO-2026-09-12-004, ADR-0023 Punkt 7)
+- [2026-09-15] projektweit: Ein ADR, das beim Einordnen ein **konkretes
+  Werkzeug** vorschreibt (API-Aufruf, Konfigurationszeile), rät — geschrieben
+  hat es jemand, der es nie ausgeführt hat. ADR-0027 P5 verlangte
+  `getComputedStyle(el, '::-webkit-slider-thumb')`; der Aufruf liefert in
+  Chromium die UA-Vorgabe statt des Autoren-Stils, die Zusicherung wäre
+  **nie rot geworden** und dauerhaft wie ein erfülltes Kriterium gelaufen.
+  Im ADR die **Eigenschaft** verbindlich machen und ein genanntes Mittel
+  ausdrücklich als „vom Lead zu verifizieren" kennzeichnen; bei Paketen,
+  deren Ergebnis eine Zusicherung ist, den Rot-Nachweis gegen einen
+  verletzenden Stand als `constraint` setzen (jetzt ADR-0027 P8).
+  (task_id: PO-2026-09-13-002, ADR-0027 „Korrektur")
+- [2026-09-15] projektweit: Akzeptanzkriterium und `constraints` **desselben**
+  Pakets gegeneinander lesen, bevor geroutet wird. In -001 schloss Kriterium 3
+  pauschal jeden Zustand „Zahl im Feld, Achse zeigt ‚nicht bewertet'" aus —
+  genau den will ADR-0007 P7 während der laufenden, noch nicht bestätigten
+  Eingabe. Ein Kriterium, das eine **gewollte Zwischenzustands-Eigenschaft**
+  pauschal verbietet, fällt erst bei der Abnahme auf; es braucht die
+  Ausnahme im Wortlaut („… ausgenommen die laufende Eingabe").
+  (task_id: PO-2026-09-13-001)
+- [2026-09-14] projektweit: Eine **verkürzte** Regel in `code-conventions.md`
+  verliert die Ausnahme, die das ADR kennt — und wird im nächsten Handoff als
+  `constraint` zur absoluten Vorgabe (Rangstufe 2 schlägt dann alles). Beim
+  Kuratieren entweder die Ausnahme mitschreiben oder die Regel an der Frage
+  formulieren, die sie entscheidet, statt am Ergebnis. Der Anlassfall
+  (`@container` pauschal statt „welche Frage?") ist mit ADR-0028 geschlossen,
+  der Mechanismus nicht. (task_id: PO-2026-09-13-003, ADR-0012 P3/0028)
 - [2026-09-11] orte/tags/karte: Leerzustände sind je **Filterstufe** zu
   zählen, nicht pauschal einer. Bestand leer · Filter ohne Treffer · gefiltert,
   aber nichts davon darstellbar (Orte ohne Koordinaten) sind drei verschiedene

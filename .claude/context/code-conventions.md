@@ -7,10 +7,15 @@
 > nicht hierhin.
 
 - **Modus**: `vorgegeben` (Greenfield, ADR-0002)
-- **Zuletzt geprüft**: 2026-09-14, beim Einordnen der Reglerrunde
-  PO-2026-09-13-001…-003: Component-Tests und die Zusicherung „Bedienelement
-  ist greifbar" (ADR-0027), das Kriterium `@media` gegen `@container`
-  (ADR-0028), ein Gate für jeden Achsen-Eingabepfad (ADR-0007 P7). Davor
+- **Zuletzt geprüft**: 2026-09-15, Nachpflege nach der Reglerrunde
+  PO-2026-09-13-001…-003: der korrigierte Prüfweg für UA-Pseudo-Elemente und
+  der Rot-Nachweis für neue Zusicherungen (ADR-0027 P5/P8), die beiden
+  `vitest.config.ts`-Zutaten der Component-Tests, der Wrapper beim
+  Umschalten eines gemeinsam genutzten Bausteins. Davor 2026-09-14, beim
+  Einordnen derselben Runde: Component-Tests und die Zusicherung
+  „Bedienelement ist greifbar" (ADR-0027), das Kriterium `@media` gegen
+  `@container` (ADR-0028), ein Gate für jeden Achsen-Eingabepfad
+  (ADR-0007 P7). Davor
   2026-09-13, Nachpflege nach der Korrekturrunde PO-2026-09-12-001…-005:
   von 624 auf 366 Zeilen kuratiert — Paket-Historie, ADR-Begründungen und
   Einzelfall-Anekdoten entfernt, die Regeln selbst vollständig erhalten.
