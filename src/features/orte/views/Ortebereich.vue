@@ -1005,6 +1005,23 @@ async function aufLoeschenBestaetigt(): Promise<void> {
               — der Gerätespeicher ist voll</span>. Bitte versuche es erneut.
           </p>
 
+          <!-- Nur unterhalb lg (Nutzerentscheidung 2026-09-13, ADR-0028
+               Punkt 2): teilt sich die Bedingung mit `.ortsdetail__zurueck`/
+               `.ortsdetail__schliessen` im @media-Block unten, kein zweiter
+               Breakpoint. Löst denselben History-Schritt aus wie die
+               vorhandene Zurück-Aktion (`aufZurueck`) -- kein eigener
+               Navigationspfad. Kein Sticky-Footer, letztes Element im
+               Formular-Fluss. -->
+          <div class="ortsdetail__fertig">
+            <PrimaerButton
+              type="button"
+              class="ortsdetail__fertig-knopf"
+              @click="aufZurueck"
+            >
+              Fertig
+            </PrimaerButton>
+          </div>
+
           <OrtLoeschenDialog
             :offen="loeschenOffen"
             :bezeichnung="ort.bezeichnung"
@@ -1218,13 +1235,19 @@ async function aufLoeschenBestaetigt(): Promise<void> {
   background-color: var(--surface-muted);
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1024px) { /* --breakpoint-lg */
   .ortsdetail__zurueck {
     display: none;
   }
 
   .ortsdetail__schliessen {
     display: inline-flex;
+  }
+
+  /* "Fertig" (PO-2026-09-13-003, ADR-0028 Punkt 2): dieselbe Bedingung wie
+     die beiden Regeln oben -- ab lg übernimmt das "×" wieder allein. */
+  .ortsdetail__fertig {
+    display: none;
   }
 }
 
@@ -1342,5 +1365,15 @@ async function aufLoeschenBestaetigt(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
+}
+
+/* Sichtbar per Vorgabe (unterhalb lg) -- ab lg per @media oben
+   ausgeblendet (ADR-0028 Punkt 2/3, PO-2026-09-13-003). Eigener
+   Wrapper statt eines Overrides auf `PrimaerButton`s Wurzelelement
+   (Vorbild: `shared/ui/MasterDetail.vue`), damit `display` hier nicht
+   gegen die eigene `.primaer-button`-Regel des Kind-Bausteins um
+   CSS-Spezifität konkurriert. */
+.ortsdetail__fertig-knopf {
+  width: 100%;
 }
 </style>

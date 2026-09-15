@@ -76,6 +76,12 @@
  * `getComputedStyle(el, '::-webkit-slider-thumb')`, als Eigenschaft, nicht
  * über eine Prüfung auf `accent-color` (Implementierungsdetail).
  *
+ * Ab PO-2026-09-13-003 (ADR-0028) kommt eine dritte, unabhängige
+ * Zusicherung dazu: Der neue Abschluss-Knopf „Fertig" und das vorhandene
+ * „×" (Master-Detail, ab `lg`) ersetzen einander über dieselbe
+ * `@media`-Bedingung wie „Zurück" — `pruefeAbschlussKombination()` prüft je
+ * Breite genau die vorgesehene Kombination, nicht nur „Fertig" isoliert.
+ *
  * Aufruf: `npm run smoke` (baut vorher). Bildschirmfotos landen in
  * `.smoke/`, das Verzeichnis ist ignoriert.
  */
@@ -593,6 +599,46 @@ async function pruefeReglerGreifbarkeit(seite, kontext) {
   return befunde
 }
 
+/**
+ * Zusicherung ab PO-2026-09-13-003 (ADR-0028): auf der Ansicht `ortsdetail`
+ * ist je Breite genau die vorgesehene Kombination der einander ersetzenden
+ * Wege vorhanden — unterhalb `lg` „Zurück" und „Fertig", kein „×"; ab `lg`
+ * „×", weder „Zurück" noch „Fertig". „Vorhanden" heißt sichtbar UND
+ * fokussierbar UND im Accessibility-Baum benannt (Handoff-Wortlaut) — dafür
+ * `getByRole('button', { name })`, das dieselbe Namensberechnung wie die
+ * Accessibility-Engine des Browsers nutzt, plus ein tatsächlicher
+ * Fokusversuch (nicht nur eine CSS-Vermutung: sowohl `display: none` als
+ * auch `tabindex="-1"` verhindern beide, dass das Element danach
+ * `document.activeElement` wird).
+ *
+ * `1024` wörtlich wie im `@media`-Block selbst (ADR-0012 Punkt 5,
+ * ADR-0028) — dieselbe Bedingung, keine Ableitung aus einem Token.
+ */
+async function pruefeAbschlussKombination(seite, breite, befunde) {
+  async function vorhanden(name) {
+    const el = seite.getByRole('button', { name, exact: true })
+    if ((await el.count()) === 0) return false
+    if (!(await el.first().isVisible())) return false
+    await el.first().focus()
+    return el.first().evaluate((knoten) => document.activeElement === knoten)
+  }
+
+  const zurueck = await vorhanden('Zurück')
+  const fertig = await vorhanden('Fertig')
+  const schliessen = await vorhanden('Detailansicht schließen')
+
+  const unterhalbLg = breite.width < 1024 /* --breakpoint-lg */
+  if (unterhalbLg) {
+    if (!zurueck) befunde.push(`${breite.name}/ortsdetail: "Zurück" nicht vorhanden (sichtbar/fokussierbar/benannt) — erwartet unterhalb lg`)
+    if (!fertig) befunde.push(`${breite.name}/ortsdetail: "Fertig" nicht vorhanden (sichtbar/fokussierbar/benannt) — erwartet unterhalb lg`)
+    if (schliessen) befunde.push(`${breite.name}/ortsdetail: "×" (Detailansicht schließen) vorhanden — sollte unterhalb lg nicht vorhanden sein`)
+  } else {
+    if (!schliessen) befunde.push(`${breite.name}/ortsdetail: "×" (Detailansicht schließen) nicht vorhanden (sichtbar/fokussierbar/benannt) — erwartet ab lg`)
+    if (zurueck) befunde.push(`${breite.name}/ortsdetail: "Zurück" vorhanden — sollte ab lg nicht vorhanden sein`)
+    if (fertig) befunde.push(`${breite.name}/ortsdetail: "Fertig" vorhanden — sollte ab lg nicht vorhanden sein`)
+  }
+}
+
 /** Öffnet jede Ansicht bei einer Breite und prüft die Zusicherungen 1-5
  *  (Zusicherung 2 — Laufzeitfehler — hängt an Listenern auf `seite`, die
  *  der Aufrufer vor dem Aufruf registriert). */
@@ -620,6 +666,9 @@ async function pruefeAnsichtenBeiBreite(seite, breite, befunde) {
     // Läuft über CDP statt `seite.evaluate` (s. Kommentar an der Funktion).
     if (ansicht.name === 'ortsdetail') {
       befunde.push(...(await pruefeReglerGreifbarkeit(seite, `${breite.name}/${ansicht.name}:`)))
+      // PO-2026-09-13-003: ebenfalls kein neuer Sonderpfad, läuft über
+      // dieselbe bereits geöffnete Ortsdetail-Seite und dieselbe BREITEN-Liste.
+      await pruefeAbschlussKombination(seite, breite, befunde)
     }
 
     await seite.screenshot({ path: `${FOTOS}/${breite.name}-${ansicht.name}.png` })
