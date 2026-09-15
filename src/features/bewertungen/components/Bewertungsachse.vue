@@ -2,15 +2,29 @@
 /**
  * Eine Bewertungsachse in der Ortsdetailansicht: Zahleneingabe ist die
  * primäre, stets sichtbare Bedienung (initial leer, kein Default 0), der
- * Regler daneben ist das barrierefreie Pendant — ohne sichtbaren Thumb,
- * solange kein Wert gesetzt ist, danach bidirektional synchron
+ * Regler daneben ist das barrierefreie Pendant — bidirektional synchron
  * (design_notes PO-2026-09-07-002). Rein präsentational, kennt keinen Store
  * (code-conventions.md: „components/ kennt keinen Store") — die View
  * bindet über Emits an `useOrteStore.aktualisiereAchse` (ADR-0008).
  *
  * Gültigkeit wird beim Eingeben hergestellt (ADR-0007 Punkt 7): erst runden,
- * dann klemmen — nur bei tatsächlich eingegebenen Zahlen. Ein geleertes
- * Feld wird zu „nicht bewertet" (`null`) und nicht geklemmt.
+ * dann klemmen — für JEDEN Eingabepfad, auch den Regler (PO-2026-09-13-001,
+ * Entscheidung Architekt: `rundenUndKlemmen` gilt hier NICHT nur für die
+ * Zahleneingabe). Ein geleertes Feld wird zu „nicht bewertet" (`null`) und
+ * nicht geklemmt.
+ *
+ * Regler-Commit (PO-2026-09-13-001, Korrektur eines Fehlers, bei dem ein
+ * `input`-Ereignis nur den lokalen Textzustand schrieb und nie emittierte):
+ * Der Regler committet auf JEDES `input`-Ereignis (`aufReglerTippen`) — nicht
+ * erst auf `change`. Zusätzlich committet eine ABGESCHLOSSENE Bedienung
+ * (`pointerup`, Tastenbedienung mit Wertbezug) den aktuellen Elementwert,
+ * solange `props.wert === null` ist (`aufReglerBedienung`): Steht der Regler
+ * dabei bereits optisch auf 0 (`:value="wert ?? 0"`), ändert eine Bedienung,
+ * die am unteren Anschlag bleibt (Tipp auf das linke Bahnende, Pfeil-runter/
+ * Pos1 am Minimum), den nativen Wert NICHT — kein `input`-Ereignis, keine
+ * andere Möglichkeit, eine GESETZTE 0 über den Regler zu vergeben. Weder
+ * Rendern noch Fokussieren noch Scrollen darf einen Wert erzeugen (ADR-0007) —
+ * deshalb hängt keiner der beiden Commit-Pfade an `focus`/`watch(props.wert)`.
  *
  * Store-frei zu bleiben ist hier keine Stilfrage: Nur dadurch darf die
  * View `Ortebereich.vue` (Context `orte`, vormals `Ortsdetail.vue` bis
@@ -76,14 +90,37 @@ function aufEingabeCommit(): void {
   if (bereinigt !== props.wert) emit('wert-geaendert', bereinigt)
 }
 
+// Committet auf JEDES `input`-Ereignis (design-conventions.md „Formulare"),
+// nicht erst auf `change` — der bestehende Guard bleibt: ein Ziehen über den
+// vollen Bereich erzeugt dadurch höchstens 11 Emits, nicht einen je
+// Pointer-Bewegung. `rundenUndKlemmen` läuft auch hier (ADR-0007 Punkt 7) —
+// die native Klemmung über `min`/`max`/`step` ist Browserverhalten über
+// einen String, keine Eigenschaft des Datenmodells.
 function aufReglerTippen(event: Event): void {
-  eingabe.value = (event.target as HTMLInputElement).value
-}
-
-function aufReglerCommit(event: Event): void {
   const wert = rundenUndKlemmen(Number((event.target as HTMLInputElement).value))
   eingabe.value = String(wert)
   if (wert !== props.wert) emit('wert-geaendert', wert)
+}
+
+// Nur relevant, solange noch kein Wert gesetzt ist: Deckt den Fall ab, in
+// dem eine abgeschlossene Bedienung den nativen Wert NICHT ändert (Bahn
+// bereits optisch auf 0), also kein `input`-Ereignis auslöst und
+// `aufReglerTippen` nie feuert. Ist bereits ein Wert gesetzt, hat jede
+// Bedienung längst ein `input`-Ereignis ausgelöst — der Aufruf hier liefert
+// dann denselben Wert erneut und wird durch den frühen Rücksprung
+// unterdrückt, kein doppeltes Emit.
+function aufReglerBedienung(event: Event): void {
+  if (props.wert !== null) return
+  const wert = rundenUndKlemmen(Number((event.target as HTMLInputElement).value))
+  eingabe.value = String(wert)
+  emit('wert-geaendert', wert)
+}
+
+const RELEVANTE_REGLER_TASTEN = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown']
+
+function aufReglerTasteLosgelassen(event: KeyboardEvent): void {
+  if (!RELEVANTE_REGLER_TASTEN.includes(event.key)) return
+  aufReglerBedienung(event)
 }
 
 function aufZuruecksetzen(): void {
@@ -158,7 +195,8 @@ function aufKommentarCommit(): void {
         :aria-valuenow="wert ?? undefined"
         :aria-valuetext="wert === null ? 'nicht bewertet' : undefined"
         @input="aufReglerTippen"
-        @change="aufReglerCommit"
+        @pointerup="aufReglerBedienung"
+        @keyup="aufReglerTasteLosgelassen"
       >
 
       <button

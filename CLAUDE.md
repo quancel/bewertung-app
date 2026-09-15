@@ -165,10 +165,15 @@ Testbedarf). `environment: 'node'` genügt für `src/persistence/` und die
 Pinia-Stores; `vitest.setup.ts` polyfüllt `indexedDB` über
 `fake-indexeddb/auto`, damit gegen eine echte (In-Memory-)IndexedDB statt
 gegen einen selbstgebauten Mock getestet wird. Tests liegen als `*.spec.ts`
-neben der getesteten Datei (code-conventions.md). Noch keine
-Component-Test-Infrastruktur (`@vue/test-utils`) — bislang reichen reine
-Store-/Persistenz-Tests; das erste Paket mit Testbedarf für
-Komponentenverhalten richtet das ein und ergänzt diese Zeile.
+neben der getesteten Datei (code-conventions.md). Seit PO-2026-09-13-001
+(ADR-0027) gibt es zusätzlich eine **Component-Test-Infrastruktur**:
+`@vue/test-utils` + `jsdom` als `devDependency`, `environment: 'node'`
+bleibt die globale Vorgabe in `vitest.config.ts` — eine Komponenten-Spec
+setzt dafür in Zeile 1 den Docblock `// @vitest-environment jsdom` (Vorbild
+`src/features/bewertungen/components/Bewertungsachse.spec.ts`). Was ein
+Component-Test in jsdom nicht beweisen kann (Sichtbarkeit, Trefferfläche,
+Pseudo-Element-/`accent-color`-Wirkung), bleibt Sache des Rauchtests
+(ADR-0027 Punkt 4).
 
 ## Auslieferung: GitHub Pages
 

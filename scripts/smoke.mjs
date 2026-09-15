@@ -55,6 +55,19 @@
  * Hinweisfläche) nicht gebaut sind, meldet dieser Rauchtest ihre Befunde zu
  * Recht — das ist das erwartete Ergebnis, keine Abschwächung.
  *
+ * Ab PO-2026-09-13-001 (ADR-0027 Punkt 5/6) kommt eine Zusicherung dazu, die
+ * ausschließlich der Rauchtest tragen kann: `aufReglerTippen` schrieb im
+ * Vor-Korrektur-Stand nur den lokalen Textzustand `eingabe` und emittierte
+ * nie — ein Zahlenfeld zeigte dadurch bereits eine Zahl, während dieselbe
+ * Achse darunter weiter „Noch nicht bewertet" zeigte (fehlender
+ * Zurücksetzen-Knopf/Platzhaltertext), solange der Regler gedrückt gehalten
+ * wurde. Ein KLICK allein wäre dafür kein Nachweis: Chromium feuert dabei
+ * `input` UND `change`, und `change` committete schon vor der Korrektur —
+ * gegen den Vor-Korrektur-Stand wäre eine klickbasierte Prüfung grün und
+ * damit wertlos. `pruefeReglerCommitWaehrendZiehens()` hält deshalb die
+ * Maustaste über `mouse.down()`/`mouse.move()` gedrückt und prüft die
+ * Invariante VOR `mouse.up()`.
+ *
  * Aufruf: `npm run smoke` (baut vorher). Bildschirmfotos landen in
  * `.smoke/`, das Verzeichnis ist ignoriert.
  */
@@ -517,6 +530,66 @@ async function pruefeOrtssucheZustaende(seite, breite, befunde) {
   )
 }
 
+/**
+ * Zusicherung ab PO-2026-09-13-001 (ADR-0027 Punkt 5/6): Während eines
+ * GEDRÜCKT GEHALTENEN Ziehens am Regler zeigt keine Achse gleichzeitig eine
+ * Zahl im Zahlenfeld und den Zustand „nicht bewertet" (fehlender
+ * Zurücksetzen-Knopf / Platzhaltertext „Noch nicht bewertet"). Formuliert
+ * als Eigenschaft über alle vier Achsen, nicht als Einzelfall — geprüft
+ * wird jede `.bewertungsachse` im DOM, nicht nur die gerade gezogene.
+ *
+ * Öffnet dafür einen frischen Ort (alle vier Achsen `null`) und zieht am
+ * Regler der ersten Achse: `mouse.down()` auf der Bahn (nicht auf 0, sonst
+ * bliebe der native Wert unverändert), `mouse.move()` auf eine andere
+ * Position, die Invariante wird VOR `mouse.up()` geprüft — ein reiner Klick
+ * wäre gegen den Vor-Korrektur-Stand grün (Chromium feuert dabei `input`
+ * UND `change`, und `change` committete schon vorher).
+ */
+async function pruefeReglerCommitWaehrendZiehens(seite, befunde) {
+  await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+  await legeOrtAnUndOeffneIhn(seite)
+
+  const regler = seite.locator('.bewertungsachse__regler').first()
+  const kasten = await regler.boundingBox()
+  if (!kasten) {
+    befunde.push('regler-commit-waehrend-ziehens: Regler der ersten Achse nicht gefunden')
+    return
+  }
+
+  const y = kasten.y + kasten.height / 2
+  const startX = kasten.x + kasten.width * 0.5
+  const zielX = kasten.x + kasten.width * 0.85
+
+  await seite.mouse.move(startX, y)
+  await seite.mouse.down()
+  await seite.mouse.move(zielX, y, { steps: 8 })
+
+  // VOR mouse.up() geprüft — genau der Zeitpunkt, an dem der Vor-Korrektur-
+  // Stand die Achsen bereits auseinanderlaufen ließ.
+  const befundeWaehrendZiehens = await seite.evaluate(() => {
+    const gefunden = []
+    for (const achse of document.querySelectorAll('.bewertungsachse')) {
+      const zahlenfeld = achse.querySelector('.bewertungsachse__zahl')
+      const zeigtZahl = !!zahlenfeld && zahlenfeld.value.trim() !== ''
+      const zeigtPlatzhalter = achse.querySelector('.intensitaetsbalken__platzhalter') != null
+      const fehltZuruecksetzen = achse.querySelector('.bewertungsachse__zuruecksetzen') == null
+      if (zeigtZahl && (zeigtPlatzhalter || fehltZuruecksetzen)) {
+        gefunden.push(
+          `Achse zeigt "${zahlenfeld.value}" im Zahlenfeld, gleichzeitig „nicht bewertet" (Platzhalter: ${zeigtPlatzhalter}, Zurücksetzen-Knopf fehlt: ${fehltZuruecksetzen})`,
+        )
+      }
+    }
+    return gefunden
+  })
+
+  await seite.mouse.up()
+
+  for (const befund of befundeWaehrendZiehens) {
+    befunde.push(`regler-commit-waehrend-ziehens: ${befund}`)
+  }
+  console.log('  regler-commit-waehrend-ziehens — geprüft (gedrücktes Ziehen, vor mouse.up)')
+}
+
 async function main() {
   const playwright = await ladePlaywright()
   if (!playwright) {
@@ -589,6 +662,12 @@ async function main() {
     await seite.screenshot({ path: `${FOTOS}/ort-ueberlebt-neuladen.png` })
     console.log(`  ort-ueberlebt-neuladen — geprüft, Bildschirmfoto in ${FOTOS}/ort-ueberlebt-neuladen.png`)
     await seite.close()
+
+    // Zusicherung ab PO-2026-09-13-001 (ADR-0027 Punkt 5/6), s.o.
+    // Unabhängig von der Breite — läuft einmal, auf einer frischen Seite.
+    const reglerSeite = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+    await pruefeReglerCommitWaehrendZiehens(reglerSeite, befunde)
+    await reglerSeite.close()
   } finally {
     await browser?.close()
     beendeVorschau(server)
