@@ -3,9 +3,12 @@
  * Eine Bewertungsachse in der Ortsdetailansicht: Zahleneingabe ist die
  * primäre, stets sichtbare Bedienung (initial leer, kein Default 0), der
  * Regler daneben ist das barrierefreie Pendant — bidirektional synchron
- * (design_notes PO-2026-09-07-002). Rein präsentational, kennt keinen Store
- * (code-conventions.md: „components/ kennt keinen Store") — die View
- * bindet über Emits an `useOrteStore.aktualisiereAchse` (ADR-0008).
+ * (design_notes PO-2026-09-07-002), Thumb in JEDEM Zustand sichtbar und
+ * bedienbar (PO-2026-09-13-002): „nicht gesetzt"/„gesetzt" unterscheiden
+ * sich über `accent-color`, nie über Sichtbarkeit (siehe `<style>` unten).
+ * Rein präsentational, kennt keinen Store (code-conventions.md:
+ * „components/ kennt keinen Store") — die View bindet über Emits an
+ * `useOrteStore.aktualisiereAchse` (ADR-0008).
  *
  * Gültigkeit wird beim Eingeben hergestellt (ADR-0007 Punkt 7): erst runden,
  * dann klemmen — für JEDEN Eingabepfad, auch den Regler (PO-2026-09-13-001,
@@ -280,18 +283,28 @@ function aufKommentarCommit(): void {
   flex-shrink: 0;
 }
 
+/* Trefferflaeche 44x44px ueber vertikales Padding statt einer optisch
+   dickeren Spur oder eines vergroesserten Thumbs (design-conventions.md
+   "Werte mit Bereich, bei denen 0 gueltig ist" -> "Regler-Thumb"). Der
+   Thumb bleibt dabei in JEDEM Zustand sichtbar und bedienbar (PO-2026-09-
+   13-002) -- "nicht gesetzt" und "gesetzt" unterscheiden sich ausschliesslich
+   ueber `accent-color`, nie ueber Sichtbarkeit. */
 .bewertungsachse__regler {
   flex: 1;
   min-width: 0;
+  padding: 14px 0;
   accent-color: var(--color-primary-600);
+  transition: accent-color var(--duration-120) var(--ease-out);
 }
 
-.bewertungsachse__regler--leer::-webkit-slider-thumb {
-  opacity: 0;
-}
-
-.bewertungsachse__regler--leer::-moz-range-thumb {
-  opacity: 0;
+/* Vorherige Fassung blendete den Thumb bei `null` per `opacity: 0` komplett
+   aus -- dadurch war der Regler erst nach mehrfachem zufaelligen Antippen
+   auffindbar (Nutzermeldung 2026-09-13). Jetzt uebernimmt `accent-color`
+   die Unterscheidung: ungesetzt dieselbe neutrale Farbe wie jede andere
+   fehlende Angabe (design-concept.md "Fehlende Daten sind neutral"),
+   gesetzt (inkl. 0) der Primaerton (Basisregel oben). */
+.bewertungsachse__regler--leer {
+  accent-color: var(--text-muted);
 }
 
 .bewertungsachse__zuruecksetzen {

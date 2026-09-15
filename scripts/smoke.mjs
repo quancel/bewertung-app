@@ -68,6 +68,14 @@
  * Maustaste über `mouse.down()`/`mouse.move()` gedrückt und prüft die
  * Invariante VOR `mouse.up()`.
  *
+ * Ab PO-2026-09-13-002 (ADR-0027 Punkt 5) kommt eine zweite, unabhängige
+ * Zusicherung dazu: Der Thumb eines Reglers war im Zustand `null` per
+ * `opacity: 0` auf dem Pseudo-Element vollständig ausgeblendet — ein Nutzer
+ * fand den Regler einer frisch angelegten Achse deshalb „nicht existent".
+ * `pruefeReglerGreifbarkeit()` prüft das direkt über
+ * `getComputedStyle(el, '::-webkit-slider-thumb')`, als Eigenschaft, nicht
+ * über eine Prüfung auf `accent-color` (Implementierungsdetail).
+ *
  * Aufruf: `npm run smoke` (baut vorher). Bildschirmfotos landen in
  * `.smoke/`, das Verzeichnis ist ignoriert.
  */
@@ -469,6 +477,122 @@ function pruefeUeberlauf() {
   return befunde
 }
 
+/**
+ * Zusicherung ab PO-2026-09-13-002 (ADR-0027 Punkt 5, ADR-0023 Punkt 7):
+ * jeder Regler ist für einen Menschen greifbar — unabhängig davon, ob seine
+ * Achse bereits einen Wert hat. Formuliert als EIGENSCHAFT, nicht als
+ * Prüfung auf `accent-color` (die konkrete Umsetzung der Farbunterscheidung
+ * ist Implementierungsdetail, ADR-0023 Punkt 7): der Thumb ist nicht durch
+ * `opacity: 0`/`visibility: hidden` unbedienbar gemacht — der Vor-Korrektur-
+ * Stand blendete ihn bei `null` per `.bewertungsachse__regler--leer::
+ * -webkit-slider-thumb { opacity: 0 }` vollständig aus — und das Element
+ * selbst erfüllt die 44×44px-Mindesttrefferfläche (design-conventions.md
+ * „Barrierefreiheit").
+ *
+ * ABWEICHUNG vom in ADR-0027 Punkt 5/6 genannten Weg — geprüft und mit
+ * dieser Chromium-Version (141, Playwright 1.56) nicht tragfähig, deshalb
+ * hier korrigiert, nicht nur übernommen: `getComputedStyle(el,
+ * '::-webkit-slider-thumb')` aus Seiten-JavaScript liefert in dieser
+ * Chromium-Version NICHT den tatsächlichen Autoren-Stil des Thumbs, sondern
+ * durchgängig die UA-Vorgabe (`opacity: '1'`, Breite/Höhe identisch zum
+ * äußeren `<input>`) — nachgewiesen durch einen isolierten Repro-Fall
+ * (`opacity: 0` in einer Regel, `getComputedStyle` meldet trotzdem `1`) UND
+ * gegen den Vor-Korrektur-Stand dieses Projekts (meldete `opacity: '1'`,
+ * obwohl `.bewertungsachse__regler--leer::-webkit-slider-thumb { opacity: 0
+ * }` aktiv war — der Rauchtest wäre mit dieser Methode NICHT rot geworden).
+ * Vermutlich eine Einschränkung dieser Blink-Version bei der
+ * Style-Auflösung von UA-Shadow-Pseudoelementen über die öffentliche
+ * `getComputedStyle`-API.
+ *
+ * Funktionierender Ersatz, gleiche Eigenschaft, kein Screenshot/Pixel-
+ * Vergleich (der bleibt laut ADR-0027 „Alternativen" verworfen): über das
+ * Chrome DevTools Protocol NUR den UA-Shadow-Baum des `<input>` einlesen
+ * (`DOM.getDocument({ pierce: true })`, dort landet er als echter Kind-
+ * Knoten) und den Thumb-Knoten über seine TATSÄCHLICH matchenden CSS-Regeln
+ * identifizieren (`CSS.getMatchedStylesForNode`, Selektortext enthält
+ * `-webkit-slider-thumb`) statt über einen internen `id`-Namen, der
+ * versionsabhängig sein könnte. Auf genau diesem Knoten liefert
+ * `CSS.getComputedStyleForNode` den echten, autoren-überschriebenen Wert
+ * (verifiziert: meldet dort korrekt `opacity: '0'`).
+ */
+async function pruefeReglerGreifbarkeit(seite, kontext) {
+  const befunde = []
+  const client = await seite.context().newCDPSession(seite)
+  try {
+    await client.send('DOM.enable')
+    await client.send('CSS.enable')
+    const { root } = await client.send('DOM.getDocument', { pierce: true, depth: -1 })
+
+    function attributWert(knoten, name) {
+      const attrs = knoten.attributes || []
+      for (let i = 0; i < attrs.length; i += 2) {
+        if (attrs[i] === name) return attrs[i + 1]
+      }
+      return undefined
+    }
+
+    function sammle(knoten, filter, liste) {
+      if (filter(knoten)) liste.push(knoten)
+      for (const kind of knoten.children || []) sammle(kind, filter, liste)
+      for (const wurzel of knoten.shadowRoots || []) sammle(wurzel, filter, liste)
+      return liste
+    }
+
+    const rangeInputs = sammle(
+      root,
+      (knoten) => knoten.nodeName === 'INPUT' && (attributWert(knoten, 'type') || '').toLowerCase() === 'range',
+      [],
+    )
+
+    for (const inputKnoten of rangeInputs) {
+      const bezeichner = attributWert(inputKnoten, 'id') ? '#' + attributWert(inputKnoten, 'id') : 'input[type="range"]'
+
+      try {
+        const { model } = await client.send('DOM.getBoxModel', { nodeId: inputKnoten.nodeId })
+        const breite = Math.abs(model.border[2] - model.border[0])
+        const hoehe = Math.abs(model.border[5] - model.border[1])
+        if (breite < 44 || hoehe < 44) {
+          befunde.push(`${kontext} ${bezeichner}: Trefferfläche ${Math.round(breite)}×${Math.round(hoehe)}px unter 44×44px`)
+        }
+      } catch {
+        befunde.push(`${kontext} ${bezeichner}: Trefferfläche nicht ermittelbar (kein Boxmodell)`)
+      }
+
+      const divsImSchatten = sammle(inputKnoten, (knoten) => knoten.nodeName === 'DIV', [])
+      let thumbKnoten = null
+      for (const div of divsImSchatten) {
+        const { matchedCSSRules } = await client.send('CSS.getMatchedStylesForNode', { nodeId: div.nodeId })
+        const selektoren = (matchedCSSRules || []).map((r) => r.rule.selectorList.text).join(' ')
+        if (selektoren.includes('-webkit-slider-thumb')) {
+          thumbKnoten = div
+          break
+        }
+      }
+      if (!thumbKnoten) {
+        befunde.push(`${kontext} ${bezeichner}: Thumb-Knoten im UA-Schattenbaum nicht gefunden`)
+        continue
+      }
+
+      const { computedStyle } = await client.send('CSS.getComputedStyleForNode', { nodeId: thumbKnoten.nodeId })
+      const wertVon = (name) => computedStyle.find((eintrag) => eintrag.name === name)?.value
+      if (wertVon('opacity') === '0') {
+        befunde.push(`${kontext} ${bezeichner}: Thumb hat opacity: 0 — unbedienbar`)
+      }
+      if (wertVon('visibility') === 'hidden') {
+        befunde.push(`${kontext} ${bezeichner}: Thumb hat visibility: hidden — unbedienbar`)
+      }
+      const thumbBreite = parseFloat(wertVon('width'))
+      const thumbHoehe = parseFloat(wertVon('height'))
+      if (Number.isFinite(thumbBreite) && Number.isFinite(thumbHoehe) && (thumbBreite < 4 || thumbHoehe < 4)) {
+        befunde.push(`${kontext} ${bezeichner}: Thumb-Größe ${thumbBreite}×${thumbHoehe}px zu klein zum Bedienen`)
+      }
+    }
+  } finally {
+    await client.detach().catch(() => {})
+  }
+  return befunde
+}
+
 /** Öffnet jede Ansicht bei einer Breite und prüft die Zusicherungen 1-5
  *  (Zusicherung 2 — Laufzeitfehler — hängt an Listenern auf `seite`, die
  *  der Aufrufer vor dem Aufruf registriert). */
@@ -490,6 +614,12 @@ async function pruefeAnsichtenBeiBreite(seite, breite, befunde) {
     }
     for (const eintrag of await seite.evaluate(pruefeUeberlauf)) {
       befunde.push(`${breite.name}/${ansicht.name}: ${eintrag}`)
+    }
+    // PO-2026-09-13-002: nur auf der Ansicht, die Regler zeigt — kein neuer
+    // Sonderpfad, läuft über dieselbe BREITEN-Liste wie alles andere hier.
+    // Läuft über CDP statt `seite.evaluate` (s. Kommentar an der Funktion).
+    if (ansicht.name === 'ortsdetail') {
+      befunde.push(...(await pruefeReglerGreifbarkeit(seite, `${breite.name}/${ansicht.name}:`)))
     }
 
     await seite.screenshot({ path: `${FOTOS}/${breite.name}-${ansicht.name}.png` })
