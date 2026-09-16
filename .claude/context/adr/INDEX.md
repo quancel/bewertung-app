@@ -13,7 +13,21 @@
 > Eine Zeile pro ADR. Keine Zusammenfassung des Inhalts — der Titel muss
 > reichen, um zu entscheiden, ob das ADR relevant ist.
 
-**Stand: 2026-09-15** — achtundzwanzig ADRs. **ADR-0027 Punkt 5 ist in der
+**Stand: 2026-09-16** — neunundzwanzig ADRs. **0029** beim Einordnen der
+**Reglerrunde vom 2026-09-16** (PO-2026-09-16-001/-002, Live-Befund des
+Nutzers auf iOS Safari: die Sichtbarkeits-Korrektur aus PO-2026-09-13-002
+griff auf WebKit nicht, weil `accent-color` dort die gefüllte Bahn tönt und
+nicht den Thumb). 0029 bestätigt ADR-0023 Punkt 5 (genau eine Engine,
+Chromium — Nutzerentscheidung erneut, mit ausdrücklich abgelehnter zweiter
+Engine) und erweitert ihn um den Fall **Darstellung**: Bisher war der blinde
+Fleck als Verhaltensfrage gelesen. Kein `superseded by` — Bestätigung und
+Erweiterung, beide ADRs bleiben `accepted`. **Kein ADR** bekommen hat die
+CSS-Bauform des Thumbs selbst: Sie steht in `design-conventions.md`
+(Single-Writer `ux-ui-designer`, sechste Runde, Commit `834bd09`); offen und
+in ADR-0029 Punkt 6 als offener technischer Punkt festgehalten ist dort die
+Frage, ob `-webkit-appearance: none` zusätzlich am `<input>` nötig ist.
+
+Davor **Stand: 2026-09-15** — achtundzwanzig ADRs. **ADR-0027 Punkt 5 ist in der
 Nachpflege zur Reglerrunde korrigiert worden**: Der dort vorgeschriebene
 Prüfweg `getComputedStyle(el, '::-webkit-slider-thumb')` liest in Chromium
 nicht den Autoren-Stil, sondern die UA-Vorgabe — die Zusicherung wäre
@@ -107,6 +121,7 @@ PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
 | [0026](0026-lebensdauer-der-sichtbarkeits-kennung.md) | Die Sichtbarkeits-Kennung gilt für die geöffnete Detailinstanz, nicht für die Ort-ID (Präzisierung von ADR-0025 Punkt 3) | orte | accepted | 2026-09-13 |
 | [0027](0027-komponentenverhalten-verifizieren.md) | Komponentenverhalten verifizieren — `@vue/test-utils` + jsdom als datei-lokales Opt-in, sichtbare Bedienelemente im Rauchtest (Erweiterung von ADR-0023 Punkt 4) | bewertungen, orte, app-shell | accepted (Punkt 5 korrigiert 2026-09-15) | 2026-09-14 |
 | [0028](0028-detail-chrome-folgt-dem-rahmen-breakpoint.md) | Chrome der Detailspalte folgt dem Rahmen-Breakpoint per `@media`, nicht der Containerbreite (Präzisierung von ADR-0012 Punkt 3) | orte, app-shell | accepted | 2026-09-14 |
+| [0029](0029-engine-abhaengige-darstellung-und-der-blinde-fleck.md) | Engine-abhängige **Darstellung** — Chromium bleibt die einzige geprüfte Engine, und was eine Sichtbarkeits-Zusicherung dann tragen muss (Bestätigung und Erweiterung von ADR-0023 Punkt 5) | app-shell, bewertungen | accepted | 2026-09-16 |
 
 **Status-Werte** wörtlich wie im ADR selbst: `proposed` · `accepted` ·
 `superseded by ADR-NNNN`.

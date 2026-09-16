@@ -118,6 +118,21 @@
   formulieren, die sie entscheidet, statt am Ergebnis. Der Anlassfall
   (`@container` pauschal statt „welche Frage?") ist mit ADR-0028 geschlossen,
   der Mechanismus nicht. (task_id: PO-2026-09-13-003, ADR-0012 P3/0028)
+- [2026-09-16] projektweit: Eine Zusicherung sichert die Eigenschaft, die sie
+  **prüft** — nicht die, die brechen wird. `pruefeReglerGreifbarkeit` war
+  korrekt gebaut und rot-nachgewiesen (ADR-0027 P8) und gegen den auf iOS
+  defekten Stand trotzdem grün: Sie prüft „nicht unbedienbar gemacht", kaputt
+  war „hebt sich ab", in einer Engine, die niemand fährt. Beim Einordnen die
+  **Reichweite** einer vorhandenen Zusicherung ausschreiben (geprüft / nicht
+  geprüft), statt ihren Namen als Deckung zu lesen.
+  (task_id: PO-2026-09-16-001/-002, ADR-0029)
+- [2026-09-16] projektweit: Der Degradations-Satz einer Darstellungsregel ist
+  eine **Tatsachenbehauptung** und wird gegen den realen Befund geprüft, nicht
+  gegen Plausibilität — „fällt unsere Regel aus, greift der native, sichtbare
+  Thumb" beschrieb genau den Zustand, den der Nutzer als „nicht erkennbar"
+  gemeldet hatte. Führt der Ausfallpfad in den gemeldeten Fehler zurück, ist
+  die Zusicherung nicht degradiert, sondern nicht vorhanden.
+  (task_id: PO-2026-09-16-001, ADR-0029 P5)
 - [2026-09-11] orte/tags/karte: Leerzustände sind je **Filterstufe** zu
   zählen, nicht pauschal einer. Bestand leer · Filter ohne Treffer · gefiltert,
   aber nichts davon darstellbar (Orte ohne Koordinaten) sind drei verschiedene

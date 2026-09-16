@@ -6,7 +6,11 @@
 > Halte sie kompakt (Faustregel: < 100 Zeilen). Sie ist ein Register,
 > kein Design-Dokument — Details gehören in ADRs unter `adr/`.
 
-- **Stand**: 2026-09-14 (Einordnen der Reglerrunde PO-2026-09-13-001…-003:
+- **Stand**: 2026-09-16 (Einordnen von PO-2026-09-16-001/-002: keine neue
+  Context-Grenze, keine neue Beziehung. `bewertungen` bleibt präsentational
+  und store-frei; der blinde Fleck „engine-abhängige Darstellung" ist mit
+  ADR-0029 benannt und liegt bei `app-shell` — `scripts/` ist kein Context.)
+  Davor 2026-09-14 (Einordnen der Reglerrunde PO-2026-09-13-001…-003:
   keine neue Context-Grenze, keine neue Beziehung — `bewertungen` bleibt
   präsentational und store-frei, ADR-0013 P3. Neu ist eine
   **Verifikationsebene** für Komponentenverhalten, ADR-0027, und ein
@@ -226,6 +230,15 @@ ein Netzwechsel nichts aus.
   Änderungen eines anderen still überschreiben. Kein `BroadcastChannel`, keine
   Schreibsperre — der Mechanismus würde sonst nirgends gebraucht. Nachrüstbar
   ohne Datenmigration, Ort der Änderung wäre `src/persistence/`.
+- **Die Engine, in der die App benutzt wird, prüft kein Automatismus**
+  (ADR-0023 Punkt 5, am 2026-09-16 erneut bestätigt, ADR-0029): Der Rauchtest
+  fährt genau Chromium; WebKit wird ausschließlich manuell vom Nutzer am
+  Gerät geprüft. Betroffen ist nicht nur Verhalten, sondern auch
+  **Darstellung** — Pseudo-Elemente, `appearance`, `accent-color`. Eine
+  zweite Engine ist ausdrücklich abgelehnt und kein offener Punkt.
+  `scripts/` ist dabei **kein** Bounded Context: Prüfskripte und ihre
+  Zusicherungen gehören zu `app-shell`, wie jede projektweite, nicht
+  fachliche Infrastruktur.
 - **Nicht verfügbarer Gerätespeicher** (Privatmodus, blockierte IndexedDB):
   vollflächige Meldung, kein Schreibversuch, App nicht benutzbar
   (Nutzerentscheidung 2026-09-08, GESETZT). Gleiches Muster wie die Meldung

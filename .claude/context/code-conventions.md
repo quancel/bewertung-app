@@ -7,7 +7,10 @@
 > nicht hierhin.
 
 - **Modus**: `vorgegeben` (Greenfield, ADR-0002)
-- **Zuletzt geprüft**: 2026-09-15, Nachpflege nach der Reglerrunde
+- **Zuletzt geprüft**: 2026-09-16, beim Einordnen von PO-2026-09-16-001/-002:
+  was `pruefeReglerGreifbarkeit` prüft und was nicht, die Grenze
+  „engine-abhängige Darstellung" und der Ausfallpfad einer
+  Darstellungsregel (ADR-0029). Davor 2026-09-15, Nachpflege nach der Reglerrunde
   PO-2026-09-13-001…-003: der korrigierte Prüfweg für UA-Pseudo-Elemente und
   der Rot-Nachweis für neue Zusicherungen (ADR-0027 P5/P8), die beiden
   `vitest.config.ts`-Zutaten der Component-Tests, der Wrapper beim
@@ -358,7 +361,13 @@ src/
   P5): Sichtbarkeit und 44×44px-Trefferfläche werden am berechneten Stil in
   einer echten Engine geprüft, inklusive `::-webkit-slider-thumb`, und als
   Eigenschaft formuliert — nie als Prüfung auf eine bestimmte Klasse.
-  Ungeprüft bleiben `::-moz-range-thumb` und WebKit-Touchverhalten.
+  **Was `pruefeReglerGreifbarkeit()` deckt, steht ausgeschrieben** (ADR-0029
+  P3), weil die Lücke genau dort lag, wo man sie für gedeckt hielt:
+  - *Geprüft*: 44×44px am `<input>`; Thumb-Knoten vorhanden und nicht durch
+    `opacity: 0`, `visibility: hidden` oder Größe < 4px unbedienbar.
+  - *Nicht geprüft*: Kontrast/Farbe des Thumbs gegen seine Umgebung · ob eine
+    Autoren-Regel auf dem Thumb in der Ziel-Engine überhaupt **greift** ·
+    `::-moz-range-thumb` · jede Darstellung in WebKit · WebKit-Touchverhalten.
 - **Stile eines UA-Pseudo-Elements (`::-webkit-*`) werden über das Chrome
   DevTools Protocol gelesen, nie über `getComputedStyle(el, '::-webkit-…')`**
   (ADR-0027 P5, korrigiert): Letzteres liefert in Chromium die UA-Vorgabe
@@ -390,6 +399,22 @@ src/
   **nur manuell prüfbar**, wird im Handoff so markiert und bleibt bei der
   Abnahme offen, bis der Nutzer bestätigt hat. Ist eine Ursache
   engine-spezifisch, ist ein grüner Chromium-Lauf kein Nachweis.
+  **Das gilt auch für Darstellung, nicht nur für Verhalten** (ADR-0029):
+  Pseudo-Element-Stile (`::-webkit-*`/`::-moz-*`), `appearance`,
+  `accent-color` und native Bedienelement-Darstellung greifen zwischen
+  Engines unterschiedlich. Ein erfolgreicher Lauf weist solche Zusicherungen
+  **im Lauf selbst** als „auf WebKit ungeprüft" aus — als Eigenschaft
+  benannt, nicht als Funktions-/Klassenliste.
+- **Eine Darstellungsregel für die ungeprüfte Engine benennt ihren
+  Ausfallpfad — und prüft ihn gegen den realen Befund** (ADR-0029 P5). Ein
+  Ausfallpfad, der in den gemeldeten Fehlerzustand zurückführt, ist keine
+  Degradation: Sichtbarkeit darf nicht an einer einzelnen, zwischen Engines
+  uneinheitlich umgesetzten Eigenschaft hängen. Anlassfall: „fällt unsere
+  Thumb-Regel aus, zeigt die Engine ihren nativen, sichtbaren Thumb" — genau
+  der war auf iOS bei Position 0 nicht erkennbar.
+- **Greift eine vorgeschriebene Bauform in einer Engine nicht, ist das ein
+  `blocked` an den `architekt`** — nie eine stille Abweichung im Code und nie
+  eine abgeschwächte Zusicherung (ADR-0023 P6, ADR-0029 P6).
 - **Neue Ansicht, neue Breite, neuer Zustand?** In die zentralen Listen oben
   in `scripts/smoke.mjs` eintragen — sonst prüft sie niemand. Ausnahmen von
   einer Zusicherung stehen als **benannte Bedingung** (Bauform), nie als
