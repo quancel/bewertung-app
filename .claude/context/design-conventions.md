@@ -96,9 +96,30 @@ Zurücksetzen-Knopf, Zahlenfeld-Platzhalter „–", Kopfbereich „Noch nicht
 bewertet") statt eines isoliert lesbaren Satzes, der sich als Widerspruch
 zur eigenen Baseline liest — Abnahme-Bestätigung des `product-owner` zu
 PO-2026-09-13-003: das Kriterium ist erfüllt, aber nicht durch den Regler,
-der für sich genommen rein farbunterschieden bleibt.
+der für sich genommen rein farbunterschieden bleibt. Eine sechste
+Korrektur-Runde (2026-09-16, PO-2026-09-16-001 — Live-Bestätigung des
+Nutzers auf iOS Safari: der Regler-Thumb einer frisch angelegten Achse war
+ohne jede Bedienung nicht erkennbar) korrigiert nicht die Absicht der
+fünften Runde, sondern ihren Mechanismus: Der `product-owner` hat
+verifiziert, dass `accent-color` bei `<input type="range">` in WebKit im
+Wesentlichen die **gefüllte Bahn links vom Thumb** tönt, nicht den Thumb
+selbst — bei Position 0 (gilt für `null` **und** eine bewusst gesetzte 0
+gleichermaßen) ist diese Fläche null Pixel breit, es gibt nichts zu
+färben, der Thumb bleibt ununterscheidbar vom Hintergrund. Eine einzelne,
+browser-uneinheitliche Eigenschaft trug damit sowohl Sichtbarkeit als auch
+Zustandsunterscheidung zugleich — fiel sie aus, fiel beides aus. Unter
+„Regler-Thumb" trägt jetzt der Thumb **selbst**, über explizite
+`::-webkit-slider-thumb`/`::-moz-range-thumb`-Regeln (Rahmen + Füllfarbe,
+in **beiden** Zuständen vorhanden, unabhängig vom Füllstand der Bahn), die
+Sichtbarkeit; `accent-color` bleibt als nicht-tragendes Zweitsignal
+erhalten, ist aber nicht mehr die einzige Grundlage. Die Baseline „Farbe
+nie alleiniger Bedeutungsträger" ändert sich dadurch nicht und bleibt
+weiterhin durch dieselben drei Nachbar-Auszeichnungen erfüllt (unverändert
+gegenüber der fünften Runde) — der Thumb bleibt für sich genommen zwischen
+den zwei Zuständen weiterhin rein farbunterschieden, ist jetzt aber
+überhaupt erst sichtbar.
 
-- **Zuletzt kuratiert**: 2026-09-15
+- **Zuletzt kuratiert**: 2026-09-16
 
 ## Zustände
 
@@ -242,33 +263,69 @@ Eigenschaft.
   zwischen `--color-neutral-100` (0) und `--color-primary-600` (10), keine
   Stufenfarben. „Nicht gesetzt" zeigt **keinen** Balken, nur den
   Platzhaltertext.
-- **Regler-Thumb** (PO-2026-09-13-002): „nicht gesetzt" und „gesetzt" (inkl.
-  0) unterscheiden sich über die Akzentfarbe, nie über Sichtbarkeit — der
-  Thumb bleibt in **jedem** Zustand sichtbar und bedienbar. Eine frühere
-  Fassung blendete ihn bei `null` per `opacity: 0` vollständig aus; dadurch
-  war der Regler erst nach mehrfachem zufälligem Antippen auffindbar. Jetzt:
-  ungesetzt `accent-color: var(--text-muted)` (dieselbe neutrale Farbe wie
-  jede andere fehlende Angabe, design-concept.md „Fehlende Daten sind
-  neutral"); gesetzt (inkl. 0) `accent-color: var(--color-primary-600)`,
-  unverändert. Der Thumb steht dabei immer auf der Position des aktuellen
-  `value`-Attributs (`wert ?? 0`) — **die Farbe, nicht die Position, trägt
-  die Unterscheidung des Reglers selbst.** Für sich genommen ist der Regler
-  damit rein farbunterschieden. Die Baseline „nicht allein über Farbe" ist
-  trotzdem erfüllt: Drei weitere, farbunabhängige Auszeichnungen derselben
-  Achse tragen sie (Abnahme-Bestätigung PO-2026-09-13-002, 2026-09-15) —
-  Intensitätsbalken (kein Balken bei `null`, nur Platzhaltertext, siehe oben),
-  Zurücksetzen-Knopf (erscheint erst bei gesetztem Wert) und der
-  Zahlenfeld-Platzhalter „–" statt einer Zahl. Wer eine davon entfernt oder
-  auch bei `null` rendert, kippt das Kriterium, ohne den Regler anzufassen.
-  `aria-valuenow`/`aria-valuetext` bleiben davon
-  unberührt (siehe „Barrierefreiheit (Baseline)"): bei `null` weiterhin kein
-  `aria-valuenow`, sondern `aria-valuetext="nicht bewertet"` — assistive
-  Technologie meldet nie eine Zahl für einen ungesetzten Wert, auch wenn der
-  Thumb visuell auf 0 steht. **Trefferfläche**: die 44×44px-Mindestgröße
-  (design-concept.md „Barrierefreiheit") gilt unabhängig von der optisch
-  dünnen Spur — z. B. über vertikales Padding auf dem
-  `<input type="range">`, nicht über eine sichtbar vergrößerte Spur oder
-  einen vergrößerten Thumb.
+- **Regler-Thumb** (PO-2026-09-16-001, sechste Runde — Live-Befund iOS
+  Safari: der Thumb war ohne jede Bedienung nicht erkennbar, weder bei
+  `null` noch bei gesetzter 0). Die fünfte Runde (PO-2026-09-13-002) hatte
+  „nicht gesetzt" und „gesetzt" ausschließlich über `accent-color`
+  unterschieden — technisch bestätigt (`product-owner`, 2026-09-16):
+  `accent-color` tönt bei `<input type="range">` in WebKit im Wesentlichen
+  die **gefüllte Bahn links vom Thumb**, nicht den Thumb selbst. Bei
+  Position 0 — `null` **und** eine bewusst gesetzte 0 gleichermaßen — ist
+  diese Fläche null Pixel breit: nichts zu färben, nichts sichtbar. Eine
+  einzelne, browser-uneinheitliche Eigenschaft trug damit Sichtbarkeit
+  **und** Zustandsunterscheidung zugleich.
+  - **Der Thumb trägt seine Sichtbarkeit jetzt selbst**, unabhängig vom
+    Füllstand der Bahn: `::-webkit-slider-thumb` **und**
+    `::-moz-range-thumb` bekommen dieselbe Bauform — je ein eigener,
+    immer vorhandener 2px-Rahmen + Füllfarbe, mit `-webkit-appearance:
+    none` bzw. `appearance: none` **nur auf dem Thumb-Pseudo-Element
+    selbst** (nicht auf dem `<input>` als Ganzes — die native Bahn/Spur
+    bleibt unverändert, nur der Thumb wird eigenständig gezeichnet).
+    Beide Vendor-Varianten sind Pflicht, keine optional, sonst bleibt eine
+    Engine ohne explizite Thumb-Farbe.
+  - **Nicht gesetzt**: Hintergrund `var(--surface)`, Rahmen 2px
+    `var(--text-muted)` — Kontrast zur hellen Grundfläche ≈ 4,8:1.
+    **Gesetzt** (inkl. 0): Hintergrund `var(--color-primary-600)`, Rahmen
+    2px `var(--color-primary-600)` — Kontrast ≈ 6,1:1. Beide über dem
+    3:1-Ziel für UI-Elemente (design-concept.md „Kontrast-Ziel").
+  - `accent-color` bleibt zusätzlich gesetzt wie bisher (ungesetzt
+    `var(--text-muted)`, gesetzt `var(--color-primary-600)`) — jetzt aber
+    als **nicht-tragendes Zweitsignal**, nicht als einzige Grundlage: In
+    Engines, die damit die gefüllte Bahn tönen, bekräftigt es dieselbe
+    Unterscheidung an zweiter Stelle; trägt eine Engine `accent-color`
+    nicht (oder nur auf die Bahn, wie WebKit), bleibt die Thumb-eigene
+    Farbe allein tragfähig.
+  - **Degradation**: Unterstützt eine Engine weder
+    `::-webkit-slider-thumb` noch `::-moz-range-thumb` (kein bekannter
+    Fall unter den Zielbrowsern iOS Safari/Chromium, aber die Eigenschaft
+    muss das aushalten), zeigt sie ihren nativen, ungefärbten Thumb — die
+    eigene, plattformübliche Bedienelement-Darstellung des Browsers, ohne
+    Bezug zu unserem CSS und bereits von sich aus sichtbar. Keine der
+    beiden Eigenschaften (Thumb-Pseudo-Element-Style, `accent-color`) ist
+    eine Sichtbarkeits-**Voraussetzung** — beide sind nur Zustandsfarbe,
+    ein Ausfall der einen lässt den Thumb nie vollständig verschwinden.
+  - Größe und Form des Thumbs ändern sich zwischen den Zuständen nicht,
+    nur Rahmen-/Füllfarbe — kein zusätzlicher Formunterschied nötig.
+  - **Baseline „Farbe nie alleiniger Bedeutungsträger" bleibt unverändert
+    nicht durch den Thumb selbst erfüllt.** Der jetzt immer vorhandene
+    Rahmen macht den Thumb an sich sichtbar (löst PO-2026-09-16-001), aber
+    die Unterscheidung *zwischen* „nicht gesetzt" und „gesetzt" bleibt am
+    Thumb eine reine Farbänderung. Die drei Nachbar-Auszeichnungen aus der
+    fünften Runde bleiben deshalb **unverändert nötig** und tragen
+    weiterhin allein dieses Kriterium: Intensitätsbalken (kein Balken bei
+    `null`, nur Platzhaltertext, siehe oben), Zurücksetzen-Knopf (erscheint
+    erst bei gesetztem Wert), Zahlenfeld-Platzhalter „–" statt einer Zahl.
+    Wer eine davon entfernt oder auch bei `null` rendert, kippt das
+    Kriterium weiterhin, ohne den Regler selbst anzufassen.
+  - `aria-valuenow`/`aria-valuetext` unverändert (siehe „Barrierefreiheit
+    (Baseline)"): bei `null` weiterhin kein `aria-valuenow`, sondern
+    `aria-valuetext="nicht bewertet"` — assistive Technologie meldet nie
+    eine Zahl für einen ungesetzten Wert, auch wenn der Thumb visuell auf 0
+    steht.
+  - **Trefferfläche**: unverändert die 44×44px-Mindestgröße
+    (design-concept.md „Barrierefreiheit") über vertikales Padding auf dem
+    `<input type="range">`, nicht über eine sichtbar vergrößerte Spur oder
+    einen vergrößerten Thumb.
 
 ## Listen: Sortieren, Filtern, Gruppierung
 
