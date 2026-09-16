@@ -55,6 +55,33 @@
  * Hinweisfläche) nicht gebaut sind, meldet dieser Rauchtest ihre Befunde zu
  * Recht — das ist das erwartete Ergebnis, keine Abschwächung.
  *
+ * Ab PO-2026-09-13-001 (ADR-0027 Punkt 5/6) kommt eine Zusicherung dazu, die
+ * ausschließlich der Rauchtest tragen kann: `aufReglerTippen` schrieb im
+ * Vor-Korrektur-Stand nur den lokalen Textzustand `eingabe` und emittierte
+ * nie — ein Zahlenfeld zeigte dadurch bereits eine Zahl, während dieselbe
+ * Achse darunter weiter „Noch nicht bewertet" zeigte (fehlender
+ * Zurücksetzen-Knopf/Platzhaltertext), solange der Regler gedrückt gehalten
+ * wurde. Ein KLICK allein wäre dafür kein Nachweis: Chromium feuert dabei
+ * `input` UND `change`, und `change` committete schon vor der Korrektur —
+ * gegen den Vor-Korrektur-Stand wäre eine klickbasierte Prüfung grün und
+ * damit wertlos. `pruefeReglerCommitWaehrendZiehens()` hält deshalb die
+ * Maustaste über `mouse.down()`/`mouse.move()` gedrückt und prüft die
+ * Invariante VOR `mouse.up()`.
+ *
+ * Ab PO-2026-09-13-002 (ADR-0027 Punkt 5) kommt eine zweite, unabhängige
+ * Zusicherung dazu: Der Thumb eines Reglers war im Zustand `null` per
+ * `opacity: 0` auf dem Pseudo-Element vollständig ausgeblendet — ein Nutzer
+ * fand den Regler einer frisch angelegten Achse deshalb „nicht existent".
+ * `pruefeReglerGreifbarkeit()` prüft das direkt über
+ * `getComputedStyle(el, '::-webkit-slider-thumb')`, als Eigenschaft, nicht
+ * über eine Prüfung auf `accent-color` (Implementierungsdetail).
+ *
+ * Ab PO-2026-09-13-003 (ADR-0028) kommt eine dritte, unabhängige
+ * Zusicherung dazu: Der neue Abschluss-Knopf „Fertig" und das vorhandene
+ * „×" (Master-Detail, ab `lg`) ersetzen einander über dieselbe
+ * `@media`-Bedingung wie „Zurück" — `pruefeAbschlussKombination()` prüft je
+ * Breite genau die vorgesehene Kombination, nicht nur „Fertig" isoliert.
+ *
  * Aufruf: `npm run smoke` (baut vorher). Bildschirmfotos landen in
  * `.smoke/`, das Verzeichnis ist ignoriert.
  */
@@ -456,6 +483,162 @@ function pruefeUeberlauf() {
   return befunde
 }
 
+/**
+ * Zusicherung ab PO-2026-09-13-002 (ADR-0027 Punkt 5, ADR-0023 Punkt 7):
+ * jeder Regler ist für einen Menschen greifbar — unabhängig davon, ob seine
+ * Achse bereits einen Wert hat. Formuliert als EIGENSCHAFT, nicht als
+ * Prüfung auf `accent-color` (die konkrete Umsetzung der Farbunterscheidung
+ * ist Implementierungsdetail, ADR-0023 Punkt 7): der Thumb ist nicht durch
+ * `opacity: 0`/`visibility: hidden` unbedienbar gemacht — der Vor-Korrektur-
+ * Stand blendete ihn bei `null` per `.bewertungsachse__regler--leer::
+ * -webkit-slider-thumb { opacity: 0 }` vollständig aus — und das Element
+ * selbst erfüllt die 44×44px-Mindesttrefferfläche (design-conventions.md
+ * „Barrierefreiheit").
+ *
+ * ABWEICHUNG vom in ADR-0027 Punkt 5/6 genannten Weg — geprüft und mit
+ * dieser Chromium-Version (141, Playwright 1.56) nicht tragfähig, deshalb
+ * hier korrigiert, nicht nur übernommen: `getComputedStyle(el,
+ * '::-webkit-slider-thumb')` aus Seiten-JavaScript liefert in dieser
+ * Chromium-Version NICHT den tatsächlichen Autoren-Stil des Thumbs, sondern
+ * durchgängig die UA-Vorgabe (`opacity: '1'`, Breite/Höhe identisch zum
+ * äußeren `<input>`) — nachgewiesen durch einen isolierten Repro-Fall
+ * (`opacity: 0` in einer Regel, `getComputedStyle` meldet trotzdem `1`) UND
+ * gegen den Vor-Korrektur-Stand dieses Projekts (meldete `opacity: '1'`,
+ * obwohl `.bewertungsachse__regler--leer::-webkit-slider-thumb { opacity: 0
+ * }` aktiv war — der Rauchtest wäre mit dieser Methode NICHT rot geworden).
+ * Vermutlich eine Einschränkung dieser Blink-Version bei der
+ * Style-Auflösung von UA-Shadow-Pseudoelementen über die öffentliche
+ * `getComputedStyle`-API.
+ *
+ * Funktionierender Ersatz, gleiche Eigenschaft, kein Screenshot/Pixel-
+ * Vergleich (der bleibt laut ADR-0027 „Alternativen" verworfen): über das
+ * Chrome DevTools Protocol NUR den UA-Shadow-Baum des `<input>` einlesen
+ * (`DOM.getDocument({ pierce: true })`, dort landet er als echter Kind-
+ * Knoten) und den Thumb-Knoten über seine TATSÄCHLICH matchenden CSS-Regeln
+ * identifizieren (`CSS.getMatchedStylesForNode`, Selektortext enthält
+ * `-webkit-slider-thumb`) statt über einen internen `id`-Namen, der
+ * versionsabhängig sein könnte. Auf genau diesem Knoten liefert
+ * `CSS.getComputedStyleForNode` den echten, autoren-überschriebenen Wert
+ * (verifiziert: meldet dort korrekt `opacity: '0'`).
+ */
+async function pruefeReglerGreifbarkeit(seite, kontext) {
+  const befunde = []
+  const client = await seite.context().newCDPSession(seite)
+  try {
+    await client.send('DOM.enable')
+    await client.send('CSS.enable')
+    const { root } = await client.send('DOM.getDocument', { pierce: true, depth: -1 })
+
+    function attributWert(knoten, name) {
+      const attrs = knoten.attributes || []
+      for (let i = 0; i < attrs.length; i += 2) {
+        if (attrs[i] === name) return attrs[i + 1]
+      }
+      return undefined
+    }
+
+    function sammle(knoten, filter, liste) {
+      if (filter(knoten)) liste.push(knoten)
+      for (const kind of knoten.children || []) sammle(kind, filter, liste)
+      for (const wurzel of knoten.shadowRoots || []) sammle(wurzel, filter, liste)
+      return liste
+    }
+
+    const rangeInputs = sammle(
+      root,
+      (knoten) => knoten.nodeName === 'INPUT' && (attributWert(knoten, 'type') || '').toLowerCase() === 'range',
+      [],
+    )
+
+    for (const inputKnoten of rangeInputs) {
+      const bezeichner = attributWert(inputKnoten, 'id') ? '#' + attributWert(inputKnoten, 'id') : 'input[type="range"]'
+
+      try {
+        const { model } = await client.send('DOM.getBoxModel', { nodeId: inputKnoten.nodeId })
+        const breite = Math.abs(model.border[2] - model.border[0])
+        const hoehe = Math.abs(model.border[5] - model.border[1])
+        if (breite < 44 || hoehe < 44) {
+          befunde.push(`${kontext} ${bezeichner}: Trefferfläche ${Math.round(breite)}×${Math.round(hoehe)}px unter 44×44px`)
+        }
+      } catch {
+        befunde.push(`${kontext} ${bezeichner}: Trefferfläche nicht ermittelbar (kein Boxmodell)`)
+      }
+
+      const divsImSchatten = sammle(inputKnoten, (knoten) => knoten.nodeName === 'DIV', [])
+      let thumbKnoten = null
+      for (const div of divsImSchatten) {
+        const { matchedCSSRules } = await client.send('CSS.getMatchedStylesForNode', { nodeId: div.nodeId })
+        const selektoren = (matchedCSSRules || []).map((r) => r.rule.selectorList.text).join(' ')
+        if (selektoren.includes('-webkit-slider-thumb')) {
+          thumbKnoten = div
+          break
+        }
+      }
+      if (!thumbKnoten) {
+        befunde.push(`${kontext} ${bezeichner}: Thumb-Knoten im UA-Schattenbaum nicht gefunden`)
+        continue
+      }
+
+      const { computedStyle } = await client.send('CSS.getComputedStyleForNode', { nodeId: thumbKnoten.nodeId })
+      const wertVon = (name) => computedStyle.find((eintrag) => eintrag.name === name)?.value
+      if (wertVon('opacity') === '0') {
+        befunde.push(`${kontext} ${bezeichner}: Thumb hat opacity: 0 — unbedienbar`)
+      }
+      if (wertVon('visibility') === 'hidden') {
+        befunde.push(`${kontext} ${bezeichner}: Thumb hat visibility: hidden — unbedienbar`)
+      }
+      const thumbBreite = parseFloat(wertVon('width'))
+      const thumbHoehe = parseFloat(wertVon('height'))
+      if (Number.isFinite(thumbBreite) && Number.isFinite(thumbHoehe) && (thumbBreite < 4 || thumbHoehe < 4)) {
+        befunde.push(`${kontext} ${bezeichner}: Thumb-Größe ${thumbBreite}×${thumbHoehe}px zu klein zum Bedienen`)
+      }
+    }
+  } finally {
+    await client.detach().catch(() => {})
+  }
+  return befunde
+}
+
+/**
+ * Zusicherung ab PO-2026-09-13-003 (ADR-0028): auf der Ansicht `ortsdetail`
+ * ist je Breite genau die vorgesehene Kombination der einander ersetzenden
+ * Wege vorhanden — unterhalb `lg` „Zurück" und „Fertig", kein „×"; ab `lg`
+ * „×", weder „Zurück" noch „Fertig". „Vorhanden" heißt sichtbar UND
+ * fokussierbar UND im Accessibility-Baum benannt (Handoff-Wortlaut) — dafür
+ * `getByRole('button', { name })`, das dieselbe Namensberechnung wie die
+ * Accessibility-Engine des Browsers nutzt, plus ein tatsächlicher
+ * Fokusversuch (nicht nur eine CSS-Vermutung: sowohl `display: none` als
+ * auch `tabindex="-1"` verhindern beide, dass das Element danach
+ * `document.activeElement` wird).
+ *
+ * `1024` wörtlich wie im `@media`-Block selbst (ADR-0012 Punkt 5,
+ * ADR-0028) — dieselbe Bedingung, keine Ableitung aus einem Token.
+ */
+async function pruefeAbschlussKombination(seite, breite, befunde) {
+  async function vorhanden(name) {
+    const el = seite.getByRole('button', { name, exact: true })
+    if ((await el.count()) === 0) return false
+    if (!(await el.first().isVisible())) return false
+    await el.first().focus()
+    return el.first().evaluate((knoten) => document.activeElement === knoten)
+  }
+
+  const zurueck = await vorhanden('Zurück')
+  const fertig = await vorhanden('Fertig')
+  const schliessen = await vorhanden('Detailansicht schließen')
+
+  const unterhalbLg = breite.width < 1024 /* --breakpoint-lg */
+  if (unterhalbLg) {
+    if (!zurueck) befunde.push(`${breite.name}/ortsdetail: "Zurück" nicht vorhanden (sichtbar/fokussierbar/benannt) — erwartet unterhalb lg`)
+    if (!fertig) befunde.push(`${breite.name}/ortsdetail: "Fertig" nicht vorhanden (sichtbar/fokussierbar/benannt) — erwartet unterhalb lg`)
+    if (schliessen) befunde.push(`${breite.name}/ortsdetail: "×" (Detailansicht schließen) vorhanden — sollte unterhalb lg nicht vorhanden sein`)
+  } else {
+    if (!schliessen) befunde.push(`${breite.name}/ortsdetail: "×" (Detailansicht schließen) nicht vorhanden (sichtbar/fokussierbar/benannt) — erwartet ab lg`)
+    if (zurueck) befunde.push(`${breite.name}/ortsdetail: "Zurück" vorhanden — sollte ab lg nicht vorhanden sein`)
+    if (fertig) befunde.push(`${breite.name}/ortsdetail: "Fertig" vorhanden — sollte ab lg nicht vorhanden sein`)
+  }
+}
+
 /** Öffnet jede Ansicht bei einer Breite und prüft die Zusicherungen 1-5
  *  (Zusicherung 2 — Laufzeitfehler — hängt an Listenern auf `seite`, die
  *  der Aufrufer vor dem Aufruf registriert). */
@@ -477,6 +660,15 @@ async function pruefeAnsichtenBeiBreite(seite, breite, befunde) {
     }
     for (const eintrag of await seite.evaluate(pruefeUeberlauf)) {
       befunde.push(`${breite.name}/${ansicht.name}: ${eintrag}`)
+    }
+    // PO-2026-09-13-002: nur auf der Ansicht, die Regler zeigt — kein neuer
+    // Sonderpfad, läuft über dieselbe BREITEN-Liste wie alles andere hier.
+    // Läuft über CDP statt `seite.evaluate` (s. Kommentar an der Funktion).
+    if (ansicht.name === 'ortsdetail') {
+      befunde.push(...(await pruefeReglerGreifbarkeit(seite, `${breite.name}/${ansicht.name}:`)))
+      // PO-2026-09-13-003: ebenfalls kein neuer Sonderpfad, läuft über
+      // dieselbe bereits geöffnete Ortsdetail-Seite und dieselbe BREITEN-Liste.
+      await pruefeAbschlussKombination(seite, breite, befunde)
     }
 
     await seite.screenshot({ path: `${FOTOS}/${breite.name}-${ansicht.name}.png` })
@@ -515,6 +707,66 @@ async function pruefeOrtssucheZustaende(seite, breite, befunde) {
   console.log(
     `  ${breite.name}/ortsdetail — Ortssuche-Zustände geprüft (${ORTSSUCHE_ZUSTAENDE.map((z) => z.name).join(', ')})`,
   )
+}
+
+/**
+ * Zusicherung ab PO-2026-09-13-001 (ADR-0027 Punkt 5/6): Während eines
+ * GEDRÜCKT GEHALTENEN Ziehens am Regler zeigt keine Achse gleichzeitig eine
+ * Zahl im Zahlenfeld und den Zustand „nicht bewertet" (fehlender
+ * Zurücksetzen-Knopf / Platzhaltertext „Noch nicht bewertet"). Formuliert
+ * als Eigenschaft über alle vier Achsen, nicht als Einzelfall — geprüft
+ * wird jede `.bewertungsachse` im DOM, nicht nur die gerade gezogene.
+ *
+ * Öffnet dafür einen frischen Ort (alle vier Achsen `null`) und zieht am
+ * Regler der ersten Achse: `mouse.down()` auf der Bahn (nicht auf 0, sonst
+ * bliebe der native Wert unverändert), `mouse.move()` auf eine andere
+ * Position, die Invariante wird VOR `mouse.up()` geprüft — ein reiner Klick
+ * wäre gegen den Vor-Korrektur-Stand grün (Chromium feuert dabei `input`
+ * UND `change`, und `change` committete schon vorher).
+ */
+async function pruefeReglerCommitWaehrendZiehens(seite, befunde) {
+  await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+  await legeOrtAnUndOeffneIhn(seite)
+
+  const regler = seite.locator('.bewertungsachse__regler').first()
+  const kasten = await regler.boundingBox()
+  if (!kasten) {
+    befunde.push('regler-commit-waehrend-ziehens: Regler der ersten Achse nicht gefunden')
+    return
+  }
+
+  const y = kasten.y + kasten.height / 2
+  const startX = kasten.x + kasten.width * 0.5
+  const zielX = kasten.x + kasten.width * 0.85
+
+  await seite.mouse.move(startX, y)
+  await seite.mouse.down()
+  await seite.mouse.move(zielX, y, { steps: 8 })
+
+  // VOR mouse.up() geprüft — genau der Zeitpunkt, an dem der Vor-Korrektur-
+  // Stand die Achsen bereits auseinanderlaufen ließ.
+  const befundeWaehrendZiehens = await seite.evaluate(() => {
+    const gefunden = []
+    for (const achse of document.querySelectorAll('.bewertungsachse')) {
+      const zahlenfeld = achse.querySelector('.bewertungsachse__zahl')
+      const zeigtZahl = !!zahlenfeld && zahlenfeld.value.trim() !== ''
+      const zeigtPlatzhalter = achse.querySelector('.intensitaetsbalken__platzhalter') != null
+      const fehltZuruecksetzen = achse.querySelector('.bewertungsachse__zuruecksetzen') == null
+      if (zeigtZahl && (zeigtPlatzhalter || fehltZuruecksetzen)) {
+        gefunden.push(
+          `Achse zeigt "${zahlenfeld.value}" im Zahlenfeld, gleichzeitig „nicht bewertet" (Platzhalter: ${zeigtPlatzhalter}, Zurücksetzen-Knopf fehlt: ${fehltZuruecksetzen})`,
+        )
+      }
+    }
+    return gefunden
+  })
+
+  await seite.mouse.up()
+
+  for (const befund of befundeWaehrendZiehens) {
+    befunde.push(`regler-commit-waehrend-ziehens: ${befund}`)
+  }
+  console.log('  regler-commit-waehrend-ziehens — geprüft (gedrücktes Ziehen, vor mouse.up)')
 }
 
 async function main() {
@@ -589,6 +841,12 @@ async function main() {
     await seite.screenshot({ path: `${FOTOS}/ort-ueberlebt-neuladen.png` })
     console.log(`  ort-ueberlebt-neuladen — geprüft, Bildschirmfoto in ${FOTOS}/ort-ueberlebt-neuladen.png`)
     await seite.close()
+
+    // Zusicherung ab PO-2026-09-13-001 (ADR-0027 Punkt 5/6), s.o.
+    // Unabhängig von der Breite — läuft einmal, auf einer frischen Seite.
+    const reglerSeite = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+    await pruefeReglerCommitWaehrendZiehens(reglerSeite, befunde)
+    await reglerSeite.close()
   } finally {
     await browser?.close()
     beendeVorschau(server)

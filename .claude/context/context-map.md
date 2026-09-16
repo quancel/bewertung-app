@@ -6,7 +6,12 @@
 > Halte sie kompakt (Faustregel: < 100 Zeilen). Sie ist ein Register,
 > kein Design-Dokument — Details gehören in ADRs unter `adr/`.
 
-- **Stand**: 2026-09-12 (Einordnen der Korrekturrunde PO-2026-09-12-001…-005:
+- **Stand**: 2026-09-14 (Einordnen der Reglerrunde PO-2026-09-13-001…-003:
+  keine neue Context-Grenze, keine neue Beziehung — `bewertungen` bleibt
+  präsentational und store-frei, ADR-0013 P3. Neu ist eine
+  **Verifikationsebene** für Komponentenverhalten, ADR-0027, und ein
+  Kriterium für `@media` gegen `@container` im Detail-Chrome, ADR-0028.)
+  Davor 2026-09-12 (Einordnen der Korrekturrunde PO-2026-09-12-001…-005:
   `shared/` trägt jetzt auch projektweite Interaktionsregeln und ist
   ausdrücklich kein Context, ADR-0024; der Sichtbarkeitszustand aus -005 ist
   keine Anzeigeeinstellung, ADR-0025; Verifikationsebenen in ADR-0023).

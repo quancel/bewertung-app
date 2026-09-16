@@ -7,10 +7,18 @@
 > nicht hierhin.
 
 - **Modus**: `vorgegeben` (Greenfield, ADR-0002)
-- **Zuletzt geprüft**: 2026-09-13, Nachpflege nach der Korrekturrunde
-  PO-2026-09-12-001…-005. Dabei von 624 auf 366 Zeilen kuratiert —
-  Paket-Historie, ADR-Begründungen und Einzelfall-Anekdoten entfernt, die
-  Regeln selbst vollständig erhalten.
+- **Zuletzt geprüft**: 2026-09-15, Nachpflege nach der Reglerrunde
+  PO-2026-09-13-001…-003: der korrigierte Prüfweg für UA-Pseudo-Elemente und
+  der Rot-Nachweis für neue Zusicherungen (ADR-0027 P5/P8), die beiden
+  `vitest.config.ts`-Zutaten der Component-Tests, der Wrapper beim
+  Umschalten eines gemeinsam genutzten Bausteins. Davor 2026-09-14, beim
+  Einordnen derselben Runde: Component-Tests und die Zusicherung
+  „Bedienelement ist greifbar" (ADR-0027), das Kriterium `@media` gegen
+  `@container` (ADR-0028), ein Gate für jeden Achsen-Eingabepfad
+  (ADR-0007 P7). Davor
+  2026-09-13, Nachpflege nach der Korrekturrunde PO-2026-09-12-001…-005:
+  von 624 auf 366 Zeilen kuratiert — Paket-Historie, ADR-Begründungen und
+  Einzelfall-Anekdoten entfernt, die Regeln selbst vollständig erhalten.
 
 **Stapel**: Vue 3 · TypeScript · Vite · Pinia · vue-router. Ein Projekt, ein
 Bundle, kein Monorepo. **Kein Backend** (ADR-0001) — `src/persistence/`
@@ -183,6 +191,27 @@ src/
   eigener Block mit `container-type: inline-size`, `@container (min-width: …)`.
   Kein `container-name` als Contract zwischen Contexts. `@media` bleibt für
   den Rahmen selbst und Nicht-Breiten-Abfragen (`prefers-reduced-motion`).
+- **Welche der beiden Abfragen, entscheidet die Frage, nicht der Ort im Baum**
+  (ADR-0028): „welches Navigationsmuster ist aktiv" (ein-/zweispaltig,
+  Bottom-Tabs/Nav-Rail, Chrome das an „ist die Liste daneben sichtbar" hängt)
+  → `@media`. „wie viel Platz hat dieser Inhalt" (Raster, Kurz-/Langform,
+  Zeilenumbruch) → `@container`. **Bedienelemente, die einander ersetzen**
+  („Zurück" ↔ „×", „Fertig"), stehen in **einem** `@media`-Block je Datei mit
+  wörtlich derselben Bedingung — sonst gibt es ein Breitenfenster mit beiden
+  oder keinem. „Ab `lg` nicht vorhanden" ist `display: none` (nimmt Bild,
+  Tabfolge und Accessibility-Baum in einem), nie `visibility`/`opacity`.
+- **Schaltet ein Elternteil die Sichtbarkeit eines gemeinsam genutzten
+  Bausteins um, bekommt der Baustein einen eigenen Wrapper** — das
+  `display: none` liegt auf dem Wrapper, nie auf einer Klasse am
+  Wurzelelement des Kind-Bausteins. Grund: Vue hängt an das eigenständige
+  Root-Element eines Kindes **beide** scoped-CSS-Attribute (seins und das des
+  Elternteils); Elternregel und die eigene Regel des Bausteins
+  (`.primaer-button { display: inline-flex }`) haben dann dieselbe
+  Spezifität, und wer gewinnt, hängt an der Bündelungs-/Importreihenfolge
+  statt an der Quelle. Der Wrapper umgeht das strukturell. Vorbilder:
+  `shared/ui/MasterDetail.vue`, `.ortsdetail__fertig` in `Ortebereich.vue`.
+  Layoutangaben für den Baustein selbst (z. B. `width: 100%`) bleiben an
+  seiner eigenen Klasse — die kollidieren nicht.
 - **Ein Baustein, der in zwei verschieden breiten Containern steht, wird
   selbst zum Container** und schaltet zwischen Kurz- und Langform um, statt
   die Elternbreite anzunehmen. Vorbild: `orte/components/Werkzeugleiste.vue`.
@@ -243,6 +272,14 @@ src/
 - **Kein stiller Ersatzwert beim Lesen** (`?? 0`, `|| []`). Fehlt ein Feld,
   füllt es ein Migrationsschritt — fehlender und gesetzter Nullwert bleiben
   unterscheidbar.
+- **Eine Gültigkeitsregel, eine Stelle** (ADR-0007 P7): **Jeder** Eingabepfad
+  eines Achsenwertes läuft durch `rundenUndKlemmen()` — auch der native
+  `<input type="range">` mit `min`/`max`/`step`. Dessen Zusage ist
+  Browserverhalten über einen String (`Number(el.value)`), keine Eigenschaft
+  des Datenmodells; ein zweiter Pfad ohne Gate macht die Zusicherung
+  „ganze Zahl 0–10, unabhängig vom Weg" zur Konvention statt zur Struktur.
+  Ausgenommen bleibt nur das **Leeren** — es führt direkt zu `null` und wird
+  nie geklemmt.
 - **Ergebnisse statt Ausnahmen**: Lade-/Schreibfunktionen geben ein
   ausdrückliches Ergebnis zurück, das der Aufrufer auswerten muss.
 - **Geschrieben wird der vollständige Datensatz aus dem Store**, nie
@@ -301,6 +338,42 @@ src/
   `fake-indexeddb/auto`) prüft Logik und Verträge · `npm run smoke` prüft am
   echten Build in einer echten Engine, ob es benutzbar ist · die Abnahme
   prüft die Kriterien.
+- **Komponentenverhalten** (ADR-0027): Zuerst prüfen, ob die Regel als reine
+  Funktion nach `lib/` gehört (billigste Ebene, Vorbild `rundenUndKlemmen.ts`).
+  Ist der **Handler- oder Emit-Weg selbst** der Gegenstand, entsteht eine
+  Component-Spec mit `@vue/test-utils`: `environment: 'node'` bleibt die
+  Vorgabe, die Spec setzt in Zeile 1 `// @vitest-environment jsdom` — die
+  globale Umgebung wird **nicht** umgestellt. Gemountet wird die
+  präsentationale Komponente mit Props, gelesen werden Emits; kein Store.
+  `vitest.config.ts` trägt dafür zweierlei, das zur Infrastruktur gehört und
+  nicht je Paket neu gefunden werden soll: **`plugins: [vue()]`** (ohne den
+  SFC-Transform „Failed to parse source … Install @vitejs/plugin-vue") und
+  **denselben `@assets`-Resolve-Alias wie `vite.config.ts`** (sonst scheitert
+  jede Spec, die einen Icon-Wrapper mitmountet, z. B. `IconKreuz.vue`).
+  Wer einen Alias in `vite.config.ts` ergänzt, zieht ihn hier mit.
+  **Nicht** in jsdom zusichern: Sichtbarkeit, Trefferfläche, Verdeckung,
+  Pseudo-Element- oder `accent-color`-Wirkung, „überlebt ein Neuladen" —
+  jsdom hat kein Layout und keine Pseudo-Element-Stile.
+- **„Bedienelement ist greifbar" ist eine Rauchtest-Zusicherung** (ADR-0027
+  P5): Sichtbarkeit und 44×44px-Trefferfläche werden am berechneten Stil in
+  einer echten Engine geprüft, inklusive `::-webkit-slider-thumb`, und als
+  Eigenschaft formuliert — nie als Prüfung auf eine bestimmte Klasse.
+  Ungeprüft bleiben `::-moz-range-thumb` und WebKit-Touchverhalten.
+- **Stile eines UA-Pseudo-Elements (`::-webkit-*`) werden über das Chrome
+  DevTools Protocol gelesen, nie über `getComputedStyle(el, '::-webkit-…')`**
+  (ADR-0027 P5, korrigiert): Letzteres liefert in Chromium die UA-Vorgabe
+  statt des Autoren-Stils — zweifach nachgewiesen, die Zusicherung wäre
+  dauerhaft grün geblieben. Bauform in `pruefeReglerGreifbarkeit()`
+  (`scripts/smoke.mjs`): `DOM.getDocument({ pierce: true })` →
+  Knoten über **matchende Selektoren** finden
+  (`CSS.getMatchedStylesForNode`, nicht über interne `id`-Namen) →
+  `CSS.getComputedStyleForNode`. Wirkt umständlich, ist es nicht — nicht
+  „vereinfachen".
+- **Eine neue Zusicherung ist erst eingerichtet, wenn sie gegen einen
+  verletzenden Stand rot wird** (ADR-0027 P8) — Vor-Korrektur-Stand aus der
+  Historie oder eine Wegwerf-Änderung; der Nachweis steht im Bericht. Ein
+  Prüfweg, der die Eigenschaft gar nicht erreicht, sieht aus wie ein
+  erfülltes Kriterium.
 - **Grün gegen `fake-indexeddb` heißt nicht, dass der Browser schreibt** — es
   bildet den strukturierten Klon in JavaScript nach. Jede Zusicherung „Daten
   überleben ein Neuladen" gehört in den Rauchtest. Für die Klonbarkeit selbst

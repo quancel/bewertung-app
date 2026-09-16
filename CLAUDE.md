@@ -165,10 +165,15 @@ Testbedarf). `environment: 'node'` genügt für `src/persistence/` und die
 Pinia-Stores; `vitest.setup.ts` polyfüllt `indexedDB` über
 `fake-indexeddb/auto`, damit gegen eine echte (In-Memory-)IndexedDB statt
 gegen einen selbstgebauten Mock getestet wird. Tests liegen als `*.spec.ts`
-neben der getesteten Datei (code-conventions.md). Noch keine
-Component-Test-Infrastruktur (`@vue/test-utils`) — bislang reichen reine
-Store-/Persistenz-Tests; das erste Paket mit Testbedarf für
-Komponentenverhalten richtet das ein und ergänzt diese Zeile.
+neben der getesteten Datei (code-conventions.md). Seit PO-2026-09-13-001
+(ADR-0027) gibt es zusätzlich eine **Component-Test-Infrastruktur**:
+`@vue/test-utils` + `jsdom` als `devDependency`, `environment: 'node'`
+bleibt die globale Vorgabe in `vitest.config.ts` — eine Komponenten-Spec
+setzt dafür in Zeile 1 den Docblock `// @vitest-environment jsdom` (Vorbild
+`src/features/bewertungen/components/Bewertungsachse.spec.ts`). Was ein
+Component-Test in jsdom nicht beweisen kann (Sichtbarkeit, Trefferfläche,
+Pseudo-Element-/`accent-color`-Wirkung), bleibt Sache des Rauchtests
+(ADR-0027 Punkt 4).
 
 ## Auslieferung: GitHub Pages
 
@@ -225,6 +230,20 @@ Auswahlliste (Trefferliste der Ortssuche, Tag-Vorschlagsliste) darf dabei
 überlagern; das ist als benannte Bedingung im Skript ausgenommen, nie als
 ID-/Klassenliste (ADR-0023 Punkt 7). Bildschirmfotos landen in `.smoke/`
 (ignoriert), je Breite und Ansicht ein eigenes.
+
+Drei weitere Zusicherungen prüfen das Ortsdetail (PO-2026-09-13-001/-002/-003):
+**jeder Regler ist greifbar** (`pruefeReglerGreifbarkeit`) · **eine Bedienung
+genügt** (`pruefeReglerCommitWaehrendZiehens`) · **je Breite genau ein
+Weg zurück** (`pruefeAbschlussKombination`). Zwei davon sind nur deshalb
+wirksam, weil sie den naheliegenden Weg meiden, und das bleiben sie auch nur
+so: Die Greifbarkeit des Reglerdaumens liest ihre Werte über das Chrome
+DevTools Protocol, weil `getComputedStyle(el, '::-webkit-slider-thumb')` aus
+Seiten-JavaScript die UA-Vorgabe statt des Autoren-Stils liefert (ADR-0027
+Punkt 5, korrigiert). Und die Commit-Prüfung hält die Maustaste gedrückt und
+prüft **vor** dem Loslassen — ein Klick feuert `input` *und* `change`, eine
+klickbasierte Prüfung wäre gegen den defekten Stand grün gewesen. Beides wirkt
+umständlich und ist es nicht; wer es vereinfacht, bekommt eine Zusicherung,
+die nie wieder rot wird.
 
 **Der Lead führt ihn aus, bevor er ein Paket als erledigt meldet** — nicht
 statt der Unit-Tests, sondern zusätzlich. Typecheck, Lint und Vitest
