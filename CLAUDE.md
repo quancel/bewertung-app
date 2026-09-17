@@ -275,6 +275,13 @@ Rauchtest das und endet mit 0, statt einen Build rot zu färben, der nichts
 dafür kann. Die Zusicherungen sind dann **ungeprüft**, und genau das gehört
 so in den Bericht.
 
+**Der Rauchtest fährt genau eine Engine, Chromium** (ADR-0023 Punkt 5,
+bestätigt durch ADR-0029). Das gilt auch für Darstellung, nicht nur für
+Verhalten: Ein **erfolgreicher** Lauf weist Zusicherungen über
+engine-abhängige Darstellung (Pseudo-Element-Stile, `appearance`, native
+Bedienelement-Darstellung) ausdrücklich als „auf WebKit ungeprüft" aus —
+als Eigenschaft benannt, nicht als Funktions-/Klassenliste.
+
 Neue Ansicht gebaut? In `ANSICHTEN` eintragen. Neue Breite oder neuer
 netzabhängiger Zustand? In `BREITEN` bzw. `ORTSSUCHE_ZUSTAENDE` (alle oben in
 `scripts/smoke.mjs`) — sonst prüft sie niemand.

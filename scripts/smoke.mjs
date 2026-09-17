@@ -68,13 +68,22 @@
  * Maustaste über `mouse.down()`/`mouse.move()` gedrückt und prüft die
  * Invariante VOR `mouse.up()`.
  *
- * Ab PO-2026-09-13-002 (ADR-0027 Punkt 5) kommt eine zweite, unabhängige
+ * Ab PO-2026-09-13-002 (ADR-0027 Punkt 5, korrigiert — siehe
+ * `pruefeReglerGreifbarkeit()` selbst) kommt eine zweite, unabhängige
  * Zusicherung dazu: Der Thumb eines Reglers war im Zustand `null` per
  * `opacity: 0` auf dem Pseudo-Element vollständig ausgeblendet — ein Nutzer
  * fand den Regler einer frisch angelegten Achse deshalb „nicht existent".
- * `pruefeReglerGreifbarkeit()` prüft das direkt über
- * `getComputedStyle(el, '::-webkit-slider-thumb')`, als Eigenschaft, nicht
- * über eine Prüfung auf `accent-color` (Implementierungsdetail).
+ * `pruefeReglerGreifbarkeit()` prüft das als Eigenschaft, nicht über eine
+ * Prüfung auf `accent-color` (Implementierungsdetail) — gelesen über das
+ * Chrome DevTools Protocol, NIE über
+ * `getComputedStyle(el, '::-webkit-slider-thumb')` aus Seiten-JavaScript:
+ * Das liefert in Chromium die UA-Vorgabe statt des Autoren-Stils (ADR-0027
+ * Punkt 5, korrigiert). Was die Funktion deckt, steht ausgeschrieben in
+ * ihrem eigenen Kommentar (ADR-0029 Punkt 3, deckungsgleich mit
+ * `code-conventions.md`). *Nicht geprüft*: Kontrast/Farbe des Thumbs gegen
+ * seine Umgebung · ob eine Autoren-Regel auf dem Thumb in der Ziel-Engine
+ * überhaupt greift · `::-moz-range-thumb` · jede Darstellung in WebKit ·
+ * WebKit-Touchverhalten.
  *
  * Ab PO-2026-09-13-003 (ADR-0028) kommt eine dritte, unabhängige
  * Zusicherung dazu: Der neue Abschluss-Knopf „Fertig" und das vorhandene
@@ -865,6 +874,15 @@ async function main() {
   console.log('Alle Ansichten geöffnet, keine Laufzeitfehler, CSS-Ressourcen aufgelöst,')
   console.log('kein Bedienelement verdeckt, nichts ragt aus dem Bildschirm, ein angelegter')
   console.log('Ort übersteht ein Neuladen.')
+  // ADR-0029 Punkt 4: ein ERFOLGREICHER Lauf weist die Grenze selbst aus,
+  // nicht nur der Fehlerfall (Playwright-Skip oben) und nicht nur der Kopf
+  // dieser Datei. Als Eigenschaft formuliert, nicht als Funktions-/
+  // Klassenliste (ADR-0023 Punkt 7): Der Rauchtest fährt genau eine Engine
+  // (Chromium, ADR-0023 Punkt 5) — Zusicherungen über engine-abhängige
+  // Darstellung (Pseudo-Element-Stile, `appearance`, native
+  // Bedienelement-Darstellung) sind auf WebKit ungeprüft.
+  console.log('Zusicherungen über engine-abhängige Darstellung sind auf WebKit ungeprüft')
+  console.log('(ADR-0029) — geprüft ist ausschließlich Chromium.')
 }
 
 await main()
