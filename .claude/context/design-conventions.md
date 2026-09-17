@@ -117,9 +117,36 @@ nie alleiniger Bedeutungsträger" ändert sich dadurch nicht und bleibt
 weiterhin durch dieselben drei Nachbar-Auszeichnungen erfüllt (unverändert
 gegenüber der fünften Runde) — der Thumb bleibt für sich genommen zwischen
 den zwei Zuständen weiterhin rein farbunterschieden, ist jetzt aber
-überhaupt erst sichtbar.
+überhaupt erst sichtbar. Eine siebte Korrektur-Runde (2026-09-17,
+PO-2026-09-16-001) korrigiert die sechste Runde grundlegend: Der `architekt`
+hat sie als strukturell unerfüllbar zurückgewiesen, weil ihr
+Degradations-Satz — „zeigt ihren nativen, ungefärbten Thumb — bereits von
+sich aus sichtbar" — exakt in den gemeldeten Fehler zurückführte; der
+heutige, defekte Zustand IST nativer Thumb + `accent-color`. Zusätzlich blieb
+offen, ob `appearance: none` allein auf dem Thumb-Pseudo-Element in WebKit
+überhaupt greift, ohne dass das `<input>` selbst es trägt — hier nicht
+verifizierbar (ADR-0023 Punkt 5). Der Nutzer wurde genau zu dieser Abwägung
+befragt und hat sich für die sichere Variante entschieden: `appearance: none`
+jetzt auch auf dem `<input>` selbst, nicht nur auf dem Thumb. Die native Bahn
+entfällt damit vollständig; der Regler zeichnet Bahn **und** Thumb komplett
+selbst und sieht auf keiner Engine mehr nativ aus — eine bewusste, vom Nutzer
+getragene Entscheidung, kein Kompromiss. Der bisherige Abschnitt
+„Regler-Thumb" heißt jetzt „Regler-Bahn und -Thumb" und ist entsprechend neu
+gefasst: Die Bahn übernimmt dieselbe Optik wie die Intensitätsbalken-Spur
+(8px, 1px `--border`, `--radius-full`, `--surface`, immer gleich, keine
+eigene Füllung — die würde der bereits vorhandene Intensitätsbalken
+redundant doppeln) und sitzt dabei direkt auf dem `<input>`-Element selbst,
+nicht nur auf einem Pseudo-Element — genau das macht sie zum Ausfall-Anker
+und löst den Blocker: Unterstützt eine Engine trotz erfolgreichem
+`appearance: none` die Track-/Thumb-Pseudo-Selektoren nicht, bleibt die Bahn
+trotzdem sichtbar, weil ihre Optik nicht hinter einem möglicherweise
+ungenutzten Selektor liegt — ausfallen kann in diesem Fall ausschließlich der
+Thumb. `accent-color` entfällt ersatzlos, da es sobald Bahn und Thumb
+vollständig selbst gezeichnet werden in keiner Engine mehr eine Wirkung hat.
+Thumb-Werte (Rahmen, Füllfarben, Kontraste, Größe) aus der sechsten Runde
+bleiben unverändert gültig, da unabhängig von der Bahnfrage.
 
-- **Zuletzt kuratiert**: 2026-09-16
+- **Zuletzt kuratiert**: 2026-09-17
 
 ## Zustände
 
@@ -167,7 +194,8 @@ unten und für die beiden Karten-Leerzustände, siehe „Karte").
   bedienbarem Thumb** — auch ohne gesetzten Wert (PO-2026-09-13-002: ein
   komplett ausgeblendeter Thumb machte den Regler unauffindbar). Wie sich
   „nicht gesetzt" und „gesetzt 0" beim Regler unterscheiden, steht unter
-  „Werte mit Bereich, bei denen 0 gültig ist" → „Regler-Thumb". Der Regler
+  „Werte mit Bereich, bei denen 0 gültig ist" → „Regler-Bahn und -Thumb".
+  Der Regler
   committet auf **jedes** `input`-Ereignis, nicht erst auf `change`. **Jeder**
   Eingabepfad eines Achsenwertes läuft durch dieselbe
   Runden-und-Klemmen-Logik, auch der native Regler (ADR-0007 Punkt 7,
@@ -263,56 +291,101 @@ Eigenschaft.
   zwischen `--color-neutral-100` (0) und `--color-primary-600` (10), keine
   Stufenfarben. „Nicht gesetzt" zeigt **keinen** Balken, nur den
   Platzhaltertext.
-- **Regler-Thumb** (PO-2026-09-16-001, sechste Runde — Live-Befund iOS
-  Safari: der Thumb war ohne jede Bedienung nicht erkennbar, weder bei
-  `null` noch bei gesetzter 0). Die fünfte Runde (PO-2026-09-13-002) hatte
-  „nicht gesetzt" und „gesetzt" ausschließlich über `accent-color`
-  unterschieden — technisch bestätigt (`product-owner`, 2026-09-16):
-  `accent-color` tönt bei `<input type="range">` in WebKit im Wesentlichen
-  die **gefüllte Bahn links vom Thumb**, nicht den Thumb selbst. Bei
-  Position 0 — `null` **und** eine bewusst gesetzte 0 gleichermaßen — ist
-  diese Fläche null Pixel breit: nichts zu färben, nichts sichtbar. Eine
-  einzelne, browser-uneinheitliche Eigenschaft trug damit Sichtbarkeit
-  **und** Zustandsunterscheidung zugleich.
-  - **Der Thumb trägt seine Sichtbarkeit jetzt selbst**, unabhängig vom
-    Füllstand der Bahn: `::-webkit-slider-thumb` **und**
-    `::-moz-range-thumb` bekommen dieselbe Bauform — je ein eigener,
-    immer vorhandener 2px-Rahmen + Füllfarbe, mit `-webkit-appearance:
-    none` bzw. `appearance: none` **nur auf dem Thumb-Pseudo-Element
-    selbst** (nicht auf dem `<input>` als Ganzes — die native Bahn/Spur
-    bleibt unverändert, nur der Thumb wird eigenständig gezeichnet).
-    Beide Vendor-Varianten sind Pflicht, keine optional, sonst bleibt eine
-    Engine ohne explizite Thumb-Farbe.
-  - **Nicht gesetzt**: Hintergrund `var(--surface)`, Rahmen 2px
-    `var(--text-muted)` — Kontrast zur hellen Grundfläche ≈ 4,8:1.
+- **Regler-Bahn und -Thumb** (PO-2026-09-16-001, siebte Runde — der
+  `architekt` hat die sechste Runde als strukturell unerfüllbar
+  zurückgewiesen: ihr Degradations-Satz „zeigt ihren nativen, ungefärbten
+  Thumb — bereits von sich aus sichtbar" führte in genau den gemeldeten
+  Fehler zurück, siehe Änderungshistorie oben. Der Nutzer hat sich daraufhin
+  für die sichere Variante entschieden: **`-webkit-appearance: none`/
+  `appearance: none` jetzt auch auf dem `<input>` selbst**, nicht nur auf dem
+  Thumb-Pseudo-Element — die native Bahn entfällt damit vollständig und wird
+  komplett selbst gezeichnet. Der Regler sieht dadurch auf keiner Engine mehr
+  nativ aus (bewusst, vom Nutzer getragen, nicht auf iOS beschränkt — dieselbe
+  Optik gilt einheitlich in jedem Browser, analog zur bestehenden Praxis,
+  beide Vendor-Präfixe immer gemeinsam zu pflegen statt browserspezifisch zu
+  verzweigen).
+  - **Bahn**: gleiche Werte wie die Intensitätsbalken-Spur
+    (`Intensitaetsbalken.vue` → `.intensitaetsbalken__spur`), zur
+    Wiedererkennung statt einer dritten Balkenoptik im selben Formular: Höhe
+    8px, `border: 1px solid var(--border)`, `border-radius: var(--radius-full)`,
+    `background-color: var(--surface)` — **in jedem Zustand identisch**,
+    kein Unterschied zwischen „nicht gesetzt" und „gesetzt", keine Füllung.
+    Bewusst **kein** per Füllstand eingefärbter Bahnabschnitt: Der
+    Intensitätsbalken direkt darunter zeigt dieselbe Information bereits
+    (Tonleiter `--color-neutral-100`→`--color-primary-600`) — ein zweiter,
+    separat berechneter Füllbalken in der Reglerbahn wäre dieselbe
+    Information doppelt gezeichnet und doppelt zu pflegen, ohne eigenen
+    Erkenntniswert.
+  - **Anker-Prinzip (löst den Blocker der sechsten Runde)**: Rahmen, Radius,
+    Hintergrund und Höhe der Bahn stehen direkt auf dem Basis-Selektor
+    (`input[type="range"].bewertungsachse__regler`), **nicht nur** auf
+    `::-webkit-slider-runnable-track`/`::-moz-range-track`. Die
+    Track-Pseudo-Elemente selbst bekommen nur einen Reset (`background:
+    transparent`, `border: none`, dieselbe Höhe/Radius), damit sie die
+    Anker-Optik des Inputs durchscheinen lassen statt sie zu überdecken.
+    Grund: Sitzt die sichtbare Bahn nur auf einem vendor-spezifischen
+    Pseudo-Element, hängt ihre Sichtbarkeit an genau dem Selektor, dessen
+    Fehlen der eigentliche Ausfall wäre — sitzt sie stattdessen auf dem
+    Element selbst, bleibt sie bestehen, unabhängig davon, ob die
+    Pseudo-Selektoren zusätzlich greifen.
+  - **Thumb** — Werte aus der sechsten Runde unverändert gültig, weil
+    unabhängig von der Bahnfrage: `::-webkit-slider-thumb` **und**
+    `::-moz-range-thumb` bekommen dieselbe Bauform, je ein eigener, immer
+    vorhandener 2px-Rahmen + Füllfarbe. **Nicht gesetzt**: Hintergrund
+    `var(--surface)`, Rahmen 2px `var(--text-muted)` (Kontrast ≈ 4,8:1).
     **Gesetzt** (inkl. 0): Hintergrund `var(--color-primary-600)`, Rahmen
-    2px `var(--color-primary-600)` — Kontrast ≈ 6,1:1. Beide über dem
-    3:1-Ziel für UI-Elemente (design-concept.md „Kontrast-Ziel").
-  - `accent-color` bleibt zusätzlich gesetzt wie bisher (ungesetzt
-    `var(--text-muted)`, gesetzt `var(--color-primary-600)`) — jetzt aber
-    als **nicht-tragendes Zweitsignal**, nicht als einzige Grundlage: In
-    Engines, die damit die gefüllte Bahn tönen, bekräftigt es dieselbe
-    Unterscheidung an zweiter Stelle; trägt eine Engine `accent-color`
-    nicht (oder nur auf die Bahn, wie WebKit), bleibt die Thumb-eigene
-    Farbe allein tragfähig.
-  - **Degradation**: Unterstützt eine Engine weder
-    `::-webkit-slider-thumb` noch `::-moz-range-thumb` (kein bekannter
-    Fall unter den Zielbrowsern iOS Safari/Chromium, aber die Eigenschaft
-    muss das aushalten), zeigt sie ihren nativen, ungefärbten Thumb — die
-    eigene, plattformübliche Bedienelement-Darstellung des Browsers, ohne
-    Bezug zu unserem CSS und bereits von sich aus sichtbar. Keine der
-    beiden Eigenschaften (Thumb-Pseudo-Element-Style, `accent-color`) ist
-    eine Sichtbarkeits-**Voraussetzung** — beide sind nur Zustandsfarbe,
-    ein Ausfall der einen lässt den Thumb nie vollständig verschwinden.
-  - Größe und Form des Thumbs ändern sich zwischen den Zuständen nicht,
-    nur Rahmen-/Füllfarbe — kein zusätzlicher Formunterschied nötig.
-  - **Baseline „Farbe nie alleiniger Bedeutungsträger" bleibt unverändert
-    nicht durch den Thumb selbst erfüllt.** Der jetzt immer vorhandene
-    Rahmen macht den Thumb an sich sichtbar (löst PO-2026-09-16-001), aber
-    die Unterscheidung *zwischen* „nicht gesetzt" und „gesetzt" bleibt am
-    Thumb eine reine Farbänderung. Die drei Nachbar-Auszeichnungen aus der
-    fünften Runde bleiben deshalb **unverändert nötig** und tragen
-    weiterhin allein dieses Kriterium: Intensitätsbalken (kein Balken bei
+    2px `var(--color-primary-600)` (Kontrast ≈ 6,1:1). Beide über dem
+    3:1-Ziel für UI-Elemente. Größe/Form ändern sich zwischen den Zuständen
+    nicht, nur Rahmen-/Füllfarbe. `-webkit-appearance: none`/
+    `appearance: none` bleibt zusätzlich auf dem Thumb-Pseudo-Element selbst
+    nötig (WebKit verlangt es dort separat, unabhängig davon, dass es jetzt
+    auch auf dem `<input>` steht) — beide Vendor-Varianten weiterhin
+    Pflicht, keine optional.
+  - **`accent-color` entfällt ersatzlos.** Es war in der sechsten Runde als
+    „nicht-tragendes Zweitsignal" vorgesehen; sobald `appearance: none`
+    sowohl Bahn als auch Thumb vollständig selbst zeichnet, hat die
+    Eigenschaft in keiner Engine mehr eine sichtbare Wirkung, ist also nicht
+    mehr nachrangig, sondern gegenstandslos. Aus dem Code entfernen, kein
+    toter Attribut-Rest, der ein Signal vortäuscht, das es nicht mehr gibt.
+  - **Degradation — jetzt wahr, nicht mehr in den gemeldeten Fehler
+    zurückführend.** Unterstützt eine Engine `appearance: none` auf dem
+    `<input>`, aber nicht die vendor-spezifischen Track-/Thumb-Pseudo-Selektoren
+    (kein bekannter Fall unter iOS Safari/Chromium, die Eigenschaft muss es
+    dennoch aushalten, ADR-0023 Punkt 5 — kein WebKit-Testlauf hier
+    verifizierbar): Weil die Bahn-Optik auf dem `<input>`-Element selbst
+    sitzt (siehe Anker-Prinzip oben), bleibt sie in diesem Fall unverändert
+    bestehen. Ausfallen kann in diesem Szenario ausschließlich der Thumb —
+    er verliert seine eigene Farbe/seinen Rahmen und fällt auf die
+    Engine-eigene, ungestylte Thumb-Darstellung zurück. Anders als die
+    verworfene sechste Runde wird hier **nicht** behauptet, dieser native
+    Thumb sei „bereits von sich aus sichtbar" — das war der widerlegte Satz,
+    der genau in den gemeldeten Fehler zurückführte (nativer Thumb +
+    `accent-color` **ist** der defekte Ausgangszustand). Die tragende
+    Aussage ist eine andere: Der Regler als Ganzes ist in diesem Ausfall nie
+    eine vollständig blanke/unsichtbare Fläche, weil die Bahn strukturell
+    nicht vom Erfolg der Thumb-Pseudo-Selektoren abhängt — sie ist über den
+    Basis-Selektor abgesichert, nicht über ein zusätzliches, mögliches
+    Fallback-Signal.
+  - **Fokusring**: Die projektweite `:focus-visible`-Regel (`base.css`)
+    greift unverändert auf jedes fokussierbare Element, auch auf
+    `input[type="range"]` — keine neue Mechanik nötig. Ein Nebeneffekt der
+    Entscheidung gegen eine eigene Füllung in der Bahn (siehe oben): kein
+    `overflow: hidden` auf der Bahn nötig, also auch kein Risiko, den Ring an
+    der abgerundeten Bahn zu beschneiden. **Vom Frontend-Lead im Rauchtest zu
+    verifizieren** (hier nicht prüfbar, kein WebKit-Testlauf, ADR-0023
+    Punkt 5): Manche WebKit-Versionen unterdrücken den Fokusring auf
+    `<input type="range">` zusätzlich bei gesetztem `-webkit-appearance:
+    none`. Zeigt sich das, ergänzt eine explizite, höher-spezifische
+    `.bewertungsachse__regler:focus-visible { outline: var(--focus-ring-width)
+    solid var(--focus-ring); outline-offset: var(--focus-ring-offset); }` als
+    Fallback — dieselben Tokens wie die globale Regel, keine neuen Werte.
+  - **Baseline „Farbe nie alleiniger Bedeutungsträger" bleibt bestätigt,
+    unverändert gegenüber der fünften Runde.** Die Bahn ist jetzt bewusst
+    zustandsfarblos (immer `--surface`/`--border`, unabhängig vom Wert) —
+    trägt also gar keine Unterscheidung mehr, weder tragend noch als
+    Zweitsignal. Die Unterscheidung „nicht gesetzt"/„gesetzt" bleibt
+    ausschließlich am Thumb (reine Farbänderung) sowie an denselben drei
+    Nachbar-Auszeichnungen wie bisher: Intensitätsbalken (kein Balken bei
     `null`, nur Platzhaltertext, siehe oben), Zurücksetzen-Knopf (erscheint
     erst bei gesetztem Wert), Zahlenfeld-Platzhalter „–" statt einer Zahl.
     Wer eine davon entfernt oder auch bei `null` rendert, kippt das
@@ -323,9 +396,14 @@ Eigenschaft.
     eine Zahl für einen ungesetzten Wert, auch wenn der Thumb visuell auf 0
     steht.
   - **Trefferfläche**: unverändert die 44×44px-Mindestgröße
-    (design-concept.md „Barrierefreiheit") über vertikales Padding auf dem
-    `<input type="range">`, nicht über eine sichtbar vergrößerte Spur oder
-    einen vergrößerten Thumb.
+    (design-concept.md „Barrierefreiheit"), aber der Rechenweg ändert sich:
+    Die Bahn hat jetzt eine explizite Höhe (8px) statt der nativen
+    intrinsischen Höhe des Browsers, gegen die das bisherige
+    `padding: 14px 0` gerechnet war. Der Frontend-Lead rechnet das vertikale
+    Padding gegen die neue Bahnhöhe **und** die tatsächliche Thumb-Größe neu
+    (beide zusammen müssen mindestens 44px Trefferfläche ergeben) —
+    weiterhin über Padding auf dem `<input>`, nicht über eine sichtbar
+    vergrößerte Bahn oder einen vergrößerten Thumb.
 
 ## Listen: Sortieren, Filtern, Gruppierung
 
