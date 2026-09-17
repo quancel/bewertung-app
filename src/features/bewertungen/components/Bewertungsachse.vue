@@ -388,10 +388,16 @@ function aufKommentarCommit(): void {
 /* Thumb -- Werte aus der sechsten Runde (design-conventions.md), unabhaengig
    von der Bahnfrage: eigener 2px-Rahmen + Fuellfarbe in JEDEM Zustand,
    Groesse/Form aendern sich zwischen den Zustaenden nicht, nur die Farbe.
-   24px Durchmesser ist eine Umsetzungsgroesse des Frontend-Leads (wie
-   `--karte-hoehe` in tokens.css: reine Bemessungs-, keine
-   Gestaltungsentscheidung) -- design-conventions.md gibt keinen
-   Absolutwert vor, nur Gleichheit zwischen den Zustaenden.
+   24px Durchmesser ist seit der achten Korrektur-Runde (2026-09-17) eine
+   benannte Design-Festlegung in design-conventions.md ("Regler-Bahn und
+   -Thumb" -> "Thumb"), keine freie Bemessungsgroesse des Frontend-Leads
+   mehr: dreimal so hoch wie die 8px-Bahn (damit der Thumb auch im "nicht
+   gesetzt"-Zustand als eigenstaendiges Element erkennbar bleibt) und
+   zugleich die bestehende Icon-Basisgroesse der Anwendung
+   (design-concept.md "Ikonografie") -- kein isolierter, nur hier
+   verwendeter Wert. Vorgemerkt als Token-Kandidat fuer tokens.css
+   (z. B. `--regler-thumb-groesse`), sobald ein zweiter Verwendungsort
+   hinzukommt; bis dahin bleibt der Literalwert hier im Feature-Code.
    Basisregel = "gesetzt" (inkl. 0): Primaerton, Kontrast ca. 6,1:1. */
 .bewertungsachse__regler::-webkit-slider-thumb {
   -webkit-appearance: none;
