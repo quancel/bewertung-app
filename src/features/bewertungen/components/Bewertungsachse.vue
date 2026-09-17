@@ -5,7 +5,11 @@
  * Regler daneben ist das barrierefreie Pendant — bidirektional synchron
  * (design_notes PO-2026-09-07-002), Thumb in JEDEM Zustand sichtbar und
  * bedienbar (PO-2026-09-13-002): „nicht gesetzt"/„gesetzt" unterscheiden
- * sich über `accent-color`, nie über Sichtbarkeit (siehe `<style>` unten).
+ * sich über die Rahmen-/Füllfarbe des Thumbs, nie über Sichtbarkeit (siehe
+ * `<style>` unten). Bahn und Thumb sind seit PO-2026-09-16-001 (siebte
+ * Runde, design-conventions.md „Regler-Bahn und -Thumb") vollständig selbst
+ * gezeichnet — `accent-color` entfällt ersatzlos, es hatte ohne native Bahn
+ * in keiner Engine mehr eine Wirkung.
  * Rein präsentational, kennt keinen Store (code-conventions.md:
  * „components/ kennt keinen Store") — die View bindet über Emits an
  * `useOrteStore.aktualisiereAchse` (ADR-0008).
@@ -283,28 +287,140 @@ function aufKommentarCommit(): void {
   flex-shrink: 0;
 }
 
-/* Trefferflaeche 44x44px ueber vertikales Padding statt einer optisch
-   dickeren Spur oder eines vergroesserten Thumbs (design-conventions.md
-   "Werte mit Bereich, bei denen 0 gueltig ist" -> "Regler-Thumb"). Der
-   Thumb bleibt dabei in JEDEM Zustand sichtbar und bedienbar (PO-2026-09-
-   13-002) -- "nicht gesetzt" und "gesetzt" unterscheiden sich ausschliesslich
-   ueber `accent-color`, nie ueber Sichtbarkeit. */
+/* Regler-Bahn und -Thumb werden vollstaendig selbst gezeichnet
+   (design-conventions.md "Werte mit Bereich, bei denen 0 gueltig ist" ->
+   "Regler-Bahn und -Thumb", siebte Runde, PO-2026-09-16-001). Anker-Prinzip:
+   appearance: none jetzt auch am <input> selbst (nicht nur am
+   Thumb-Pseudo-Element wie in der sechsten Runde) UND Rahmen/Radius/
+   Hintergrund/Hoehe der Bahn stehen direkt auf diesem Basis-Selektor, nicht
+   nur auf den Track-Pseudo-Elementen weiter unten -- faellt ein
+   vendor-spezifischer Pseudo-Selektor in einer Engine aus, bleibt die Bahn
+   trotzdem sichtbar, ausfallen kann dann nur noch der Thumb.
+   `accent-color` entfaellt ersatzlos: ohne native Bahn hat es in keiner
+   Engine mehr eine Wirkung. */
 .bewertungsachse__regler {
+  appearance: none;
+  -webkit-appearance: none;
+  /* Lokale Ausnahme vom globalen `box-sizing: border-box` (base.css): nur
+     im content-box-Modell bleiben Bahnhoehe (8px, deckungsgleich mit
+     `.intensitaetsbalken__spur`) und Trefferflaechen-Padding unabhaengig
+     rechenbar -- unter border-box wuerde ein zu grosses Padding die
+     deklarierte Hoehe verdraengen statt sie zu ergaenzen. */
+  box-sizing: content-box;
   flex: 1;
   min-width: 0;
-  padding: 14px 0;
-  accent-color: var(--color-primary-600);
-  transition: accent-color var(--duration-120) var(--ease-out);
+  height: 8px;
+  /* Trefferflaeche 44x44px neu gerechnet (design-conventions.md): 2x18px
+     Padding + 8px Bahnhoehe = 44px -- ersetzt das bisherige "padding: 14px
+     0", das gegen die native intrinsische Hoehe des Browsers kalibriert
+     war. Der 24px-Thumb (siehe Pseudo-Elemente unten) braucht mit
+     denselben 18px ebenfalls >= 44px, ist also nicht der bestimmende
+     Faktor. Weiterhin ueber Padding auf dem <input>, nicht ueber eine
+     sichtbar vergroesserte Bahn oder einen vergroesserten Thumb. */
+  padding: 18px 0;
+  margin: 0;
+  background-color: var(--surface);
+  /* Ohne background-clip wuerde die Flaeche die gesamte Trefferflaeche
+     (44px) einfaerben statt nur die 8px hohe Bahn. */
+  background-clip: content-box;
+  border-radius: var(--radius-full);
+  cursor: pointer;
 }
 
-/* Vorherige Fassung blendete den Thumb bei `null` per `opacity: 0` komplett
+/* Rahmen der Bahn ueber `outline` statt `border`: eine `border` wuerde
+   immer um die GESAMTE Trefferflaeche (44px) gezeichnet, nicht nur um die
+   8px hohe Bahn -- `outline-offset` zieht den Ring dagegen exakt auf die
+   Innenkante des Content-Bereichs (Betrag = Padding oben). Bahn ist in
+   jedem Zustand identisch, keine Fuellung -- der Intensitaetsbalken darunter
+   zeigt den Fuellstand bereits (design-conventions.md).
+   `:not(:focus-visible)` haelt die `outline`-Eigenschaft frei fuer den
+   Fokusring in der Regel direkt darunter. */
+.bewertungsachse__regler:not(:focus-visible) {
+  outline: 1px solid var(--border);
+  outline-offset: -18px;
+}
+
+/* Fallback, falls eine WebKit-Version den globalen `:focus-visible`-Ring
+   (base.css) bei `appearance: none` zusaetzlich unterdrueckt
+   (design-conventions.md "Fokusring") -- dieselben Fokusring-Tokens wie die
+   globale Regel, keine neuen Werte. Hier nicht verifizierbar: kein
+   WebKit-Testlauf moeglich (ADR-0023 Punkt 5, ADR-0029). */
+.bewertungsachse__regler:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* Track-Pseudo-Elemente bekommen nur einen Reset, kein eigenes Aussehen --
+   die Bahn-Optik kommt vom Basis-Selektor oben und soll durchscheinen
+   (Anker-Prinzip). Gleiche Hoehe/Radius wie oben, rein informativ fuer die
+   interne Boxberechnung der jeweiligen Engine. */
+.bewertungsachse__regler::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  border: none;
+}
+
+.bewertungsachse__regler::-moz-range-track {
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  border: none;
+}
+
+/* Thumb -- Werte aus der sechsten Runde (design-conventions.md), unabhaengig
+   von der Bahnfrage: eigener 2px-Rahmen + Fuellfarbe in JEDEM Zustand,
+   Groesse/Form aendern sich zwischen den Zustaenden nicht, nur die Farbe.
+   24px Durchmesser ist eine Umsetzungsgroesse des Frontend-Leads (wie
+   `--karte-hoehe` in tokens.css: reine Bemessungs-, keine
+   Gestaltungsentscheidung) -- design-conventions.md gibt keinen
+   Absolutwert vor, nur Gleichheit zwischen den Zustaenden.
+   Basisregel = "gesetzt" (inkl. 0): Primaerton, Kontrast ca. 6,1:1. */
+.bewertungsachse__regler::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  /* WebKit richtet den Thumb sonst an der Oberkante der Bahn aus statt ihn
+     zu zentrieren: (Bahnhoehe 8px - Thumb 24px) / 2. */
+  margin-top: -8px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-primary-600);
+  background-color: var(--color-primary-600);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-120) var(--ease-out),
+    border-color var(--duration-120) var(--ease-out);
+}
+
+.bewertungsachse__regler::-moz-range-thumb {
+  /* Firefox zentriert den Thumb auf der Bahn automatisch, kein
+     margin-top-Ausgleich noetig. */
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-primary-600);
+  background-color: var(--color-primary-600);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-120) var(--ease-out),
+    border-color var(--duration-120) var(--ease-out);
+}
+
+/* "Nicht gesetzt": neutrale Farbe wie jede andere fehlende Angabe
+   (design-concept.md "Fehlende Daten sind neutral"), Kontrast ca. 4,8:1.
+   Vorherige Fassung blendete den Thumb bei `null` per `opacity: 0` komplett
    aus -- dadurch war der Regler erst nach mehrfachem zufaelligen Antippen
-   auffindbar (Nutzermeldung 2026-09-13). Jetzt uebernimmt `accent-color`
-   die Unterscheidung: ungesetzt dieselbe neutrale Farbe wie jede andere
-   fehlende Angabe (design-concept.md "Fehlende Daten sind neutral"),
-   gesetzt (inkl. 0) der Primaerton (Basisregel oben). */
-.bewertungsachse__regler--leer {
-  accent-color: var(--text-muted);
+   auffindbar (Nutzermeldung 2026-09-13); Groesse/Form bleiben deshalb hier
+   unangetastet, nur Rahmen-/Fuellfarbe wechseln. */
+.bewertungsachse__regler--leer::-webkit-slider-thumb {
+  border-color: var(--text-muted);
+  background-color: var(--surface);
+}
+
+.bewertungsachse__regler--leer::-moz-range-thumb {
+  border-color: var(--text-muted);
+  background-color: var(--surface);
 }
 
 .bewertungsachse__zuruecksetzen {
