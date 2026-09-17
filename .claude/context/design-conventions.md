@@ -144,7 +144,21 @@ ungenutzten Selektor liegt — ausfallen kann in diesem Fall ausschließlich der
 Thumb. `accent-color` entfällt ersatzlos, da es sobald Bahn und Thumb
 vollständig selbst gezeichnet werden in keiner Engine mehr eine Wirkung hat.
 Thumb-Werte (Rahmen, Füllfarben, Kontraste, Größe) aus der sechsten Runde
-bleiben unverändert gültig, da unabhängig von der Bahnfrage.
+bleiben unverändert gültig, da unabhängig von der Bahnfrage. Eine achte
+Korrektur-Runde (2026-09-17, Rückfrage des `architekt` zur Umsetzung der
+siebten Runde) benennt eine bislang unbenannt gebliebene Lücke: Der
+`frontend-lead` musste beim Selbstzeichnen des Thumbs einen konkreten
+Durchmesser wählen (24px) und begründete das mit der Analogie zu
+`--karte-hoehe` in `tokens.css` — dort tatsächlich ein reiner
+Bemessungswert ohne gestalterischen Anspruch. Diese Analogie trägt hier
+nicht: Anders als `--karte-hoehe` hat dieser Regler bereits drei
+vorangegangene Korrektur-Runden zur reinen **Auffindbarkeit** hinter sich
+(fünfte, sechste, siebte Runde) — seine sichtbare Größe ist damit Teil
+dessen, was ihn als Bedienelement erkennbar macht, keine reine
+Implementierungsdetail-Frage mehr. Der Wert bleibt bei 24px (siehe
+Begründung unter „Thumb" unten), aber ab dieser Runde als **benannte
+Design-Festlegung**, nicht mehr als freie Bemessungsentscheidung des
+Leads.
 
 - **Zuletzt kuratiert**: 2026-09-17
 
@@ -341,6 +355,24 @@ Eigenschaft.
     nötig (WebKit verlangt es dort separat, unabhängig davon, dass es jetzt
     auch auf dem `<input>` steht) — beide Vendor-Varianten weiterhin
     Pflicht, keine optional.
+    **Durchmesser: 24px, ab der achten Korrektur-Runde (2026-09-17) eine
+    benannte Design-Festlegung, keine freie Bemessungsgröße des
+    `frontend-lead` mehr** (Begründung siehe Änderungshistorie oben). Der
+    Wert bleibt unverändert bei 24px — dreimal so hoch wie die 8px-Bahn,
+    damit der Thumb auch im „nicht gesetzt"-Zustand (neutraler Rahmen,
+    keine Bahnfüllung als Kontrastanker) klar als eigenständiges,
+    ausgedehntes Element über der Bahn erkennbar bleibt, statt als schmale
+    Verdickung darauf zu wirken. Der Wert ist bewusst kein neuer, isolierter
+    Zahlenwert: 24px ist bereits die Icon-Basisgröße der Anwendung
+    (design-concept.md „Ikonografie") — der Thumb fügt sich damit in eine
+    bereits etablierte Größe der visuellen Sprache ein, statt eine vierte,
+    nur hier verwendete Größe zu setzen. **Hinweis an den `architekt`**: Der
+    Wert ist damit Token-Kandidat für `tokens.css` (z. B.
+    `--regler-thumb-groesse: 24px`), sobald ein zweites Vorkommen denselben
+    Wert braucht oder eine projektweite Konsolidierung ansteht — bis dahin
+    genügt der Literalwert im Feature-Code, benannt bleibt er hier in der
+    Konvention. Die Entscheidung *ob und wann* er nach `tokens.css` wandert,
+    liegt beim `architekt`, nicht bei dieser Konvention.
   - **`accent-color` entfällt ersatzlos.** Es war in der sechsten Runde als
     „nicht-tragendes Zweitsignal" vorgesehen; sobald `appearance: none`
     sowohl Bahn als auch Thumb vollständig selbst zeichnet, hat die
