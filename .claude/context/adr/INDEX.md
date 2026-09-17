@@ -23,9 +23,13 @@ Engine) und erweitert ihn um den Fall **Darstellung**: Bisher war der blinde
 Fleck als Verhaltensfrage gelesen. Kein `superseded by` — Bestätigung und
 Erweiterung, beide ADRs bleiben `accepted`. **Kein ADR** bekommen hat die
 CSS-Bauform des Thumbs selbst: Sie steht in `design-conventions.md`
-(Single-Writer `ux-ui-designer`, sechste Runde, Commit `834bd09`); offen und
-in ADR-0029 Punkt 6 als offener technischer Punkt festgehalten ist dort die
-Frage, ob `-webkit-appearance: none` zusätzlich am `<input>` nötig ist.
+(Single-Writer `ux-ui-designer`, sechste Runde, Commit `834bd09`).
+**ADR-0029 Punkt 6 ist am 2026-09-17 nachgetragen**: Die dort beim Schreiben
+offene Frage, ob `-webkit-appearance: none` zusätzlich am `<input>` nötig
+ist, hat die siebte Design-Runde nicht beantwortet, sondern **umgangen** —
+`appearance: none` steht seither auf Thumb *und* `<input>`
+(Nutzerentscheidung „sichere Variante"). Punkt 6 ist damit eine historische
+Feststellung, **kein offener Arbeitspunkt**.
 
 Davor **Stand: 2026-09-15** — achtundzwanzig ADRs. **ADR-0027 Punkt 5 ist in der
 Nachpflege zur Reglerrunde korrigiert worden**: Der dort vorgeschriebene
@@ -121,7 +125,7 @@ PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
 | [0026](0026-lebensdauer-der-sichtbarkeits-kennung.md) | Die Sichtbarkeits-Kennung gilt für die geöffnete Detailinstanz, nicht für die Ort-ID (Präzisierung von ADR-0025 Punkt 3) | orte | accepted | 2026-09-13 |
 | [0027](0027-komponentenverhalten-verifizieren.md) | Komponentenverhalten verifizieren — `@vue/test-utils` + jsdom als datei-lokales Opt-in, sichtbare Bedienelemente im Rauchtest (Erweiterung von ADR-0023 Punkt 4) | bewertungen, orte, app-shell | accepted (Punkt 5 korrigiert 2026-09-15) | 2026-09-14 |
 | [0028](0028-detail-chrome-folgt-dem-rahmen-breakpoint.md) | Chrome der Detailspalte folgt dem Rahmen-Breakpoint per `@media`, nicht der Containerbreite (Präzisierung von ADR-0012 Punkt 3) | orte, app-shell | accepted | 2026-09-14 |
-| [0029](0029-engine-abhaengige-darstellung-und-der-blinde-fleck.md) | Engine-abhängige **Darstellung** — Chromium bleibt die einzige geprüfte Engine, und was eine Sichtbarkeits-Zusicherung dann tragen muss (Bestätigung und Erweiterung von ADR-0023 Punkt 5) | app-shell, bewertungen | accepted | 2026-09-16 |
+| [0029](0029-engine-abhaengige-darstellung-und-der-blinde-fleck.md) | Engine-abhängige **Darstellung** — Chromium bleibt die einzige geprüfte Engine, und was eine Sichtbarkeits-Zusicherung dann tragen muss (Bestätigung und Erweiterung von ADR-0023 Punkt 5) | app-shell, bewertungen | accepted (Punkt 6 nachgetragen 2026-09-17) | 2026-09-16 |
 
 **Status-Werte** wörtlich wie im ADR selbst: `proposed` · `accepted` ·
 `superseded by ADR-NNNN`.

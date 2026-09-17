@@ -104,6 +104,19 @@ ist zugesichert" und schließt daraus mehr, als dort steht.
    Stellt ein Lead beim Umsetzen fest, dass eine vorgeschriebene Bauform in
    einer Engine nicht greift, ist das ein `blocked` an den `architekt`.
 
+   **Nachtrag 2026-09-17 — der offene Punkt ist erledigt, aber nicht
+   beantwortet.** Die siebte Runde in `design-conventions.md` hat die Frage
+   nicht geklärt, sondern **umgangen**: Der Nutzer wurde genau zu dieser
+   Abwägung befragt und hat die sichere Variante gewählt, deshalb steht
+   `appearance: none` seither auf **beidem** — dem Thumb-Pseudo-Element
+   *und* dem `<input>` selbst (`Bewertungsachse.vue`, abgenommen mit
+   PO-2026-09-16-001). Damit zeichnet der Regler Bahn und Thumb vollständig
+   selbst, und es kommt auf die Antwort nicht mehr an. Ob die reine
+   Pseudo-Element-Variante in WebKit gereicht hätte, bleibt **unbeantwortet**
+   und ist für dieses Projekt gegenstandslos. Dieser Punkt ist damit eine
+   historische Feststellung und **kein laufender Tracker** — wer hier nach
+   offener Arbeit sucht, findet keine.
+
 ## Konsequenzen
 
 - Positiv: Der teuerste Fehlermodus dieses Projekts — „grün, aber nie rot"

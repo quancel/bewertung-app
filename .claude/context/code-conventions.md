@@ -7,7 +7,13 @@
 > nicht hierhin.
 
 - **Modus**: `vorgegeben` (Greenfield, ADR-0002)
-- **Zuletzt geprüft**: 2026-09-16, beim Einordnen von PO-2026-09-16-001/-002:
+- **Zuletzt geprüft**: 2026-09-17, Nachpflege nach der Abnahme von
+  PO-2026-09-16-001/-002: die Bauform für Trefferflächen an selbst
+  gezeichneten Bedienelementen (transparenter `border` + inset `box-shadow`,
+  aus zwei Abnahmebefunden), der permanente Rahmen ohne
+  `:not(:focus-visible)`-Bindung, die Bildschirmfotos als Teil der
+  Darstellungs-Verifikation, die offene Tokenfrage am Reglerdaumen.
+  Davor 2026-09-16, beim Einordnen von PO-2026-09-16-001/-002:
   was `pruefeReglerGreifbarkeit` prüft und was nicht, die Grenze
   „engine-abhängige Darstellung" und der Ausfallpfad einer
   Darstellungsregel (ADR-0029). Davor 2026-09-15, Nachpflege nach der Reglerrunde
@@ -226,6 +232,28 @@ src/
   misst die Container-Abfrage eine Breite, die es nie gibt, oder das Element
   läuft aus dem Bildschirm. **Vertikal scrollen ist normal, horizontal nie** —
   aus dem Bildschirm ragen darf nichts.
+- **Ein selbst gezeichnetes Bedienelement wächst auf seine Trefferfläche über
+  einen transparenten `border`, nicht über `padding`** (Vorbild: Reglerbahn in
+  `Bewertungsachse.vue` — 8px Bahn + `border-width: 18px 0` = 44px). Drei
+  Teile, die nur zusammen funktionieren:
+  - **Lokale Ausnahme `box-sizing: content-box`** vom globalen `border-box`
+    (`base.css`) — sonst verdrängt der Rahmen die deklarierte Höhe der
+    sichtbaren Fläche, statt sie zu ergänzen.
+  - **`background-clip: content-box`** — sonst färbt der Hintergrund die
+    gesamte Trefferfläche statt nur die sichtbare Fläche.
+  - **Der sichtbare Rahmen ist ein inset `box-shadow` (`inset 0 0 0 Npx`),
+    kein `outline`.** `outline-offset` kennt **einen** Versatz für alle vier
+    Seiten und zieht ihn auch auf der Achse ohne Abstand nach innen (Befund:
+    die Bahn endete sichtbar 18px vor beiden Enden). Der inset-Schatten
+    beginnt immer an der Innenkante des Rahmens (Padding-Box) und passt sich
+    damit pro Achse von selbst an. Das ist zugleich der Grund für `border`
+    statt `padding`: mit `padding` läge die Padding-Box an der falschen Kante.
+- **Ein permanenter Rahmen wird nicht an `:not(:focus-visible)` gehängt.**
+  `box-shadow` und `outline` sind verschiedene CSS-Eigenschaften und bleiben
+  gleichzeitig sichtbar — der Fokusring **ergänzt** einen permanenten Rahmen,
+  statt ihn zu ersetzen. Die Ausnahme-Bindung ließ den Rahmen bei
+  Tastaturfokus komplett verschwinden (zweiter Abnahmebefund
+  PO-2026-09-16-001).
 - **Custom Properties funktionieren nicht in `@media`/`@container`** — dort
   steht die Zahl wörtlich, mit Tokennamen im Kommentar. `var(--breakpoint-lg)`
   in einer Bedingung trifft stillschweigend nie zu.
@@ -426,6 +454,18 @@ src/
   obwohl `AppRahmen.vue` `padding-bottom` reserviert. Und die Prüfumgebung
   meldet sich selbst: Chromium protokolliert jeden abgefangenen `fetch`/`xhr`
   als Konsolenfehler.
+- **Die Bildschirmfotos in `.smoke/` gehören zur Verifikation einer
+  Darstellungsänderung, nicht zum Beiwerk.** Der Rauchtest prüft **benannte
+  Eigenschaften** (Trefferfläche, Greifbarkeit, Verdeckung, Überstand) — die
+  **Geometrie** einer selbst gezeichneten Fläche prüft keine davon. Beide
+  Abnahmebefunde aus PO-2026-09-16-001 waren in Chromium sichtbar und standen
+  im Bildschirmfoto; der Lauf war trotzdem grün, zu Recht. Wer eine
+  Darstellung ändert, sieht das Bildschirmfoto der betroffenen Ansicht **je
+  Breite** an und sagt im Bericht, dass er es getan hat. Das ist die zweite
+  Hälfte der Grenze aus ADR-0029: dort die ungeprüfte **Engine**, hier die
+  ungeprüfte **Eigenschaft in der geprüften Engine**. Kein Ersatz für eine
+  Zusicherung — wo sich die Eigenschaft als solche formulieren lässt, wird sie
+  zugesichert.
 - **Ein roter Rauchtest, der einen bekannten, bereits geschnittenen Befund
   meldet, wird nicht abgeschwächt** — er wird durch das zugehörige Paket
   grün. Fehlt Playwright: überspringen, Exit-Code 0, im Bericht ausdrücklich
@@ -455,6 +495,15 @@ Befund meldet.
   beide Felder, klappt der Abschnitt zu und der Reveal-Button muss erneut
   gedrückt werden. Im Browser bestätigt, bewusst so gelassen — **kein
   unentdeckter Fehler**, nicht nebenbei reparieren.
+- **Die Maße des Reglerdaumens stehen als Literale in `Bewertungsachse.vue`**
+  (24px Durchmesser, 2px Rahmen; dazu 18px/8px an der Bahn) statt als Tokens.
+  `design-conventions.md` gibt bewusst keinen Absolutwert vor, nur Gleichheit
+  zwischen den Zuständen — 24px ist die Bemessungswahl des Leads, im
+  Dateikommentar begründet. **Nicht nebenbei tokenisieren**: Ob daraus ein
+  benannter Wert wird, entscheidet der `ux-ui-designer` in
+  `design-conventions.md` (Single-Writer). Bis dahin: bei einer Änderung beide
+  Pseudo-Element-Regeln (`::-webkit-slider-thumb`, `::-moz-range-thumb`)
+  mitziehen.
 - **`istOffeneAuswahlliste()` in `scripts/smoke.mjs` ist ungeprüft**
   (Nutzerentscheidung 2026-09-13): `ORTSSUCHE_ZUSTAENDE` kennt keinen
   `treffer`-Zustand, die Ausnahme wird von keinem Testzustand durchlaufen.

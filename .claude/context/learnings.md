@@ -133,6 +133,24 @@
   gemeldet hatte. Führt der Ausfallpfad in den gemeldeten Fehler zurück, ist
   die Zusicherung nicht degradiert, sondern nicht vorhanden.
   (task_id: PO-2026-09-16-001, ADR-0029 P5)
+- [2026-09-17] projektweit: Der blinde Fleck einer Zusicherung liegt nicht nur
+  in der ungeprüften Engine (ADR-0029), sondern auch **in der geprüften**:
+  Beide Abnahmebefunde aus -001 (Bahnrahmen endete 18px vor beiden Enden;
+  Rahmen verschwand bei Tastaturfokus) waren in Chromium sichtbar und standen
+  im Bildschirmfoto in `.smoke/` — der Rauchtest prüft Trefferfläche und
+  Bedienbarkeit, nicht die **Geometrie** der Darstellung. Bei einem Paket,
+  dessen Ergebnis eine Darstellung ist, das Ansehen der ohnehin erzeugten
+  Bildschirmfotos als `constraint` setzen, statt den Exit-Code als Abnahme zu
+  lesen. (task_id: PO-2026-09-16-001)
+- [2026-09-17] projektweit: `notes_for_learnings`/`notes_for_conventions` aus
+  einem Umsetzungslauf **vor** der Abnahme stehen unter Vorbehalt. Der erste
+  Lauf von -001 empfahl `outline`/`outline-offset`; genau diesen Ansatz
+  verwarf die Abnahme mit zwei Befunden, der zweite Lauf ersetzte ihn durch
+  einen inset `box-shadow`. Ungeprüft übernommen wäre der verworfene
+  Zwischenschritt als Regel in `code-conventions.md` gelandet und im nächsten
+  Handoff als `constraint` auf Rangstufe 2. Beim Kuratieren die Notizen gegen
+  den **abgenommenen** Endstand lesen — im Zweifel im Code nachsehen —, nicht
+  gegen den Lauf, aus dem sie stammen. (task_id: PO-2026-09-16-001)
 - [2026-09-11] orte/tags/karte: Leerzustände sind je **Filterstufe** zu
   zählen, nicht pauschal einer. Bestand leer · Filter ohne Treffer · gefiltert,
   aber nichts davon darstellbar (Orte ohne Koordinaten) sind drei verschiedene
