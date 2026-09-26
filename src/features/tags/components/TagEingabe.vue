@@ -221,10 +221,12 @@ defineExpose({ uebernimmOffeneEingabe })
         class="tag-eingabe__pill"
         :class="{ 'tag-eingabe__pill--uebernommen': istRueckkehrMarkiert(tag) }"
       >
-        {{ tag }}<span
-          v-if="istRueckkehrMarkiert(tag)"
-          class="tag-eingabe__pill-zusatz"
-        > · übernommen</span>
+        {{ tag }}<Transition name="tag-eingabe__pill-zusatz-fade">
+          <span
+            v-if="istRueckkehrMarkiert(tag)"
+            class="tag-eingabe__pill-zusatz"
+          > · übernommen</span>
+        </Transition>
         <button
           type="button"
           class="tag-eingabe__entfernen"
@@ -314,7 +316,11 @@ defineExpose({ uebernimmOffeneEingabe })
    Information zusätzlich. Fade-in läuft über die `transition` oben, erst
    ausgelöst, sobald das Dokument wieder sichtbar ist (reine Darstellung,
    kein Commit, siehe Skript-Kommentar); reduzierte Bewegung ersetzt die
-   Transition-Dauer projektweit (base.css). */
+   Transition-Dauer projektweit (base.css). Der Text-Zusatz selbst blendet
+   über die `<Transition name="tag-eingabe__pill-zusatz-fade">` unten
+   getrennt ein/aus (PO-2026-09-26-001 Roundtrip, Kriterium 10) — dasselbe
+   `--duration-180`/`--ease-out`-Timing wie die Pillenfarben oben, kein
+   neuer Wert. */
 .tag-eingabe__pill--uebernommen {
   border-color: transparent;
   background-color: var(--color-primary-50);
@@ -323,6 +329,16 @@ defineExpose({ uebernimmOffeneEingabe })
 
 .tag-eingabe__pill-zusatz {
   color: inherit;
+}
+
+.tag-eingabe__pill-zusatz-fade-enter-active,
+.tag-eingabe__pill-zusatz-fade-leave-active {
+  transition: opacity var(--duration-180) var(--ease-out);
+}
+
+.tag-eingabe__pill-zusatz-fade-enter-from,
+.tag-eingabe__pill-zusatz-fade-leave-to {
+  opacity: 0;
 }
 
 .tag-eingabe__entfernen {
