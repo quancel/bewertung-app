@@ -103,6 +103,16 @@ src/
   zweiter Weg „nur für Kleinigkeiten" (ADR-0006).
 - **`components/` kennt keinen Store** (Props rein, Emits raus); `views/`
   sind die einzige Stelle, die Stores anbinden.
+  - **Einzige Ausnahme vom „nur Emits raus": unbestätigte Eingabe abgeben**
+    (ADR-0030). Hält eine Komponente im Ortsdetail einen Entwurf lokal,
+    exponiert sie per `defineExpose` genau eine synchrone Methode, die ihn
+    über ihren normalen Commit-Weg und ihr normales Emit abgibt. Die View
+    ruft sie bei Route verlassen, `visibilitychange`→`hidden` und `pagehide`
+    **vor** dem Persistieren auf — über eine Hilfsfunktion, nicht je Auslöser
+    nachgebaut. Die Komponente registriert dafür keinen eigenen
+    `document`/`window`-Listener. Der Emit-Handler in der View bindet die
+    Ort-ID des gerenderten Ortes, nicht die reaktive `ortId`; die Komponente
+    wird per `:key` auf der `ortId` eingebunden.
 - **Eine projektweit entschiedene Interaktionsregel steht einmal in
   `shared/composables/`**, nicht je Feature nachgebaut (ADR-0024; Bauform wie
   `useNetzzustand.ts`). `shared/` ist kein Bounded Context — ein Baustein

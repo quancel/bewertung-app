@@ -13,7 +13,14 @@
 > Eine Zeile pro ADR. Keine Zusammenfassung des Inhalts — der Titel muss
 > reichen, um zu entscheiden, ob das ADR relevant ist.
 
-**Stand: 2026-09-16** — neunundzwanzig ADRs. **0029** beim Einordnen der
+**Stand: 2026-09-26** — dreißig ADRs. **0030** beim Einordnen von
+PO-2026-09-26-001 (Live-Befund „Tags speichern nicht": `TagEingabe.vue`
+committete nur über Enter). 0030 **erweitert** ADR-0013 Punkt 3 um genau eine
+exponierte Methode „gib deinen unbestätigten Stand ab" und wendet ADR-0005
+Punkt 5 sowie ADR-0025 Punkt 4/5 auf die Tag-Eingabe an. Kein
+`superseded by` — alle drei bleiben `accepted`.
+
+Davor **Stand: 2026-09-16** — neunundzwanzig ADRs. **0029** beim Einordnen der
 **Reglerrunde vom 2026-09-16** (PO-2026-09-16-001/-002, Live-Befund des
 Nutzers auf iOS Safari: die Sichtbarkeits-Korrektur aus PO-2026-09-13-002
 griff auf WebKit nicht, weil `accent-color` dort die gefüllte Bahn tönt und
@@ -126,6 +133,7 @@ PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
 | [0027](0027-komponentenverhalten-verifizieren.md) | Komponentenverhalten verifizieren — `@vue/test-utils` + jsdom als datei-lokales Opt-in, sichtbare Bedienelemente im Rauchtest (Erweiterung von ADR-0023 Punkt 4) | bewertungen, orte, app-shell | accepted (Punkt 5 korrigiert 2026-09-15) | 2026-09-14 |
 | [0028](0028-detail-chrome-folgt-dem-rahmen-breakpoint.md) | Chrome der Detailspalte folgt dem Rahmen-Breakpoint per `@media`, nicht der Containerbreite (Präzisierung von ADR-0012 Punkt 3) | orte, app-shell | accepted | 2026-09-14 |
 | [0029](0029-engine-abhaengige-darstellung-und-der-blinde-fleck.md) | Engine-abhängige **Darstellung** — Chromium bleibt die einzige geprüfte Engine, und was eine Sichtbarkeits-Zusicherung dann tragen muss (Bestätigung und Erweiterung von ADR-0023 Punkt 5) | app-shell, bewertungen | accepted (Punkt 6 nachgetragen 2026-09-17) | 2026-09-16 |
+| [0030](0030-unbestaetigte-eingabe-ueber-die-komponentengrenze.md) | Unbestätigte Eingabe über die Komponentengrenze — die View holt sie über eine exponierte Methode ab, bevor sie persistiert (Erweiterung von ADR-0013 Punkt 3) | tags, orte, bewertungen | accepted | 2026-09-26 |
 
 **Status-Werte** wörtlich wie im ADR selbst: `proposed` · `accepted` ·
 `superseded by ADR-NNNN`.

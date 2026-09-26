@@ -7,6 +7,9 @@
 - **Präzisiert durch**: ADR-0016 Punkt 9/10 (`medien` mit eigenem Store),
   ADR-0022 (reine Funktionen aus `features/<context>/lib/`). Punkt 2 nennt
   nur präsentationale Komponenten; maßgeblich ist Punkt 3 (Zyklusfreiheit).
+- **Erweitert durch**: ADR-0030 (neben Props/Emits genau eine exponierte
+  Methode, mit der die View den unbestätigten Eingabestand einer solchen
+  Komponente abholt — store-/routerfrei bleibt die Komponente trotzdem).
 
 ## Kontext
 

@@ -6,7 +6,11 @@
 > Halte sie kompakt (Faustregel: < 100 Zeilen). Sie ist ein Register,
 > kein Design-Dokument — Details gehören in ADRs unter `adr/`.
 
-- **Stand**: 2026-09-16 (Einordnen von PO-2026-09-16-001/-002: keine neue
+- **Stand**: 2026-09-26 (Einordnen von PO-2026-09-26-001: keine neue
+  Context-Grenze. Die Darstellungs-Gegenrichtung `orte`-View → präsentationale
+  Komponente kennt neben Props/Emits jetzt genau eine exponierte Methode zum
+  Abholen unbestätigter Eingabe, ADR-0030.)
+  Davor 2026-09-16 (Einordnen von PO-2026-09-16-001/-002: keine neue
   Context-Grenze, keine neue Beziehung. `bewertungen` bleibt präsentational
   und store-frei; der blinde Fleck „engine-abhängige Darstellung" ist mit
   ADR-0029 benannt und liegt bei `app-shell` — `scripts/` ist kein Context.)
@@ -81,7 +85,9 @@ vollständiges Sequenzdiagramm.
   Eine **View** in `orte` darf **präsentationale, store-freie** Komponenten
   aus `bewertungen`, `tags` und `medien` importieren und sie über Props und
   Emits anbinden — die Filterleiste und die Tag-Eingabe aus -004, die
-  Achsen-Bearbeitung aus -002. Dasselbe gilt für **reine Funktionen** aus
+  Achsen-Bearbeitung aus -002. Hält eine solche Komponente einen
+  unbestätigten Entwurf, holt die View ihn vor dem Persistieren über genau
+  eine exponierte Methode ab (ADR-0030, ab PO-2026-09-26-001 `TagEingabe.vue`). Dasselbe gilt für **reine Funktionen** aus
   `features/<context>/lib/` (ADR-0022, ab -006: `koordinatenFilter.ts` und
   `leerzustand.ts` aus `karte`). Sobald ein solches Modul selbst einen Store
   anfasst oder aus `orte` importiert, entfällt die Erlaubnis; nur so bleibt
