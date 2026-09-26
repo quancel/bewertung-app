@@ -1,5 +1,5 @@
 import { reactive } from 'vue'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { oeffneDatenbank, _resetFuerTests as resetDb } from './db'
 import { speichereOrt, loescheOrt, ladeAlleOrte } from './orte-repository'
 import type { OrtDatensatz } from './schema'
@@ -160,6 +160,78 @@ describe('orte-repository', () => {
       ])
     }
   })
+
+  it(
+    'committet den Schreibvorgang direkt nach put() — nur Microtasks dazwischen, keine Task-Grenze (ADR-0031 Punkt 2, Rückläufer PO-2026-09-26-001)',
+    async () => {
+      // Rot-Nachweis (ADR-0027 Punkt 8): Vor dieser Härtung rief
+      // `tatsaechlichSpeichern` die `db.put(...)`-Kurzform auf, die NIE
+      // `IDBTransaction.prototype.commit` aufruft — dieser Test hätte den
+      // `commitSpy` nie invoziert gesehen und wäre an der
+      // `commitSpy`-Prüfung gescheitert.
+      const reihenfolge: string[] = []
+
+      // `vi.spyOn` ruft ohne eigene `mockImplementation` transparent durch —
+      // hier bewusst MIT `mockImplementation`, die selbst noch die
+      // ursprüngliche Implementierung aufruft, weil wir den exakten
+      // Aufrufzeitpunkt (vor/nach der Task-Grenze) protokollieren wollen,
+      // ohne das tatsächliche Verhalten zu verändern.
+      const putOriginal = globalThis.IDBObjectStore.prototype.put
+      const putSpy = vi
+        .spyOn(globalThis.IDBObjectStore.prototype, 'put')
+        .mockImplementation(function (this: IDBObjectStore, ...args: Parameters<IDBObjectStore['put']>) {
+          reihenfolge.push('put')
+          return putOriginal.apply(this, args)
+        })
+
+      const commitOriginal = globalThis.IDBTransaction.prototype.commit
+      const commitSpy = vi
+        .spyOn(globalThis.IDBTransaction.prototype, 'commit')
+        .mockImplementation(function (this: IDBTransaction) {
+          reihenfolge.push('commit')
+          return commitOriginal.apply(this)
+        })
+
+      try {
+        // Eine ECHTE Task-Grenze (setTimeout), VOR dem Schreibaufruf
+        // eingeplant — läuft nach der Spezifikation garantiert erst, nachdem
+        // die Microtask-Warteschlange vollständig abgearbeitet ist. `put()`
+        // und `commit()` liegen beide auf dem Microtask-Weg zwischen
+        // `speichereOrt()` und dem eigentlichen IndexedDB-Aufruf (der
+        // `.then()` der Warteschlange plus das `await oeffneDatenbank()` auf
+        // die bereits gecachte Verbindung) — sie MÜSSEN also vor diesem
+        // Marker in `reihenfolge` erscheinen, wenn Punkt 2 hält.
+        let schreibErgebnis: ReturnType<typeof speichereOrt> | undefined
+        await new Promise<void>((fertig) => {
+          setTimeout(() => {
+            reihenfolge.push('task-grenze')
+            fertig()
+          }, 0)
+          schreibErgebnis = speichereOrt(beispielOrt())
+        })
+        // Den eigentlichen Schreibvorgang sauber zu Ende laufen lassen, statt
+        // ihn über das Testende hinaus offen zu lassen (der Store schreibt
+        // in denselben, testübergreifend genutzten `fake-indexeddb`-Zustand).
+        await schreibErgebnis
+
+        const putIndex = reihenfolge.indexOf('put')
+        const commitIndex = reihenfolge.indexOf('commit')
+        const taskGrenzeIndex = reihenfolge.indexOf('task-grenze')
+
+        expect(commitIndex, `commit() wurde nicht aufgerufen (Reihenfolge: ${reihenfolge.join(', ')})`).toBeGreaterThanOrEqual(0)
+        expect(putIndex, `put() wurde nicht aufgerufen (Reihenfolge: ${reihenfolge.join(', ')})`).toBeGreaterThanOrEqual(0)
+        // Kernaussage von ADR-0031 Punkt 2: commit() liegt VOR der
+        // Task-Grenze — trägt das Microtask-Scheduling von `fake-indexeddb`
+        // diese Aussage in einem künftigen Lauf nicht mehr, schlägt genau
+        // diese Zeile fehl (siehe Bericht).
+        expect(commitIndex).toBeLessThan(taskGrenzeIndex)
+        expect(putIndex).toBeLessThan(taskGrenzeIndex)
+      } finally {
+        putSpy.mockRestore()
+        commitSpy.mockRestore()
+      }
+    },
+  )
 
   it('meldet "speicher_nicht_verfuegbar", wenn die Datenbank nicht geöffnet werden kann', async () => {
     const echtesIndexedDB = globalThis.indexedDB

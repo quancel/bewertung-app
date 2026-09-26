@@ -7,6 +7,22 @@
  * zurückgegeben, wie sie in der Datenbank stehen. Ergebnisse statt
  * Ausnahmen: jede Funktion liefert ein ausdrückliches, unterscheidbares
  * Ergebnis.
+ *
+ * Gehärteter Schreibweg (ADR-0031 Punkt 2, Rückläufer PO-2026-09-26-001):
+ * `tatsaechlichSpeichern` nutzt bewusst NICHT mehr die `db.put(...)`-Kurzform
+ * (implizite Transaktion, impliziter Auto-Commit), sondern eine eigene
+ * Transaktion mit ausdrücklichem `tx.commit()` **direkt** nach dem Anstoßen
+ * von `put()` — noch bevor darauf gewartet wird. Grund: Ohne `commit()` muss
+ * die Rückmeldung des `put()`-Requests erst im Dokument ankommen, bevor der
+ * Auto-Commit greift; genau dieser Rückweg fehlt, wenn `put()` erst im
+ * Entladen der Seite (`pagehide`) angestoßen wird — die Transaktion bliebe
+ * dann für den Browser offen, ohne dass er weiß, dass sie sofort committet
+ * werden könnte. `tx.commit()` ist nicht in jeder Umgebung vorhanden, daher
+ * die Laufzeitprüfung `typeof tx.commit === 'function'`; fehlt sie, bleibt
+ * der bisherige Auto-Commit unverändert. Ob das den Verlustfall in Chromium
+ * tatsächlich behebt, ist laut ADR-0031 Punkt 2 **nicht belegt** — nur der
+ * Messlauf in `scripts/smoke.mjs` (Fall b) zeigt das empirisch, dieses ADR
+ * verspricht es nicht.
  */
 import { oeffneDatenbank } from './db'
 import { sichereKopie } from './sichere-kopie'
@@ -71,7 +87,18 @@ async function tatsaechlichSpeichern(ort: OrtDatensatz): Promise<SchreibErgebnis
   }
 
   try {
-    await geoeffnet.db.put('orte', sichereKopie(ort))
+    const tx = geoeffnet.db.transaction('orte', 'readwrite')
+    const schreibvorgang = tx.store.put(sichereKopie(ort))
+    // ADR-0031 Punkt 2: SOFORT nach dem Anstoßen von `put()` committen, ohne
+    // vorher auf irgendetwas zu warten — zwischen `speichereOrt()` und hier
+    // liegen (bei bereits geöffneter, gecachter Datenbankverbindung und ohne
+    // ausstehenden älteren Schreibvorgang für diese ID) nur Microtasks,
+    // keine Task-Grenze.
+    if (typeof tx.commit === 'function') {
+      tx.commit()
+    }
+    await schreibvorgang
+    await tx.done
     return { status: 'geschrieben' }
   } catch (fehler) {
     return { status: 'schreiben_fehlgeschlagen', grund: bestimmeSchreibfehlerGrund(fehler) }

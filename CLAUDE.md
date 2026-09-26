@@ -245,26 +245,36 @@ klickbasierte Prüfung wäre gegen den defekten Stand grün gewesen. Beides wirk
 umständlich und ist es nicht; wer es vereinfacht, bekommt eine Zusicherung,
 die nie wieder rot wird.
 
-Drei weitere Zusicherungen prüfen die Tag-Eingabe (PO-2026-09-26-001,
+Vier weitere Zusicherungen prüfen die Tag-Eingabe (PO-2026-09-26-001,
 ADR-0030, `pruefeTagUeberlebtNeuladen`, nur bei 1280px): **ein Tag committet
 auch ohne Enter** — (a) Tab statt Enter verlässt das Feld, der Tag übersteht
 ein Neuladen und ist danach über die Filterleiste filterbar (der ursprünglich
-gemeldete Fehler samt seinem zweiten Teil, „sind dann nicht filterbar"); (b)
-der Text bleibt im **fokussierten** Feld stehen (kein Tab/Klick/Enter),
-Persistenz läuft ausschließlich über `pagehide` beim Neuladen; (c) ein
-Ortswechsel ab `lg` **ausschließlich über den Browserverlauf**
-(`goBack`/`goForward`, nie über einen Klick, der selbst schon einen Commit
-auslösen würde) lässt unbestätigten Text nicht im falschen Feld landen und
-committet ihn beim vorherigen Ort. Fall (b) ist nach aktuellem Kenntnisstand
-**dauerhaft rot** und das ist keine Abschwächung wert: Das asynchrone
-IndexedDB-`put()` hinter `store.persistiereOrt()` (`void`, nicht awaited,
-ADR-0005) bekommt beim realen, browserausgelösten `pagehide` nicht
-zuverlässig genug Zeit, um vor dem Entladen des Dokuments abzuschließen —
-verifiziert über einen Vergleichslauf, der `visibilitychange` künstlich
-vorzeitig auslöst und dem Schreibvorgang dadurch einen Vorsprung verschafft:
-Dort committet exakt derselbe Code zuverlässig. Das ist eine Grenze von
-ADR-0005 (fire-and-forget-Persistenz, bewusst kein blockierendes
-`beforeunload`), keine Lücke in diesem Paket.
+gemeldete Fehler samt seinem zweiten Teil, „sind dann nicht filterbar"); (b1)
+der Text bleibt im **fokussierten** Feld stehen, `pagehide` wird am
+**weiterlebenden** Dokument ausgelöst (kein echtes Entladen) — der erste
+dadurch angestoßene `put()` trägt bereits den Tag (ADR-0030 Punkt 4), und die
+Pille übersteht ein anschließendes echtes Neuladen; (c) ein Ortswechsel ab
+`lg` **ausschließlich über den Browserverlauf** (`goBack`/`goForward`, nie
+über einen Klick, der selbst schon einen Commit auslösen würde) lässt
+unbestätigten Text nicht im falschen Feld landen und committet ihn beim
+vorherigen Ort.
+
+Eine fünfte, **gemeldete, aber nicht harte** Zusicherung (b2, ADR-0031,
+benannte Ausnahme zu ADR-0023 Punkt 2/7, analog zu „auf WebKit ungeprüft"
+ADR-0029): Text im fokussierten Feld, ein **echtes** `seite.reload()` löst
+das entladungsbedingte `pagehide` aus. Ursprünglich (PO-2026-09-26-001) war
+das derselbe Fall wie (b1) und **dauerhaft rot** — Nachforschung ergab: Kein
+Mechanismus im Rahmen von ADR-0001/0004 sichert zu, dass ein erst beim
+Entladen der Seite angestoßener Schreibvorgang abschließt, das gilt
+strukturell für **jedes** Feld im Ortsdetail, nicht nur Tags (ADR-0031 Punkt
+1/5). Der Nutzer hat „als bekannte Grenze akzeptieren" gewählt: `pruefeTagUeberlebtNeuladen`
+meldet diesen Fall bei jedem Lauf als „erhalten"/„verloren", ohne
+`process.exitCode` zu beeinflussen. `src/persistence/orte-repository.ts`
+härtet den Schreibweg zusätzlich (`tx.commit()` direkt nach `put()`, ADR-0031
+Punkt 2) — Messlauf des `frontend-lead` (5× mit, 5× ohne diese Härtung):
+5/5 erhalten mit `tx.commit()`, 0/5 ohne. Das ist ein empirischer Beleg für
+Chromium in dieser Umgebung, **keine Zusicherung** — deshalb bleibt (b2)
+gemeldet statt hart.
 
 **Der Lead führt ihn aus, bevor er ein Paket als erledigt meldet** — nicht
 statt der Unit-Tests, sondern zusätzlich. Typecheck, Lint und Vitest

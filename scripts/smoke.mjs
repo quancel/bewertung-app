@@ -91,20 +91,30 @@
  * `@media`-Bedingung wie „Zurück" — `pruefeAbschlussKombination()` prüft je
  * Breite genau die vorgesehene Kombination, nicht nur „Fertig" isoliert.
  *
- * Ab PO-2026-09-26-001 (ADR-0030) kommen drei weitere, unabhängige
- * Zusicherungen dazu (`pruefeTagUeberlebtNeuladen()`, nur bei 1280px): Ein
- * Tag im Tag-Feld committet auch OHNE Enter — (a) Tab statt Enter verlässt
- * das Feld, der Tag übersteht ein Neuladen UND ist danach über die
- * Filterleiste filterbar (der zweite, vom Nutzer gemeldete Teil des
- * Fehlers); (b) der Text bleibt im FOKUSSIERTEN Feld stehen, Persistenz
- * läuft ausschließlich über `pagehide` beim Neuladen — GRENZE: Das
- * asynchrone IndexedDB-`put()` dahinter muss vor dem Entladen des Dokuments
- * abschließen, was Chromium nicht zusichert (ADR-0005); (c) ein Ortswechsel
- * ab `lg` ausschließlich über den Browserverlauf (`goBack`/`goForward`, nie
- * über einen Klick, der selbst schon einen Commit auslösen würde) lässt
+ * Ab PO-2026-09-26-001 (ADR-0030) kommen vier weitere Zusicherungen dazu
+ * (`pruefeTagUeberlebtNeuladen()`, nur bei 1280px): Ein Tag im Tag-Feld
+ * committet auch OHNE Enter — (a) Tab statt Enter verlässt das Feld, der Tag
+ * übersteht ein Neuladen UND ist danach über die Filterleiste filterbar (der
+ * zweite, vom Nutzer gemeldete Teil des Fehlers); (b1) der Text bleibt im
+ * FOKUSSIERTEN Feld stehen, `pagehide` wird am WEITERLEBENDEN Dokument
+ * ausgelöst (kein echtes Entladen) — der erste dadurch angestoßene `put()`
+ * trägt bereits den Tag, und die Pille übersteht ein anschließendes echtes
+ * Neuladen (HART, prüft ADR-0030 Punkt 4); (c) ein Ortswechsel ab `lg`
+ * ausschließlich über den Browserverlauf (`goBack`/`goForward`, nie über
+ * einen Klick, der selbst schon einen Commit auslösen würde) lässt
  * unbestätigten Text nicht im falschen Feld landen und committet ihn beim
  * vorherigen Ort. Rot-Nachweis gegen den Stand davor: Dort committete
  * ausschließlich Enter.
+ *
+ * Ab PO-2026-09-26-001/ADR-0031 (Rückläufer nach Fall (b) oben) kommt eine
+ * fünfte, GEMELDETE, aber NICHT harte Zusicherung dazu (b2, benannte
+ * Ausnahme zu ADR-0023 Punkt 2/7, analog zu „auf WebKit ungeprüft"
+ * ADR-0029): Text im fokussierten Feld, ECHTES `seite.reload()`. Kein
+ * Mechanismus im Rahmen von ADR-0001/0004 sichert zu, dass ein erst beim
+ * Entladen angestoßener Schreibvorgang abschließt — dieser Fall bleibt
+ * deshalb ohne Einfluss auf `process.exitCode`, wird aber bei jedem Lauf
+ * als „erhalten"/„verloren" ausgegeben (Warnsystem dafür, ob die Härtung in
+ * `orte-repository.ts`, `tx.commit()`, in Chromium überhaupt trägt).
  *
  * Aufruf: `npm run smoke` (baut vorher). Bildschirmfotos landen in
  * `.smoke/`, das Verzeichnis ist ignoriert.
@@ -813,11 +823,36 @@ async function pruefeReglerCommitWaehrendZiehens(seite, befunde) {
  * gleichzeitig sichtbare Listen-Spalte (Master-Detail ab `lg`, ADR-0011),
  * Fall a/b sind breitenunabhängig — ein zusätzlicher Lauf je Telefonbreite
  * hätte nur die Laufzeit verdreifacht, ohne eine neue Aussage zu liefern.
+ *
+ * Fall (b) ist seit ADR-0031 (Rückläufer PO-2026-09-26-001) in ZWEI
+ * Teile aufgeteilt, s. u.: (b1) hart, prüft die Verdrahtung (ADR-0030
+ * Punkt 4) an einem WEITERLEBENDEN Dokument — dafür zuständig ist dieses
+ * Paket. (b2) bleibt gemeldet, aber ohne Einfluss auf den Exit-Code — dafür
+ * ist NIEMAND aus diesem Paket zuständig, das ist die vom Nutzer akzeptierte
+ * Grenze aus ADR-0031 Punkt 5.
  */
-async function pruefeTagUeberlebtNeuladen(browser, befunde) {
+async function pruefeTagUeberlebtNeuladen(browser, befunde, gemeldeteGrenzen) {
   const seite = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+  // Aufzeichnung für Fall (b1): läuft in JEDEM Dokument dieser Seite (auch
+  // nach einem Neuladen — `addInitScript` wird pro Navigation neu
+  // ausgeführt), umschließt `IDBObjectStore.prototype.put` VOR jedem
+  // Anwendungscode, damit kein `put()` auf dem Object Store "orte"
+  // unbeobachtet bleibt. Nur die Werte werden aufgezeichnet (strukturiert
+  // klonbare Objekte, kein `structuredClone`-Risiko), nicht Blobs — die
+  // gibt es im Object Store "orte" ohnehin nicht.
+  await seite.addInitScript(() => {
+    window.__putAufzeichnung = []
+    const originalPut = IDBObjectStore.prototype.put
+    IDBObjectStore.prototype.put = function (value, key) {
+      if (this.name === 'orte') {
+        window.__putAufzeichnung.push(JSON.parse(JSON.stringify(value)))
+      }
+      return originalPut.call(this, value, key)
+    }
+  })
   await pruefeTagOhneEnterUeberlebtNeuladenUndIstFilterbar(seite, befunde)
-  await pruefeTagImFokussiertenFeldUeberlebtNeuladen(seite, befunde)
+  await pruefeTagPagehideAmLebendenDokument(seite, befunde)
+  await pruefeTagFokussiertesFeldBeimEchtenReload(seite, gemeldeteGrenzen)
   await pruefeTagBleibtBeimOrtswechselAmRichtigenOrt(seite, befunde)
   await seite.close()
 }
@@ -871,16 +906,72 @@ async function pruefeTagOhneEnterUeberlebtNeuladenUndIstFilterbar(seite, befunde
 }
 
 /**
- * Fall (b): Der Text bleibt im FOKUSSIERTEN Feld stehen — kein Tab, kein
- * Klick, kein Enter. Persistenz läuft ausschließlich über `pagehide`, das
- * `seite.reload()` auslöst. GRENZE (ADR-0005, siehe Bericht): Das
- * IndexedDB-`put()` dahinter ist asynchron (`void store.persistiereOrt(…)`);
- * schließt Chromium das Dokument, bevor die Transaktion committet hat,
- * bleibt der Tag verloren — unabhängig vom hier geprüften Code. Wird dieser
- * Fall trotz korrekter Umsetzung rot, ist das laut Handoff ein Blocker an
- * den `architekt` (Grenze von ADR-0005), keine Abschwächung der Zusicherung.
+ * Fall (b1), HART (ADR-0031 Punkt 6): Text im FOKUSSIERTEN Feld, `pagehide`
+ * am WEITERLEBENDEN Dokument ausgelöst (`window.dispatchEvent`, kein
+ * `seite.reload()`) — der Fokus bleibt im Feld, das Dokument wird NICHT
+ * entladen. Das prüft die Verdrahtung aus ADR-0030 Punkt 4 ("erst abholen,
+ * dann schreiben"), unabhängig von der in ADR-0031 benannten,
+ * nicht-zusicherbaren Grenze des echten Entladens (Fall b2 unten): Zugesagt
+ * ist nur, dass der Schreibvorgang ankommt, SOLANGE das Dokument danach
+ * weiterlebt (ADR-0031 Punkt 1b) — das bildet dieser Test nach.
+ *
+ * Zusicherung: Der ERSTE `put()` auf dem Object Store `orte`, den dieser
+ * `pagehide` auslöst, trägt bereits den Tag — aufgezeichnet über ein
+ * `addInitScript`, das `IDBObjectStore.prototype.put` seit Dokumentstart
+ * umschließt (gesetzt in `pruefeTagUeberlebtNeuladen` vor der ersten
+ * Navigation). Anschließend übersteht die Pille ein ECHTES Neuladen — an
+ * diesem Punkt ist der Schreibvorgang bereits abgeschlossen, das echte
+ * Neuladen ist hier nur noch Kontrolle, nicht der eigentliche Auslöser.
+ *
+ * Rot-Nachweis (ADR-0027 Punkt 8): gegen einen Stand ohne
+ * `uebernimmOffeneEingabe`-Aufruf im `pagehide`-Orchestrierungspfad hätte
+ * die Aufzeichnung keinen Tag im ersten (oder gar keinen) `put()` gezeigt.
  */
-async function pruefeTagImFokussiertenFeldUeberlebtNeuladen(seite, befunde) {
+async function pruefeTagPagehideAmLebendenDokument(seite, befunde) {
+  const marker = 'rauchtest-pagehide-lebend'
+  await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+  await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Tag-Pagehide')
+  await seite.locator('.tag-eingabe__feld').fill(marker) // fokussiert, NICHT verlassen
+
+  await seite.evaluate(() => {
+    window.__putAufzeichnung.length = 0
+  })
+  await seite.evaluate(() => window.dispatchEvent(new Event('pagehide'))) // Dokument lebt weiter
+  await seite.waitForTimeout(300)
+
+  const aufzeichnung = await seite.evaluate(() => window.__putAufzeichnung)
+  if (aufzeichnung.length === 0) {
+    befunde.push(
+      'tag-pagehide-lebend: pagehide (am weiterlebenden Dokument) hat keinen put() auf dem Object Store "orte" ausgelöst',
+    )
+  } else if (!(aufzeichnung[0]?.tags ?? []).includes(marker)) {
+    befunde.push(
+      `tag-pagehide-lebend: Der ERSTE put() nach pagehide trägt den Tag "${marker}" noch nicht (tags: ${JSON.stringify(aufzeichnung[0]?.tags)}) — „erst abholen, dann schreiben" (ADR-0030 Punkt 4) verletzt`,
+    )
+  }
+
+  await seite.reload({ waitUntil: 'networkidle' })
+  await seite.waitForTimeout(400)
+  if ((await seite.locator('.tag-eingabe__pill', { hasText: marker }).count()) === 0) {
+    befunde.push(
+      `tag-pagehide-lebend: Pille "${marker}" fehlt nach dem Neuladen, obwohl das Dokument beim eigentlichen Schreiben weiterlebte`,
+    )
+  }
+}
+
+/**
+ * Fall (b2), GEMELDET, OHNE Einfluss auf den Exit-Code (ADR-0031 Punkt 5/6—
+ * benannte Ausnahme zu ADR-0023 Punkt 2/7, analog zum bestehenden „auf
+ * WebKit ungeprüft"-Muster aus ADR-0029). Text bleibt im FOKUSSIERTEN Feld
+ * stehen, ein ECHTES `seite.reload()` löst das entladungsbedingte
+ * `pagehide` aus. Kein Mechanismus im Rahmen von ADR-0001/0004 sichert zu,
+ * dass ein erst dabei angestoßener Schreibvorgang abschließt (ADR-0031
+ * Punkt 1) — dieser Fall bleibt deshalb bewusst außerhalb der harten
+ * Zusicherungen, er ist das Warnsystem dafür, ob die Härtung aus ADR-0031
+ * Punkt 2 (`tx.commit()` in `orte-repository.ts`) in Chromium überhaupt
+ * trägt, nicht ein Kriterium.
+ */
+async function pruefeTagFokussiertesFeldBeimEchtenReload(seite, gemeldeteGrenzen) {
   const marker = 'rauchtest-fokus-tag'
   await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
   await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Tag-Fokus')
@@ -889,9 +980,10 @@ async function pruefeTagImFokussiertenFeldUeberlebtNeuladen(seite, befunde) {
 
   await seite.reload({ waitUntil: 'networkidle' })
   await seite.waitForTimeout(400)
-  if ((await seite.locator('.tag-eingabe__pill', { hasText: marker }).count()) === 0) {
-    befunde.push(`tag-fokussiertes-feld: Pille "${marker}" fehlt am Ort nach dem Neuladen (Fokus im Feld, kein Verlassen)`)
-  }
+  const erhalten = (await seite.locator('.tag-eingabe__pill', { hasText: marker }).count()) > 0
+  gemeldeteGrenzen.push(
+    `tag-fokussiertes-feld-echter-reload (ADR-0031, benannte Grenze, kein Kriterium): Tag "${marker}" ist nach dem echten Neuladen ${erhalten ? 'ERHALTEN geblieben' : 'VERLOREN gegangen'} — abhängig davon, ob die IndexedDB-Transaktion vor dem Entladen des Dokuments abschließen konnte.`,
+  )
 }
 
 /**
@@ -993,6 +1085,9 @@ async function main() {
   const server = starteVorschau()
   let browser
   const befunde = []
+  // Gemeldet, aber ohne Einfluss auf `process.exitCode` (ADR-0031 Punkt 5/6,
+  // benannte Ausnahme zu ADR-0023 Punkt 2/7) — aktuell nur Fall (b2), s. u.
+  const gemeldeteGrenzen = []
 
   try {
     if (!(await warteAufServer())) {
@@ -1057,10 +1152,19 @@ async function main() {
 
     // Zusicherungen ab PO-2026-09-26-001 (ADR-0030), s.o. — nur bei 1280px
     // (Fall c braucht die gleichzeitig sichtbare Listen-Spalte ab `lg`).
-    await pruefeTagUeberlebtNeuladen(browser, befunde)
+    await pruefeTagUeberlebtNeuladen(browser, befunde, gemeldeteGrenzen)
   } finally {
     await browser?.close()
     beendeVorschau(server)
+  }
+
+  // Immer ausgegeben, unabhängig vom Ausgang unten (ADR-0031 Punkt 6, analog
+  // zum bestehenden „auf WebKit ungeprüft"-Muster ADR-0029): eine benannte,
+  // nicht zusicherbare Grenze bleibt sichtbar, auch wenn alles andere grün
+  // ist — und verschwindet nicht in einem roten Lauf zwischen echten Befunden.
+  if (gemeldeteGrenzen.length > 0) {
+    console.log('\nGemeldet, ohne Einfluss auf den Exit-Code (ADR-0031):')
+    for (const grenze of gemeldeteGrenzen) console.log(`  - ${grenze}`)
   }
 
   if (befunde.length > 0) {
@@ -1076,8 +1180,10 @@ async function main() {
   console.log('Alle Ansichten geöffnet, keine Laufzeitfehler, CSS-Ressourcen aufgelöst,')
   console.log('kein Bedienelement verdeckt, nichts ragt aus dem Bildschirm, ein angelegter')
   console.log('Ort übersteht ein Neuladen. Ein Tag committet auch ohne Enter (Feld verlassen,')
-  console.log('fokussiertes Feld beim Neuladen, Ortswechsel ab lg über den Browserverlauf) und')
-  console.log('bleibt filterbar (PO-2026-09-26-001, ADR-0030).')
+  console.log('pagehide am weiterlebenden Dokument, Ortswechsel ab lg über den Browserverlauf)')
+  console.log('und bleibt filterbar (PO-2026-09-26-001, ADR-0030). Das Verhalten beim ECHTEN')
+  console.log('Entladen mit Fokus im Feld ist eine benannte, nicht zusicherbare Grenze')
+  console.log('(ADR-0031) — siehe „Gemeldet" oben.')
   // ADR-0029 Punkt 4: ein ERFOLGREICHER Lauf weist die Grenze selbst aus,
   // nicht nur der Fehlerfall (Playwright-Skip oben) und nicht nur der Kopf
   // dieser Datei. Als Eigenschaft formuliert, nicht als Funktions-/
