@@ -151,6 +151,20 @@
   Handoff als `constraint` auf Rangstufe 2. Beim Kuratieren die Notizen gegen
   den **abgenommenen** Endstand lesen — im Zweifel im Code nachsehen —, nicht
   gegen den Lauf, aus dem sie stammen. (task_id: PO-2026-09-16-001)
+- [2026-09-26] projektweit: Ein Kriterium „überlebt X" ist nur so hart wie
+  das, was die **Plattform** zusichert. „Überlebt Neuladen bei Fokus im Feld"
+  verlangte, dass ein erst im `pagehide` angestoßenes IndexedDB-Schreiben
+  fertig wird — das garantiert kein Browser. Die Grenze galt seit -001 für
+  jedes Feld und fiel erst mit dem ersten scharfen Test auf. Beim Einordnen
+  prüfen, **wann** der Schreibvorgang startet: bei lebendem oder bei
+  entladendem Dokument. (task_id: PO-2026-09-26-001, ADR-0031)
+- [2026-09-26] app-shell/projektweit: Der Rauchtest prüft „nichts verdeckt,
+  nichts ragt heraus", aber nicht „was sichtbar sein soll, ist sichtbar".
+  Deshalb blieb die ab `lg` ausgeblendete Listen-Spalte (`MasterDetail.vue`,
+  Spezifität) unbemerkt, und der Test von -001 baute sogar einen Umweg um
+  sie. Ein Workaround im Prüfcode für einen fremden Fehler ist ein Befund
+  und kein Testdetail: Er wird gemeldet, und das Fix-Paket entfernt ihn.
+  (task_id: PO-2026-09-26-001)
 - [2026-09-11] orte/tags/karte: Leerzustände sind je **Filterstufe** zu
   zählen, nicht pauschal einer. Bestand leer · Filter ohne Treffer · gefiltert,
   aber nichts davon darstellbar (Orte ohne Koordinaten) sind drei verschiedene

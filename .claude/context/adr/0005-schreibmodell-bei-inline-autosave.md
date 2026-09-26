@@ -1,6 +1,6 @@
 # ADR-0005: Schreibmodell bei Inline-Autosave — vollständiger Datensatz aus dem Speicher, ohne Entprellung
 
-- **Status**: accepted
+- **Status**: accepted (Punkt 2/5 und Risikoaussage zum Entladen präzisiert durch ADR-0031)
 - **Datum**: 2026-09-08
 - **Bounded Context(s)**: `orte`, `bewertungen`, `tags`, `medien`, `app-shell`
 - **task_id**: `PO-2026-09-07-001`
@@ -61,7 +61,9 @@ Schließen von Tab oder Browser während des Tippens.
   den vollen aktuellen Stand trägt.
 - Positiv: Der einzige Weg, eine Eingabe zu verlieren, ist ein Tab-Schluss
   im selben Moment, in dem die Transaktion läuft — nicht das Fehlen eines
-  Auslösers.
+  Auslösers. **Korrigiert durch ADR-0031:** Steht der Fokus beim Neuladen
+  oder Schließen noch im geänderten Feld, startet die Transaktion erst im
+  Entladen. Der Fall tritt dann strukturell auf, nicht zufällig.
 - Negativ/Trade-off: Es wird mehr geschrieben als nötig (ganzer Datensatz je
   Feldwechsel). Das ist tragbar, weil Ort-Datensätze klein sind und
   Binärdaten nach ADR-0004 gar nicht darin liegen.

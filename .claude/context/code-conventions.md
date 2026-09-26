@@ -339,6 +339,13 @@ src/
   `bilder-repository.ts`, `bestand-repository.ts` und `init.ts` ohne Wrapper
   erreichbar; dort kommen derzeit keine Store-Werte an. Wer das ändert,
   wrappt.
+- **Der Schreibweg eines inline bearbeiteten Datensatzes schickt `put()` ohne
+  Task-Grenze ab und committet danach ausdrücklich** (ADR-0031 Punkt 2,
+  `tx.commit()` mit Laufzeitprüfung). Er läuft auch aus `pagehide` heraus;
+  ohne `commit()` braucht der Auto-Commit einen Rückweg ins Dokument, den es
+  beim Entladen nicht mehr gibt. Vor dem `put()` steht deshalb kein `await`
+  auf etwas anderes als die gecachte Verbindung. Zugesichert ist das
+  Ankommen trotzdem nur, solange das Dokument weiterlebt.
 - **Serialisiert wird nur, wo derselbe Datensatz mehrfach geschrieben wird.**
   Die Schreib-Warteschlange je ID gehört zum Inline-Autosave auf dem
   **Ort**-Datensatz. Ein Repository, dessen Datensätze nach dem Anlegen nie

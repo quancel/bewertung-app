@@ -6,7 +6,9 @@
 > Halte sie kompakt (Faustregel: < 100 Zeilen). Sie ist ein Register,
 > kein Design-Dokument — Details gehören in ADRs unter `adr/`.
 
-- **Stand**: 2026-09-26 (Einordnen von PO-2026-09-26-001: keine neue
+- **Stand**: 2026-09-26 (Rückläufer PO-2026-09-26-001: keine Änderung an
+  Context-Grenzen; ADR-0031 betrifft nur den Schreibweg in `persistence/`.
+  Davor Einordnen von PO-2026-09-26-001: keine neue
   Context-Grenze. Die Darstellungs-Gegenrichtung `orte`-View → präsentationale
   Komponente kennt neben Props/Emits jetzt genau eine exponierte Methode zum
   Abholen unbestätigter Eingabe, ADR-0030.)

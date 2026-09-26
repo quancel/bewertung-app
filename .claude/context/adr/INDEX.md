@@ -13,7 +13,20 @@
 > Eine Zeile pro ADR. Keine Zusammenfassung des Inhalts — der Titel muss
 > reichen, um zu entscheiden, ob das ADR relevant ist.
 
-**Stand: 2026-09-26** — dreißig ADRs. **0030** beim Einordnen von
+**Stand: 2026-09-26 (Rückläufer)** — einunddreißig ADRs. **0031** ist aus
+dem Rückläufer des `frontend-lead` zu PO-2026-09-26-001 entstanden: Ein
+Schreibvorgang, der erst beim echten Entladen angestoßen wird (Fokus noch im
+geänderten Feld, dann Neuladen), kommt nicht zuverlässig an. Das ist eine
+projektweite Grenze von ADR-0005, kein Fehler des Pakets. 0031 präzisiert
+ADR-0005 in drei Stücken: den Schreibweg härten (`put()` ohne Task-Grenze,
+danach ausdrückliches `commit()`), die Grenze benennen, Kriterien nur für das
+weiterlebende Dokument formulieren. Dazu kommt eine benannte Ausnahme zu
+ADR-0023 Punkt 2: Der echte Reload wird gemeldet, bestimmt aber nicht den
+Exit-Code. Kein `superseded by` — ADR-0005 trägt den Verweis im Kopf und an
+der korrigierten Risikoaussage. **Vorbehalt:** Punkt 5 von 0031 hängt an einer
+offenen Nutzerfrage.
+
+Davor **Stand: 2026-09-26** — dreißig ADRs. **0030** beim Einordnen von
 PO-2026-09-26-001 (Live-Befund „Tags speichern nicht": `TagEingabe.vue`
 committete nur über Enter). 0030 **erweitert** ADR-0013 Punkt 3 um genau eine
 exponierte Methode „gib deinen unbestätigten Stand ab" und wendet ADR-0005
@@ -108,7 +121,7 @@ PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
 | [0002](0002-projektstruktur-vue-spa.md) | Projektstruktur und Benennung für ein Vue-SPA (Abweichung von der Greenfield-Referenz) | app-shell (projektweit) | accepted | 2026-09-08 |
 | [0003](0003-versioniertes-datenformat-und-migrationskette.md) | Versioniertes lokales Datenformat mit vorwärtsgerichteter Migrationskette | orte, bewertungen, tags, medien, datensicherung, app-shell | accepted | 2026-09-08 |
 | [0004](0004-indexeddb-als-geraetespeicher.md) | IndexedDB als Gerätespeicher; Bestandsstruktur und Trennung von IDB-Version und SCHEMA_VERSION | orte, bewertungen, tags, medien, datensicherung, app-shell | accepted | 2026-09-08 |
-| [0005](0005-schreibmodell-bei-inline-autosave.md) | Schreibmodell bei Inline-Autosave — vollständiger Datensatz aus dem Speicher, ohne Entprellung | orte, bewertungen, tags, medien, app-shell | accepted | 2026-09-08 |
+| [0005](0005-schreibmodell-bei-inline-autosave.md) | Schreibmodell bei Inline-Autosave — vollständiger Datensatz aus dem Speicher, ohne Entprellung | orte, bewertungen, tags, medien, app-shell | accepted (Punkt 2/5 und Risikoaussage präzisiert durch 0031) | 2026-09-08 |
 | [0006](0006-anzeigeeinstellungen-getrennt-vom-bestand.md) | Anzeigeeinstellungen sind Gerätezustand, nicht Bestandsinhalt | orte, tags, datensicherung, app-shell | accepted | 2026-09-08 |
 | [0007](0007-achsenwert-modell-null-statt-null.md) | Achsenwert-Modell — „nicht bewertet" ist ein ausdrücklich gespeichertes `null`, die Gesamtnote wird nie gespeichert | bewertungen, orte, datensicherung | accepted | 2026-09-08 |
 | [0008](0008-feldbesitz-und-ableitungen-ueber-context-grenzen.md) | Feldbesitz und Ableitungen über Context-Grenzen im Ort-Datensatz | orte, bewertungen, tags, medien, datensicherung | accepted | 2026-09-08 |
@@ -134,6 +147,7 @@ PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
 | [0028](0028-detail-chrome-folgt-dem-rahmen-breakpoint.md) | Chrome der Detailspalte folgt dem Rahmen-Breakpoint per `@media`, nicht der Containerbreite (Präzisierung von ADR-0012 Punkt 3) | orte, app-shell | accepted | 2026-09-14 |
 | [0029](0029-engine-abhaengige-darstellung-und-der-blinde-fleck.md) | Engine-abhängige **Darstellung** — Chromium bleibt die einzige geprüfte Engine, und was eine Sichtbarkeits-Zusicherung dann tragen muss (Bestätigung und Erweiterung von ADR-0023 Punkt 5) | app-shell, bewertungen | accepted (Punkt 6 nachgetragen 2026-09-17) | 2026-09-16 |
 | [0030](0030-unbestaetigte-eingabe-ueber-die-komponentengrenze.md) | Unbestätigte Eingabe über die Komponentengrenze — die View holt sie über eine exponierte Methode ab, bevor sie persistiert (Erweiterung von ADR-0013 Punkt 3) | tags, orte, bewertungen | accepted | 2026-09-26 |
+| [0031](0031-schreiben-beim-entladen-der-seite.md) | Schreiben beim Entladen der Seite — gehärteter Schreibweg, aber keine Zusicherung (Präzisierung von ADR-0005 Punkt 2/5; benannte Ausnahme zu ADR-0023 Punkt 2) | orte, tags, bewertungen, app-shell | accepted (Punkt 5 unter Vorbehalt einer Nutzerfrage) | 2026-09-26 |
 
 **Status-Werte** wörtlich wie im ADR selbst: `proposed` · `accepted` ·
 `superseded by ADR-NNNN`.
