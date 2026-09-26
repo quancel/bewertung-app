@@ -158,9 +158,29 @@ dessen, was ihn als Bedienelement erkennbar macht, keine reine
 Implementierungsdetail-Frage mehr. Der Wert bleibt bei 24px (siehe
 Begründung unter „Thumb" unten), aber ab dieser Runde als **benannte
 Design-Festlegung**, nicht mehr als freie Bemessungsentscheidung des
-Leads.
+Leads. Eine neunte Runde (2026-09-26, PO-2026-09-26-001 — ein Nutzer
+meldete, live am Build reproduziert: Ein im Tag-Feld getippter, nicht mit
+Enter bestätigter Text verschwindet beim Verlassen des Feldes lautlos,
+weder gespeichert noch filterbar) ergänzt zwei neue Abschnitte
+„Tag-Eingabe: Commit ohne Enter" und „Tag-Eingabe: Ortswechsel ab `lg`".
+Bindende Nutzerentscheidung: unbestätigter, nicht-leerer Text im Tag-Feld
+gilt wie jedes andere Textfeld als gewollter Wert (siehe „Interaktion &
+Animation" → Autosave onBlur) und wird automatisch übernommen, über alle
+vier Auslöser aus ADR-0005 Punkt 5, nicht nur `blur`. Ausdrücklich
+abgelehnt: Text beim Verlassen verwerfen (stiller Verlust, da `blur` beim
+Tab-Schluss nicht verlässlich feuert) und Text als unbestätigten Entwurf
+stehen lassen (das Formular kennt keine Entwurfsstufen, ADR-0005). Neu
+entschieden, weil bislang kein Vorbild existierte: eine einzelne, eng
+begründete Ausnahme von „Autosave hat keine sichtbare Bestätigung" für
+genau den Fall, in dem ein Tab-/App-Wechsel mitten im Tippen einen Text in
+eine Pille verwandelt, während der Nutzer nicht hinsieht — dort bekommt
+nur die betroffene Pille bei Rückkehr eine kurze, aktiv markierte Optik
+plus Text-Zusatz, siehe unten. Der zweite, verwandte Befund (Ort-A-Text
+landet nach einem Ortswechsel ab `lg` im Feld von Ort B) bekommt keinen
+eigenen Ausnahmefall, sondern denselben Mechanismus wie `Ortssuche`
+(ADR-0025 Punkt 5): der fehlende `:key` wird nachgezogen.
 
-- **Zuletzt kuratiert**: 2026-09-17
+- **Zuletzt kuratiert**: 2026-09-26
 
 ## Zustände
 
@@ -436,6 +456,94 @@ Eigenschaft.
     (beide zusammen müssen mindestens 44px Trefferfläche ergeben) —
     weiterhin über Padding auf dem `<input>`, nicht über eine sichtbar
     vergrößerte Bahn oder einen vergrößerten Thumb.
+
+## Tag-Eingabe: Commit ohne Enter (PO-2026-09-26-001)
+
+Ursache des gemeldeten Fehlers: `TagEingabe.vue` committete Text bisher
+**nur** über Enter; jedes andere Verlassen des Feldes verwarf ihn
+stillschweigend. Bindende Nutzerentscheidung (siehe Änderungshistorie
+oben): unbestätigter, nicht-leerer Text gilt wie jedes andere Textfeld als
+gewollter Wert.
+
+- **Alle vier Auslöser aus ADR-0005 Punkt 5** committen den aktuellen
+  Feldinhalt als neuen Tag: Feld verlassen (`blur`), Route verlassen
+  (inkl. `/orte/:a`→`/orte` und `/orte/:a`→`/orte/:b`),
+  `visibilitychange`→`hidden`, `pagehide`. **Enter bleibt zusätzlich
+  bestehen** und committet weiterhin sofort (ADR-0014 Punkt 4
+  unangetastet). Committet wird bei diesen vier Auslösern immer der **rohe
+  getippte Text**, nie eine per Pfeiltaste nur *markierte*, aber nicht
+  bestätigte Vorschlagszeile — das Übernehmen eines markierten Vorschlags
+  bleibt Enter (und dem Klick auf den Vorschlag) vorbehalten.
+- **Leerer oder bereits committeter Text löst nichts aus** (unverändert:
+  `commitTag` bricht bei getrimmt-leerem Wert ab, ohne Emit) — mehrfaches
+  Feuern von `visibilitychange`/`pagehide` ohne zwischenzeitliche neue
+  Eingabe erzeugt keinen zweiten Tag und keine wiederholte Rückkehr-Optik
+  (siehe unten).
+- **Ein automatisch übernommener Text, der (case-insensitiv, ADR-0014
+  Punkt 3) bereits als Tag an diesem Ort existiert, bleibt unmarkiert** —
+  für den Nutzer ist nichts Neues entstanden, die Rückkehr-Optik unten
+  greift nur bei einem tatsächlich neuen Tag.
+- **Reihenfolge Vorschlag-Klick vs. Blur-Commit unverändert korrekt**: Das
+  bestehende `@mousedown.prevent` an den Vorschlags-Buttons verhindert den
+  Fokusverlust, `blur` feuert bei einem Vorschlag-Tap also gar nicht erst.
+  Ein Klick auf einen Vorschlag ergibt weiterhin **genau einen** Tag (den
+  Vorschlag), nie zusätzlich den bis dahin getippten Teiltext. Kein neuer
+  Mechanismus nötig, nur Beibehaltung des bestehenden.
+- **Rückkehr aus dem Hintergrund** (`visibilitychange`→`visible`, nachdem
+  zuvor `hidden` einen Text committet hat): einzige begründete Ausnahme
+  von „Autosave hat keine sichtbare Bestätigung" (siehe „Zustände" →
+  Erfolg) — dieser Auslöser ist der einzige der vier, bei dem der
+  Zustandswechsel (Text → Pille) geschieht, **während der Nutzer nicht
+  hinsieht**. Bei den übrigen drei (Blur, Route verlassen, Pagehide) sieht
+  der Nutzer die Änderung entweder direkt oder weiß durch die eigene
+  Aktion (Klick, Navigation, Schließen) bereits, dass sie stattgefunden
+  hat — dort ist keine zusätzliche Kennzeichnung nötig.
+  - Die neu entstandene Pille zeigt kurzzeitig dieselbe Optik wie ein
+    aktiver Filter-Tag (`--color-primary-50` Fläche, `--color-primary-700`
+    Text, kein Rahmen — „Tag-Pills" oben) **und** einen kurzen
+    Text-Zusatz in derselben Pille, „{Tag} · übernommen" — Farbe bleibt
+    nicht alleiniger Bedeutungsträger (design-concept.md). Fade-in 180ms
+    ease-out beim Sichtbarwerden des Tabs (design-concept.md „Motion").
+  - Endet bei der nächsten Eingabe im Tag-Feld (`input`-Ereignis) oder
+    beim Verlassen der Detailansicht — kein Timer, keine feste
+    Anzeigedauer: Der Nutzer entscheidet durchs Weitertippen selbst, wann
+    er die Pille zur Kenntnis genommen hat.
+  - `aria-label` des Entfernen-Buttons ergänzt sich währenddessen zu
+    „{Tag} (automatisch übernommen) entfernen", damit dieselbe Information
+    auch ohne Sehvermögen ankommt.
+  - Diese Markierung ist reiner Sitzungszustand der aktuell geöffneten
+    `TagEingabe`-Instanz, nicht persistiert — sie überlebt weder einen
+    Ortswechsel noch ein Neuladen (kein neuer Anzeigeeinstellungs-Schlüssel
+    nötig).
+- **Technische Anbindung von „Route verlassen"**: `TagEingabe.vue` kennt
+  keinen Router (ADR-0013 Punkt 3) — wie sie von außen zum Commit
+  veranlasst wird, legt `architekt`/`frontend-lead` fest. Design-seitig
+  zählt nur das Ergebnis: kein Auslöser darf den Text stillschweigend
+  verwerfen.
+
+## Tag-Eingabe: Ortswechsel ab `lg` (PO-2026-09-26-001)
+
+Zweiter, verwandter Fehler, selbes Paket: `TagEingabe` hatte anders als
+`Ortssuche` (ADR-0025 Punkt 5) keinen `:key` an der Einbindung in
+`Ortebereich.vue` — unbestätigter Text von Ort A blieb beim Wechsel zu Ort
+B im Feld stehen.
+
+- `TagEingabe` bekommt **denselben Remount-Mechanismus wie `Ortssuche`**:
+  `:key="ortId"` in `Ortebereich.vue`. Ein Ortswechsel verwirft
+  Eingabetext und Client-Zustand der vorigen Instanz strukturell (Remount
+  statt Reset), statt sie einzeln zurückzusetzen — genau das Muster, das
+  ADR-0025 Punkt 5 bereits für `Ortssuche` begründet.
+- **Reihenfolge**: Der unbestätigte Text von Ort A wird **vor** dem
+  Remount als Tag an Ort A committet (Auslöser „Route verlassen", siehe
+  oben) — erst danach ersetzt die neue, leere Instanz für Ort B die alte.
+  Ort B beginnt dadurch strukturell leer, ohne Sonderbehandlung.
+- **Kein neues visuelles Element nötig.** Die Detailspalte wechselt beim
+  Ortswechsel ohnehin sprunghaft („Master-Detail (ab `lg`)" → „Wechsel des
+  Inhalts") — Ort As Tag-Feld ist zum Zeitpunkt des Commits bereits nicht
+  mehr sichtbar, es gibt nichts zu animieren. Kein Highlight beim späteren
+  Wiederöffnen von Ort A: Der Nutzer hat den Wechsel selbst ausgelöst
+  (Klick auf eine andere Listenzeile), dieselbe Begründung wie oben bei
+  Blur/Route verlassen.
 
 ## Listen: Sortieren, Filtern, Gruppierung
 
