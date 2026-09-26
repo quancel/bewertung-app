@@ -70,6 +70,18 @@
  * dafür mit `:key="ortId"` eingebunden (ADR-0025 Punkt 5): ein Ortswechsel
  * verwirft Eingabetext/Client-Zustand der vorigen Instanz strukturell,
  * statt sie einzeln zurückzusetzen.
+ *
+ * Tag-Eingabe committet ohne Enter (PO-2026-09-26-001, ADR-0030): `TagEingabe`
+ * hält ihren unbestätigten Text lokal, kennt aber weder Store noch Router
+ * (ADR-0013 Punkt 3). Diese View orchestriert deshalb `defineExpose({
+ * uebernimmOffeneEingabe })` über `tagEingabeRef` — aufgerufen aus
+ * `onBeforeRouteUpdate`/`onBeforeRouteLeave` (`anlass: 'verlassen'`) und aus
+ * `useAutosaveBeimVerlassen` (`'hintergrund'` bei `visibilitychange`→`hidden`,
+ * `'verlassen'` bei `pagehide`) — in jedem Fall VOR dem Persistieren, siehe
+ * `uebernimmOffeneTagEingabeUndPersistiere`. `TagEingabe` bekommt denselben
+ * `:key="ortId"`-Remount-Mechanismus wie `Ortssuche` (ADR-0025 Punkt 5,
+ * ADR-0030 Punkt 6); die Emit-Handler binden `ort.id`, nicht die reaktive
+ * `ortId` (ADR-0030 Punkt 5).
  */
 import { computed, defineAsyncComponent, nextTick, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
@@ -232,16 +244,19 @@ function aufTagfilterZurueckgesetzt(): void {
   store.setzeTagfilterZurueck()
 }
 
-function aufTagHinzugefuegt(tag: string): void {
-  if (!ortId.value) return
-  store.fuegeTagHinzu(ortId.value, tag)
-  persistiereJetzt()
+// Zielort ist gebunden, nicht nachgeschlagen (ADR-0025 Punkt 4, ADR-0030
+// Punkt 5): Das Template bindet den Emit-Handler an `ort.id` (siehe unten),
+// nicht an die reaktive `ortId` — landet ein Emit, nachdem die Navigation
+// bereits weitergezogen ist oder während die alte Instanz aushängt, schreibt
+// er trotzdem auf den Ort, an dem er entstanden ist.
+function aufTagHinzugefuegt(zielOrtId: string, tag: string): void {
+  store.fuegeTagHinzu(zielOrtId, tag)
+  void store.persistiereOrt(zielOrtId)
 }
 
-function aufTagEntfernt(tag: string): void {
-  if (!ortId.value) return
-  store.entferneTagVonOrt(ortId.value, tag)
-  persistiereJetzt()
+function aufTagEntfernt(zielOrtId: string, tag: string): void {
+  store.entferneTagVonOrt(zielOrtId, tag)
+  void store.persistiereOrt(zielOrtId)
 }
 
 const gesamtnote = computed(() => (ort.value ? berechneGesamtnote(ort.value.bewertungen) : null))
@@ -423,29 +438,49 @@ function aufZurueck(): void {
   }
 }
 
-// --- Persistenz (ADR-0005) ---------------------------------------------
+// --- Persistenz (ADR-0005, ADR-0030) ------------------------------------
+
+const tagEingabeRef = ref<InstanceType<typeof TagEingabe> | null>(null)
+
+/**
+ * Orchestrierung (ADR-0030 Punkt 4): JEDER der drei externen Auslöser
+ * (Route verlassen, `visibilitychange`→`hidden`, `pagehide`) holt zuerst
+ * die unbestätigte Tag-Eingabe ab, DANACH wird persistiert — über diese
+ * EINE Hilfsfunktion, nicht an drei Stellen einzeln nachgebaut.
+ * `TagEingabe.vue` registriert dafür bewusst keinen eigenen Listener auf
+ * `document`/`window`: Eine per `:key` neu gemountete Instanz registriert
+ * ihren Fokus-Listener erst NACH dieser View. Schriebe die View zuerst,
+ * liefe ein Schreibvorgang ohne den Tag vor dem mit Tag — bei `pagehide`
+ * unwiederbringlich verloren (ADR-0030 Punkt 4).
+ */
+function uebernimmOffeneTagEingabeUndPersistiere(zielOrtId: string | null, anlass: 'hintergrund' | 'verlassen'): void {
+  if (!zielOrtId) return
+  tagEingabeRef.value?.uebernimmOffeneEingabe(anlass)
+  void store.persistiereOrt(zielOrtId)
+}
 
 function persistiereJetzt(): void {
   if (!ortId.value) return
   void store.persistiereOrt(ortId.value)
 }
 
-useAutosaveBeimVerlassen(persistiereJetzt)
+useAutosaveBeimVerlassen((anlass) => uebernimmOffeneTagEingabeUndPersistiere(ortId.value, anlass))
 
 // „Route verlassen": Wechsel zwischen `/orte` und `/orte/:ortId` bleibt auf
 // dieser Komponente ein Update, kein Leave (siehe Modul-Kommentar oben) —
 // deshalb hier statt in `onBeforeRouteLeave` persistiert, und zwar die
 // VORHERIGE ID aus `from`, nicht die reaktive `ortId` (die zu diesem
-// Zeitpunkt schon den neuen Wert tragen kann).
+// Zeitpunkt schon den neuen Wert tragen kann). `TagEingabe` ist zu diesem
+// Zeitpunkt noch auf den VORHERIGEN Ort gekeyt (der Remount folgt erst nach
+// der Navigation) — der Commit trifft also noch die richtige Instanz
+// (ADR-0030 Punkt 6).
 onBeforeRouteUpdate((_to, from) => {
   const vorherigeId = typeof from.params.ortId === 'string' ? from.params.ortId : null
-  if (vorherigeId) {
-    void store.persistiereOrt(vorherigeId)
-  }
+  uebernimmOffeneTagEingabeUndPersistiere(vorherigeId, 'verlassen')
 })
 
 onBeforeRouteLeave(() => {
-  persistiereJetzt()
+  uebernimmOffeneTagEingabeUndPersistiere(ortId.value, 'verlassen')
 })
 
 function aufBezeichnungEingabe(event: Event): void {
@@ -933,11 +968,18 @@ async function aufLoeschenBestaetigt(): Promise<void> {
 
           <div class="ortsdetail__feld">
             <span>Tags</span>
+            <!-- `:key="ortId"` (ADR-0030 Punkt 6, analog zu `Ortssuche`
+                 oben, ADR-0025 Punkt 5): Ein Ortswechsel verwirft
+                 Eingabetext und Rückkehr-Markierung der vorigen Instanz
+                 strukturell. Emit-Handler binden `ort.id`, nicht die
+                 reaktive `ortId` (ADR-0030 Punkt 5). -->
             <TagEingabe
+              :key="ortId ?? undefined"
+              ref="tagEingabeRef"
               :tags="ort.tags"
               :vokabular="store.tagVokabular"
-              @tag-hinzugefuegt="aufTagHinzugefuegt"
-              @tag-entfernt="aufTagEntfernt"
+              @tag-hinzugefuegt="(tag) => aufTagHinzugefuegt(ort!.id, tag)"
+              @tag-entfernt="(tag) => aufTagEntfernt(ort!.id, tag)"
             />
           </div>
 

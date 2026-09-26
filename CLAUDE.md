@@ -245,6 +245,27 @@ klickbasierte Prüfung wäre gegen den defekten Stand grün gewesen. Beides wirk
 umständlich und ist es nicht; wer es vereinfacht, bekommt eine Zusicherung,
 die nie wieder rot wird.
 
+Drei weitere Zusicherungen prüfen die Tag-Eingabe (PO-2026-09-26-001,
+ADR-0030, `pruefeTagUeberlebtNeuladen`, nur bei 1280px): **ein Tag committet
+auch ohne Enter** — (a) Tab statt Enter verlässt das Feld, der Tag übersteht
+ein Neuladen und ist danach über die Filterleiste filterbar (der ursprünglich
+gemeldete Fehler samt seinem zweiten Teil, „sind dann nicht filterbar"); (b)
+der Text bleibt im **fokussierten** Feld stehen (kein Tab/Klick/Enter),
+Persistenz läuft ausschließlich über `pagehide` beim Neuladen; (c) ein
+Ortswechsel ab `lg` **ausschließlich über den Browserverlauf**
+(`goBack`/`goForward`, nie über einen Klick, der selbst schon einen Commit
+auslösen würde) lässt unbestätigten Text nicht im falschen Feld landen und
+committet ihn beim vorherigen Ort. Fall (b) ist nach aktuellem Kenntnisstand
+**dauerhaft rot** und das ist keine Abschwächung wert: Das asynchrone
+IndexedDB-`put()` hinter `store.persistiereOrt()` (`void`, nicht awaited,
+ADR-0005) bekommt beim realen, browserausgelösten `pagehide` nicht
+zuverlässig genug Zeit, um vor dem Entladen des Dokuments abzuschließen —
+verifiziert über einen Vergleichslauf, der `visibilitychange` künstlich
+vorzeitig auslöst und dem Schreibvorgang dadurch einen Vorsprung verschafft:
+Dort committet exakt derselbe Code zuverlässig. Das ist eine Grenze von
+ADR-0005 (fire-and-forget-Persistenz, bewusst kein blockierendes
+`beforeunload`), keine Lücke in diesem Paket.
+
 **Der Lead führt ihn aus, bevor er ein Paket als erledigt meldet** — nicht
 statt der Unit-Tests, sondern zusätzlich. Typecheck, Lint und Vitest
 prüfen, ob Code zusammenpasst; der Rauchtest prüft, ob das Ergebnis

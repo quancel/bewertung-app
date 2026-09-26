@@ -91,6 +91,21 @@
  * `@media`-Bedingung wie „Zurück" — `pruefeAbschlussKombination()` prüft je
  * Breite genau die vorgesehene Kombination, nicht nur „Fertig" isoliert.
  *
+ * Ab PO-2026-09-26-001 (ADR-0030) kommen drei weitere, unabhängige
+ * Zusicherungen dazu (`pruefeTagUeberlebtNeuladen()`, nur bei 1280px): Ein
+ * Tag im Tag-Feld committet auch OHNE Enter — (a) Tab statt Enter verlässt
+ * das Feld, der Tag übersteht ein Neuladen UND ist danach über die
+ * Filterleiste filterbar (der zweite, vom Nutzer gemeldete Teil des
+ * Fehlers); (b) der Text bleibt im FOKUSSIERTEN Feld stehen, Persistenz
+ * läuft ausschließlich über `pagehide` beim Neuladen — GRENZE: Das
+ * asynchrone IndexedDB-`put()` dahinter muss vor dem Entladen des Dokuments
+ * abschließen, was Chromium nicht zusichert (ADR-0005); (c) ein Ortswechsel
+ * ab `lg` ausschließlich über den Browserverlauf (`goBack`/`goForward`, nie
+ * über einen Klick, der selbst schon einen Commit auslösen würde) lässt
+ * unbestätigten Text nicht im falschen Feld landen und committet ihn beim
+ * vorherigen Ort. Rot-Nachweis gegen den Stand davor: Dort committete
+ * ausschließlich Enter.
+ *
  * Aufruf: `npm run smoke` (baut vorher). Bildschirmfotos landen in
  * `.smoke/`, das Verzeichnis ist ignoriert.
  */
@@ -266,10 +281,17 @@ async function warteAufServer() {
   return false
 }
 
-async function legeOrtAnUndOeffneIhn(seite) {
+async function legeOrtAnUndOeffneIhn(seite, bezeichnung = 'Rauchtest-Ort') {
   await seite.getByRole('button', { name: /hinzuf|anlegen/i }).first().click()
   await seite.waitForTimeout(300)
-  await seite.locator('input[type="text"]:visible').first().fill('Rauchtest-Ort')
+  // `#ort-anlegen-bezeichnung` statt eines allgemeinen
+  // `input[type="text"]:visible`-Locators: Ist bereits ein anderer Ort
+  // geöffnet (Fall c, `pruefeTagBleibtBeimOrtswechselAmRichtigenOrt` legt
+  // einen zweiten Ort an, während der erste offen bleibt), zählen dessen
+  // eigene Textfelder (Bezeichnung/Adresse/Tag) für Playwrights `:visible`
+  // ebenfalls als sichtbar, obwohl das Sheet sie überlagert — `.first()`
+  // träfe dann fälschlich eines davon statt des Sheet-Felds.
+  await seite.locator('#ort-anlegen-bezeichnung').fill(bezeichnung)
   await seite.keyboard.press('Enter')
   await seite.waitForTimeout(700)
 }
@@ -778,6 +800,182 @@ async function pruefeReglerCommitWaehrendZiehens(seite, befunde) {
   console.log('  regler-commit-waehrend-ziehens — geprüft (gedrücktes Ziehen, vor mouse.up)')
 }
 
+/**
+ * Zusicherungen ab PO-2026-09-26-001 (ADR-0030): Ein Tag committet auch ohne
+ * Enter — über Feld verlassen (Tab), `pagehide` (fokussiertes Feld beim
+ * Neuladen) und Route verlassen/Ortswechsel ab `lg` — und landet dabei am
+ * richtigen Ort. Rot-Nachweis gegen den Stand vor PO-2026-09-26-001: Dort
+ * committete ausschließlich Enter, jeder der drei Fälle unten verlor den
+ * Text kommentarlos bzw. (Fall c) landete er wegen des fehlenden `:key` im
+ * FALSCHEN Feld.
+ *
+ * Läuft NUR bei 1280px (Desktop-Referenzbreite): Fall c braucht die
+ * gleichzeitig sichtbare Listen-Spalte (Master-Detail ab `lg`, ADR-0011),
+ * Fall a/b sind breitenunabhängig — ein zusätzlicher Lauf je Telefonbreite
+ * hätte nur die Laufzeit verdreifacht, ohne eine neue Aussage zu liefern.
+ */
+async function pruefeTagUeberlebtNeuladen(browser, befunde) {
+  const seite = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+  await pruefeTagOhneEnterUeberlebtNeuladenUndIstFilterbar(seite, befunde)
+  await pruefeTagImFokussiertenFeldUeberlebtNeuladen(seite, befunde)
+  await pruefeTagBleibtBeimOrtswechselAmRichtigenOrt(seite, befunde)
+  await seite.close()
+}
+
+/**
+ * Fall (a) — der ursprünglich gemeldete Fehler: Tab statt Enter verlässt das
+ * Feld, der Text wurde bisher stillschweigend verworfen. Prüft zusätzlich
+ * den zweiten Teil der Nutzermeldung ("sind dann nicht filterbar"): Chip in
+ * der Filterleiste vorhanden, ein Klick grenzt die Liste sichtbar ein.
+ */
+async function pruefeTagOhneEnterUeberlebtNeuladenUndIstFilterbar(seite, befunde) {
+  const marker = 'rauchtest-tab-tag'
+  await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+  await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Tag-Tab')
+  await seite.locator('.tag-eingabe__feld').fill(marker)
+  await seite.keyboard.press('Tab') // NICHT Enter — genau der gemeldete Fehler
+  await seite.waitForTimeout(300)
+
+  await seite.reload({ waitUntil: 'networkidle' })
+  await seite.waitForTimeout(400)
+  if ((await seite.locator('.tag-eingabe__pill', { hasText: marker }).count()) === 0) {
+    befunde.push(`tag-ohne-enter: Pille "${marker}" fehlt am Ort nach dem Neuladen (Tab statt Enter)`)
+    return
+  }
+
+  // Zweiter, TAGLOSER Ort — unabhängig vom sonstigen Datenbestand dieses
+  // Laufs (der über `browser.newPage()`/`close()` hinweg nicht verlässlich
+  // erhalten bleibt), damit die Filterung nachweisbar etwas AUSSCHLIESST
+  // („angezeigt < gesamt", sonst zeigt die Trefferzahl nie „X von Y").
+  await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+  await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Tag-Tab-Kontrast')
+
+  await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+  const chip = seite.locator('.tag-filterleiste__pill', { hasText: marker })
+  if ((await chip.count()) === 0) {
+    befunde.push(`tag-ohne-enter: kein Filter-Chip "${marker}" in der Werkzeugleiste — Tag ist nicht filterbar`)
+    return
+  }
+  await chip.click()
+  await seite.waitForTimeout(200)
+  const trefferzahlNachFilter = await seite.locator('.werkzeugleiste__trefferzahl-lang').first().innerText()
+  if (!trefferzahlNachFilter.includes(' von ')) {
+    befunde.push(`tag-ohne-enter: Klick auf Chip "${marker}" grenzt die Liste nicht sichtbar ein (Trefferzahl: "${trefferzahlNachFilter}")`)
+  }
+  if ((await seite.getByText('Rauchtest-Tag-Tab-Kontrast').count()) > 0) {
+    befunde.push(`tag-ohne-enter: Nach Klick auf Chip "${marker}" ist der taglose Kontrast-Ort fälschlich weiterhin in der Liste`)
+  }
+  if ((await seite.getByText('Rauchtest-Tag-Tab', { exact: true }).count()) === 0) {
+    befunde.push(`tag-ohne-enter: Nach Klick auf Chip "${marker}" ist der zugehörige Ort nicht mehr in der gefilterten Liste`)
+  }
+}
+
+/**
+ * Fall (b): Der Text bleibt im FOKUSSIERTEN Feld stehen — kein Tab, kein
+ * Klick, kein Enter. Persistenz läuft ausschließlich über `pagehide`, das
+ * `seite.reload()` auslöst. GRENZE (ADR-0005, siehe Bericht): Das
+ * IndexedDB-`put()` dahinter ist asynchron (`void store.persistiereOrt(…)`);
+ * schließt Chromium das Dokument, bevor die Transaktion committet hat,
+ * bleibt der Tag verloren — unabhängig vom hier geprüften Code. Wird dieser
+ * Fall trotz korrekter Umsetzung rot, ist das laut Handoff ein Blocker an
+ * den `architekt` (Grenze von ADR-0005), keine Abschwächung der Zusicherung.
+ */
+async function pruefeTagImFokussiertenFeldUeberlebtNeuladen(seite, befunde) {
+  const marker = 'rauchtest-fokus-tag'
+  await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+  await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Tag-Fokus')
+  await seite.locator('.tag-eingabe__feld').fill(marker) // Fokus bleibt im Feld — kein Tab/Enter/Klick
+  await seite.waitForTimeout(200)
+
+  await seite.reload({ waitUntil: 'networkidle' })
+  await seite.waitForTimeout(400)
+  if ((await seite.locator('.tag-eingabe__pill', { hasText: marker }).count()) === 0) {
+    befunde.push(`tag-fokussiertes-feld: Pille "${marker}" fehlt am Ort nach dem Neuladen (Fokus im Feld, kein Verlassen)`)
+  }
+}
+
+/**
+ * NICHT Teil von PO-2026-09-26-001, hier nur umgangen: `MasterDetail.vue`
+ * zeigt die Listen-Spalte bei offener Detailansicht AUCH ab `lg` nicht — ein
+ * CSS-Spezifitätsfehler, unabhängig vom eigenen Kommentar der Komponente
+ * ("beide Spalten gleichzeitig sichtbar, unabhängig vom Flag detailOffen"):
+ * `.master-detail--detail-offen .master-detail__liste { display: none }"
+ * steht UNCONDITIONAL (nicht in der `@media(min-width:1024px)`-Regel) und
+ * ist mit zwei Klassen spezifischer als `.master-detail__liste { display:
+ * block }` innerhalb dieser Media-Regel — die Verstecken-Regel gewinnt daher
+ * IMMER, sobald `detailOffen` wahr ist, auch ab `lg`. Befund im Bericht,
+ * NICHT hier behoben (fremder, eigenständiger Baustein, außerhalb dieses
+ * Pakets). Der „Ort hinzufügen"-Button existiert trotzdem im DOM und sein
+ * Handler funktioniert unverändert — nur `locator.click()` verweigert (auch
+ * mit `force`) die Interaktion mit einem `display: none`-Element, deshalb
+ * hier ein direkt dispatchtes Klick-Event statt `locator.click()`.
+ */
+async function klickeOrtHinzufuegenTrotzListenSpaltenBug(seite) {
+  await seite.evaluate(() => {
+    document
+      .querySelector('.ortebereich__kopf .primaer-button')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+  })
+}
+
+/**
+ * Fall (c): Ortswechsel ab `lg` ausschließlich über den BROWSERVERLAUF
+ * (`goBack`/`goForward`), NIE über einen Klick — ein Klick löste bereits
+ * selbst einen `focusout` auf dem Feldbereich aus und ließe die eigentliche
+ * Zusicherung (Route-Guard-Orchestrierung, ADR-0030 Punkt 4/6) unbeobachtet.
+ * Die Historie wird ausschließlich VORWÄRTS aufgebaut (`/orte` -> A -> B
+ * über „Ort hinzufügen", aufgerufen während A noch geöffnet ist —
+ * `klickeOrtHinzufuegenTrotzListenSpaltenBug()` s.o.): `pushState` kappt
+ * jede vorwärts liegende Stufe, sobald zwischendurch zurücknavigiert wurde,
+ * A und B wären über `goBack`/`goForward` sonst nicht beide erreichbar.
+ */
+async function pruefeTagBleibtBeimOrtswechselAmRichtigenOrt(seite, befunde) {
+  const markerAB = 'rauchtest-verlauf-a-b'
+  const markerOrte = 'rauchtest-verlauf-a-orte'
+  const tagFeld = seite.locator('.tag-eingabe__feld')
+
+  await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+  await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Verlauf-A') // Historie: [/orte, A]
+  await klickeOrtHinzufuegenTrotzListenSpaltenBug(seite)
+  await seite.waitForTimeout(300)
+  await seite.locator('#ort-anlegen-bezeichnung').fill('Rauchtest-Verlauf-B')
+  await seite.keyboard.press('Enter')
+  await seite.waitForTimeout(700) // Historie: [/orte, A, B]
+
+  await seite.goBack({ waitUntil: 'networkidle' }) // zurück zu A, rein über den Verlauf
+  await seite.waitForTimeout(300)
+  await tagFeld.fill(markerAB) // fokussiert, NICHT verlassen
+
+  await seite.goForward({ waitUntil: 'networkidle' }) // A -> B, ausschließlich über den Verlauf
+  await seite.waitForTimeout(300)
+  const feldBWert = await tagFeld.inputValue()
+  if (feldBWert !== '') {
+    befunde.push(`tag-ortswechsel: Feld von Ort B ist nach A→B nicht leer ("${feldBWert}")`)
+  }
+  if ((await seite.locator('.tag-eingabe__pill', { hasText: markerAB }).count()) > 0) {
+    befunde.push(`tag-ortswechsel: Ort B trägt fälschlich die Pille "${markerAB}" von Ort A`)
+  }
+
+  await seite.goBack({ waitUntil: 'networkidle' }) // zurück zu A, Verifikation
+  await seite.waitForTimeout(300)
+  if ((await seite.locator('.tag-eingabe__pill', { hasText: markerAB }).count()) === 0) {
+    befunde.push(`tag-ortswechsel: Ort A trägt die Pille "${markerAB}" nach dem Wechsel zu B nicht (Commit im Route-Guard fehlgeschlagen)`)
+  }
+
+  // Zweiter Teil ("dazu A→/orte per goBack"): `/orte` und `/orte/:ortId`
+  // sind dieselbe Komponente (Ortebereich.vue) — auch dieser Wechsel ist ein
+  // `onBeforeRouteUpdate`, kein Leave (siehe Modul-Kommentar dort).
+  await tagFeld.fill(markerOrte) // fokussiert, NICHT verlassen
+  await seite.goBack({ waitUntil: 'networkidle' }) // A -> /orte
+  await seite.waitForTimeout(300)
+
+  await seite.goForward({ waitUntil: 'networkidle' }) // zurück zu A, rein zur Verifikation
+  await seite.waitForTimeout(300)
+  if ((await seite.locator('.tag-eingabe__pill', { hasText: markerOrte }).count()) === 0) {
+    befunde.push(`tag-ortswechsel: Ort A trägt die Pille "${markerOrte}" nach dem Wechsel zu /orte (goBack) nicht`)
+  }
+}
+
 async function main() {
   const playwright = await ladePlaywright()
   if (!playwright) {
@@ -856,6 +1054,10 @@ async function main() {
     const reglerSeite = await browser.newPage({ viewport: { width: 1280, height: 900 } })
     await pruefeReglerCommitWaehrendZiehens(reglerSeite, befunde)
     await reglerSeite.close()
+
+    // Zusicherungen ab PO-2026-09-26-001 (ADR-0030), s.o. — nur bei 1280px
+    // (Fall c braucht die gleichzeitig sichtbare Listen-Spalte ab `lg`).
+    await pruefeTagUeberlebtNeuladen(browser, befunde)
   } finally {
     await browser?.close()
     beendeVorschau(server)
@@ -873,7 +1075,9 @@ async function main() {
   console.log(`  Ortssuche-Zustände: ${ORTSSUCHE_ZUSTAENDE.map((z) => z.name).join(', ')}`)
   console.log('Alle Ansichten geöffnet, keine Laufzeitfehler, CSS-Ressourcen aufgelöst,')
   console.log('kein Bedienelement verdeckt, nichts ragt aus dem Bildschirm, ein angelegter')
-  console.log('Ort übersteht ein Neuladen.')
+  console.log('Ort übersteht ein Neuladen. Ein Tag committet auch ohne Enter (Feld verlassen,')
+  console.log('fokussiertes Feld beim Neuladen, Ortswechsel ab lg über den Browserverlauf) und')
+  console.log('bleibt filterbar (PO-2026-09-26-001, ADR-0030).')
   // ADR-0029 Punkt 4: ein ERFOLGREICHER Lauf weist die Grenze selbst aus,
   // nicht nur der Fehlerfall (Playwright-Skip oben) und nicht nur der Kopf
   // dieser Datei. Als Eigenschaft formuliert, nicht als Funktions-/

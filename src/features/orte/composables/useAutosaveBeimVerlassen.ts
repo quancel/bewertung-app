@@ -7,18 +7,25 @@
  * Der dritte und vierte Auslöser (Feld verlassen/Wert geändert, Route
  * verlassen) laufen direkt in der View: erster über `@blur`/`@change` an
  * den Feldern, zweiter über `onBeforeRouteLeave`.
+ *
+ * Seit ADR-0030 (PO-2026-09-26-001) meldet der Callback zusätzlich, WELCHER
+ * der beiden Auslöser feuerte (`'hintergrund'` für `visibilitychange`,
+ * `'verlassen'` für `pagehide`) — die View braucht das, um vor dem
+ * Persistieren `TagEingabe.uebernimmOffeneEingabe(anlass)` mit dem richtigen
+ * `anlass` aufzurufen (steuert dort ausschließlich die Rückkehr-Markierung,
+ * nie den Commit-Weg selbst).
  */
 import { onBeforeUnmount, onMounted } from 'vue'
 
-export function useAutosaveBeimVerlassen(schreibeJetzt: () => void): void {
+export function useAutosaveBeimVerlassen(schreibeJetzt: (anlass: 'hintergrund' | 'verlassen') => void): void {
   function aufSichtbarkeitswechsel(): void {
     if (document.visibilityState === 'hidden') {
-      schreibeJetzt()
+      schreibeJetzt('hintergrund')
     }
   }
 
   function aufPagehide(): void {
-    schreibeJetzt()
+    schreibeJetzt('verlassen')
   }
 
   onMounted(() => {
