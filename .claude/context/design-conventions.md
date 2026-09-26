@@ -178,7 +178,28 @@ nur die betroffene Pille bei Rückkehr eine kurze, aktiv markierte Optik
 plus Text-Zusatz, siehe unten. Der zweite, verwandte Befund (Ort-A-Text
 landet nach einem Ortswechsel ab `lg` im Feld von Ort B) bekommt keinen
 eigenen Ausnahmefall, sondern denselben Mechanismus wie `Ortssuche`
-(ADR-0025 Punkt 5): der fehlende `:key` wird nachgezogen.
+(ADR-0025 Punkt 5): der fehlende `:key` wird nachgezogen. Eine zehnte
+Runde (2026-09-26, PO-2026-09-26-002 — Korrekturpaket zu ADR-0011 Punkt
+2/6: `MasterDetail.vue` blendete die Listen-Spalte ab `lg` bei offenem
+Detail aus, weil eine Nachfahren-Selektor-Regel ohne eigene Media Query
+eine gegenläufige Regel innerhalb der `@media`-Grenze per Spezifität
+überstimmte) führt **kein neues Verhalten** ein, sondern präzisiert unter
+„Master-Detail (ab `lg`)" ausdrücklich, dass die Zweispaltigkeit
+strukturell gilt — unabhängig vom Inhalt der Detail-Spalte und unabhängig
+von jeder nur unterhalb `lg` gültigen Sichtbarkeits-Logik. Das entschärft
+die Lücke, durch die der Fehler entstehen konnte, ohne die bestehende
+Konvention inhaltlich zu ändern. Eine elfte Runde (2026-09-26,
+PO-2026-09-26-003 — Nachfolger von -002, Korrektur zu ADR-0011 Punkt 6)
+präzisiert unter „Master-Detail (ab `lg`)" → „Fokus", dass die
+Fokusbewegung in die Detailspalte nicht nur beim Öffnen ohne vorherige
+Auswahl gilt, sondern auch beim Wechsel Ort A → Ort B — die bestehende
+Begründung unter „Wechsel des Inhalts" Grund 3 hatte das bereits
+vorausgesetzt, der Code setzte es aber nie um. Derselbe Anlass ergänzt
+einen neuen Bullet „Scroll-Position beim Wechsel des Inhalts": Die
+Detail-Spalte beginnt bei A → B wieder bei Versatz 0, die Listen-Spalte
+behält ihren Versatz und scrollt höchstens minimal nach. Beides **kein
+neues Verhalten**, sondern Wiederherstellung des in ADR-0011 Punkt 6
+bereits spezifizierten, aber nie erreichbaren/umgesetzten Zustands.
 
 - **Zuletzt kuratiert**: 2026-09-26
 
@@ -853,6 +874,15 @@ B im Feld stehen.
   hier über Rahmen **und** Abstand, da zwei parallel bediente Bereiche
   eine erkennbare Kante brauchen. Beide Spalten scrollen unabhängig
   voneinander.
+- **Diese Zweispaltigkeit gilt ab `lg` strukturell** — unabhängig davon,
+  was die Detail-Spalte gerade zeigt (gewählter Ort, „Adresse ohne Ziel",
+  gefilterter Leerzustand mit ausgewähltem Ort) und unabhängig von jeder
+  Sichtbarkeits-Logik, die unterhalb `lg` zwischen Liste und Detail
+  umschaltet (Korrektur PO-2026-09-26-002, ADR-0011 Punkt 2/5/6): eine
+  Regel, die die Listen-Spalte in Abhängigkeit vom „Detail
+  offen"-Zustand ausblendet, muss selbst auf < 1024px begrenzt sein —
+  sie darf sich nicht darauf verlassen, dass eine andere, ab `lg` geltende
+  Regel sie per höherer Spezifität oder späterer Reihenfolge übersticht.
 - **Keine automatische Vorauswahl.** Ohne gewählten Ort zeigt die zweite
   Spalte einen ruhigen, rein typografischen Hinweis ohne Primär-Aktion
   (bewusste Abweichung vom „Leer"-Muster: es gibt keine andere Aktion als
@@ -894,11 +924,39 @@ B im Feld stehen.
   Bereichs"): jeder vollständige Inhaltsaustausch ist ein Sprung. Die
   Spalte selbst bewegt sich dabei ohnehin nicht, nur ihr Inhalt wechselt —
   daran ändert die Streichung nichts.
-- **Fokus**: Öffnen bewegt den Fokus in die Detailspalte (erstes
-  sinnvolles Element, z. B. Überschrift oder Schließen-Button), nicht
-  erst nach Durchtabben der restlichen Liste. Schließen oder Löschen gibt
-  den Fokus zurück auf die zugehörige Listenzeile bzw. die an ihrer
-  Position nachrückende Zeile — nicht an den Listenanfang.
+- **Fokus**: Jeder Wechsel des Detailinhalts auf einen (anderen) Ort —
+  Öffnen ohne vorherige Auswahl **und** Wechsel Ort A → Ort B — bewegt den
+  Fokus in die Detailspalte, auf denselben Ziel-Button „Detailansicht
+  schließen" (kein zweites Zielelement für den Wechselfall), nicht erst
+  nach Durchtabben der restlichen Liste. Gilt unabhängig vom Auslöser
+  (Klick auf eine Listenzeile, Browser-Zurück/-Vor, Deep-Link) — es gibt
+  nur eine Quelle der Auswahl (`route.params.ortId`, ADR-0011 Punkt 4),
+  also auch nur einen Fokus-Mechanismus statt eines eigenen für den
+  Wechselfall. **Korrektur (PO-2026-09-26-003)**: Bis dahin bewegte der
+  `watch(ortId)` den Fokus nur beim Öffnen ohne vorherige Auswahl, nicht
+  beim Wechsel A → B — entgegen der Begründung unter „Wechsel des Inhalts"
+  Grund 3, die die Fokusbewegung bereits als gegeben voraussetzte. Kein
+  neues Verhalten, Wiederherstellung der ursprünglich gemeinten Fassung.
+  Schließen oder Löschen gibt den Fokus zurück auf die zugehörige
+  Listenzeile bzw. die an ihrer Position nachrückende Zeile — nicht an den
+  Listenanfang.
+- **Scroll-Position beim Wechsel des Inhalts** (Korrektur PO-2026-09-26-003
+  zu ADR-0011 Punkt 6, ebenfalls kein neues Verhalten): Die Detail-Spalte
+  beginnt bei jedem Wechsel auf einen anderen Ort (A → B) wieder bei
+  Versatz 0, unabhängig davon, wie weit in Ort A gescrollt war und
+  unabhängig vom Auslöser (Klick, Browser-Zurück/-Vor) — derselbe
+  `watch(ortId)`-Mechanismus wie beim Fokus, keine zweite Unterscheidung
+  nach Auslöser. Die Listen-Spalte behält ihren eigenen Versatz und wird
+  **nicht** neu positioniert, solange die neu gewählte Zeile bereits
+  sichtbar ist; liegt sie außerhalb des sichtbaren Bereichs, scrollt die
+  Listen-Spalte ohne Animation **gerade so weit**, dass die Zeile sichtbar
+  wird (`scrollIntoView({block: 'nearest'})` oder gleichwertig — kein
+  Zentrieren, kein Scroll-zum-Anfang, kein `smooth`-Verhalten, das wäre
+  eine Zustandsanimation und widerspräche „Sprung, keine
+  Zustandsanimation" unten). Gilt nur ab `lg`; unterhalb bleibt das
+  bestehende Verhalten unverändert (vollflächige Detailansicht, eigener
+  Scrollcontainer je Ansicht, siehe „Breakpoint-Wechsel bei offener
+  Detailspalte").
 - **Breakpoint-Wechsel bei offener Detailspalte**: Unterschreiten von `lg`
   wechselt zur vollflächigen Detailansicht (nicht zurück zur Liste);
   Überschreiten hält denselben Ort offen, jetzt zweispaltig. Reiner
