@@ -1,9 +1,7 @@
 # ADR-0031: Schreiben beim Entladen der Seite — gehärteter Schreibweg, aber keine Zusicherung (Präzisierung von ADR-0005 Punkt 2/5 und seiner Risikoaussage; benannte Ausnahme zu ADR-0023 Punkt 2)
 
-- **Status**: accepted — **Vorbehalt**: Punkt 5 hängt an der offenen
-  Nutzerfrage vom 2026-09-26 (Rückläufer PO-2026-09-26-001). Entscheidet der
-  Nutzer anders als angenommen, wird Punkt 5 neu gefasst (Abschnitt
-  „Revision"), die Punkte 1–4 und 6 bleiben.
+- **Status**: accepted — Punkt 5 vom Nutzer am 2026-09-26 bestätigt
+  (siehe „Nutzerentscheidung zu Punkt 5"); kein Vorbehalt mehr.
 - **Datum**: 2026-09-26
 - **Bounded Context(s)**: `orte`, `tags`, `bewertungen`, `app-shell`
 - **task_id**: `PO-2026-09-26-001` (Rückläufer des `frontend-lead`)
@@ -92,6 +90,17 @@ geänderten Feld steht.
      aus, mit Verweis auf dieses ADR. Das folgt demselben Muster wie „auf
      WebKit ungeprüft" (ADR-0029). Der Fall wird nicht gestrichen, er ist das
      Warnsystem dafür, ob Punkt 2 in Chromium trägt.
+
+## Nutzerentscheidung zu Punkt 5
+
+- **Datum**: 2026-09-26 (Rückfrage aus dem Rückläufer PO-2026-09-26-001)
+- **Entscheidung**: „Als bekannte Grenze akzeptieren" — die empfohlene
+  Option, auf der Punkt 5 bereits formuliert war.
+- **Folge**: Punkt 5 gilt wie oben geschrieben, verbindlich und nicht mehr
+  vorläufig. Ein Abschnitt „Revision" entfällt. Damit ist auch die zweite
+  Bedingung der Wiedervorlage von „`beforeunload` ohne Dialog" (siehe
+  „Alternativen") nicht erfüllt. Ein erneutes Aufgreifen braucht eine neue
+  Nutzerentscheidung und ein neues ADR.
 
 ## Konsequenzen
 

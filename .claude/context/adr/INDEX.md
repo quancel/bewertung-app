@@ -23,8 +23,8 @@ danach ausdrückliches `commit()`), die Grenze benennen, Kriterien nur für das
 weiterlebende Dokument formulieren. Dazu kommt eine benannte Ausnahme zu
 ADR-0023 Punkt 2: Der echte Reload wird gemeldet, bestimmt aber nicht den
 Exit-Code. Kein `superseded by` — ADR-0005 trägt den Verweis im Kopf und an
-der korrigierten Risikoaussage. **Vorbehalt:** Punkt 5 von 0031 hängt an einer
-offenen Nutzerfrage.
+der korrigierten Risikoaussage. Punkt 5 von 0031 hat der Nutzer am 2026-09-26
+bestätigt („als bekannte Grenze akzeptieren"). Er gilt ohne Vorbehalt.
 
 Davor **Stand: 2026-09-26** — dreißig ADRs. **0030** beim Einordnen von
 PO-2026-09-26-001 (Live-Befund „Tags speichern nicht": `TagEingabe.vue`
@@ -147,7 +147,7 @@ PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
 | [0028](0028-detail-chrome-folgt-dem-rahmen-breakpoint.md) | Chrome der Detailspalte folgt dem Rahmen-Breakpoint per `@media`, nicht der Containerbreite (Präzisierung von ADR-0012 Punkt 3) | orte, app-shell | accepted | 2026-09-14 |
 | [0029](0029-engine-abhaengige-darstellung-und-der-blinde-fleck.md) | Engine-abhängige **Darstellung** — Chromium bleibt die einzige geprüfte Engine, und was eine Sichtbarkeits-Zusicherung dann tragen muss (Bestätigung und Erweiterung von ADR-0023 Punkt 5) | app-shell, bewertungen | accepted (Punkt 6 nachgetragen 2026-09-17) | 2026-09-16 |
 | [0030](0030-unbestaetigte-eingabe-ueber-die-komponentengrenze.md) | Unbestätigte Eingabe über die Komponentengrenze — die View holt sie über eine exponierte Methode ab, bevor sie persistiert (Erweiterung von ADR-0013 Punkt 3) | tags, orte, bewertungen | accepted | 2026-09-26 |
-| [0031](0031-schreiben-beim-entladen-der-seite.md) | Schreiben beim Entladen der Seite — gehärteter Schreibweg, aber keine Zusicherung (Präzisierung von ADR-0005 Punkt 2/5; benannte Ausnahme zu ADR-0023 Punkt 2) | orte, tags, bewertungen, app-shell | accepted (Punkt 5 unter Vorbehalt einer Nutzerfrage) | 2026-09-26 |
+| [0031](0031-schreiben-beim-entladen-der-seite.md) | Schreiben beim Entladen der Seite — gehärteter Schreibweg, aber keine Zusicherung (Präzisierung von ADR-0005 Punkt 2/5; benannte Ausnahme zu ADR-0023 Punkt 2) | orte, tags, bewertungen, app-shell | accepted | 2026-09-26 |
 
 **Status-Werte** wörtlich wie im ADR selbst: `proposed` · `accepted` ·
 `superseded by ADR-NNNN`.
