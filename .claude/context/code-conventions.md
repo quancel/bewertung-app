@@ -7,7 +7,9 @@
 > nicht hierhin.
 
 - **Modus**: `vorgegeben` (Greenfield, ADR-0002)
-- **Zuletzt geprüft**: 2026-09-27, Einordnen von PO-2026-09-27-003: Dazu
+- **Zuletzt geprüft**: 2026-09-27, Nachpflege zu PO-2026-09-27-001 (nach
+  der Abnahme): Ein DOM-messender `watch` läuft mit `flush: 'post'`. Davor
+  2026-09-27, Einordnen von PO-2026-09-27-003: Dazu
   kamen die Zonen- und Hervorhebungs-Auswertung in `features/orte/lib/`
   (ADR-0034), die Tokens `--color-zone-*` und `--shadow-hervorhebung-*`, der
   CSS-Hook über eine Custom Property statt `:deep()` und mehrere Signale in
@@ -167,6 +169,13 @@ src/
   Offene Stelle: `features/karte/composables/useLeafletKarte.ts` ruft
   `wendeKartenausschnittAn()` bei jeder Neuberechnung — das nächste Paket an
   der Karte korrigiert das mit.
+- **Ein `watch`, der das DOM misst oder liest** (`scrollHeight`,
+  `getBoundingClientRect`, `offsetHeight`, `feld.value` …), läuft mit
+  `{ flush: 'post' }`, nicht mit dem Vue-Standard `pre`. Template-Bindungen,
+  auch `v-model`, schreiben den neuen Wert erst im Render-Effekt des
+  Aufrufers ins DOM, und ein `pre`-Watcher misst noch den alten Inhalt. Das
+  fällt nur auf, wenn die Komponente beim Wertwechsel **nicht** neu gemountet
+  wird. Vorbild: `shared/composables/useMitwachsendesTextfeld.ts`.
 - **Rohwerte nur in `styles/tokens.css`.** Kein Hex-Wert, kein freier Abstand
   außerhalb der Skalen aus `design-concept.md` in Feature-Stylesheets;
   Komponenten binden an semantische Tokens. Muss ein Tokenwert

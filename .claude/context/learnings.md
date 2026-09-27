@@ -48,12 +48,17 @@
   Eine Begründung muss den **beobachtbaren Fehlerfall** nennen, den jemand
   nachstellen kann; was man nicht nachstellen kann, prüft auch niemand nach.
   (task_id: PO-2026-09-07-012, ADR-0011)
-- [2026-09-11] projektweit: Ein Constraint der Form „erneut, wenn sich X
-  ändert" ist mehrdeutig, sobald X eine abgeleitete Menge ist: Der Lead
-  implementiert **Identität** (neues Array bei jeder Neuberechnung), gemeint
-  war **Inhalt**. Beim Formulieren dazusagen, was der Auslöser vergleicht —
-  sonst ist die Abweichung weder im Review noch in der Abnahme sichtbar.
-  (task_id: PO-2026-09-07-006, `useLeafletKarte.ts`)
+- [2026-09-11, ergänzt 2026-09-27] projektweit: Ein Constraint der Form
+  „erneut, wenn sich X ändert" ist mehrdeutig, sobald X eine abgeleitete
+  Menge ist: Der Lead implementiert **Identität** (neues Array bei jeder
+  Neuberechnung), gemeint war **Inhalt**. Beim Formulieren dazusagen, was der
+  Auslöser vergleicht — sonst ist die Abweichung weder im Review noch in der
+  Abnahme sichtbar. Misst die Reaktion das DOM, gehört auch der **Zeitpunkt**
+  dazu (gegen den gerenderten Stand, nicht den vorherigen): „bei jeder
+  Wertänderung" ließ in -001 einen Vue-Standard-Watcher (`pre`) zu, der vor
+  dem `v-model`-Render misst — sichtbar erst im Rauchtest-Weg ohne Neumount,
+  jsdom hat kein Layout (Regel: code-conventions.md, `watch`).
+  (task_id: PO-2026-09-07-006, `useLeafletKarte.ts`; PO-2026-09-27-001)
 - [2026-09-13] projektweit: Absolute Wörter im ADR („nie", „immer") kosten
   beim Schreiben nichts, wenn die aktuelle Struktur den teuren Fall gar nicht
   erzeugt — ADR-0025 schrieb „die Kennung wird nie zurückgenommen", weil
