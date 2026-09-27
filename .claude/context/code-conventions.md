@@ -7,7 +7,10 @@
 > nicht hierhin.
 
 - **Modus**: `vorgegeben` (Greenfield, ADR-0002)
-- **Zuletzt geprüft**: 2026-09-27, Einordnen von PO-2026-09-27-001:
+- **Zuletzt geprüft**: 2026-09-27, Einordnen von PO-2026-09-27-002:
+  Freitext mit Obergrenze ohne Zeilenumbruch (Gate im Store-Setter, kein
+  neues ADR; die Import-Zeile steht unter Vorbehalt einer offenen
+  Nutzerfrage). Davor 2026-09-27, Einordnen von PO-2026-09-27-001:
   mitwachsende mehrzeilige Textfelder als geteiltes Composable (Anwendung
   von ADR-0024, kein neues ADR). Davor 2026-09-27, Nachpflege zu PO-2026-09-26-002 und
   Einordnen von PO-2026-09-26-003: `CSS_TARGET` als Kompatibilitätsvorgabe
@@ -364,6 +367,21 @@ src/
   „ganze Zahl 0–10, unabhängig vom Weg" zur Konvention statt zur Struktur.
   Ausgenommen bleibt nur das **Leeren** — es führt direkt zu `null` und wird
   nie geklemmt.
+- **Freitext mit Zeichenobergrenze und ohne Zeilenumbruch** (erstmals
+  Anfangsnotiz, PO-2026-09-27-002; UI-Seite: `design-conventions.md`
+  „Kurztextfeld mit Zeichenobergrenze"). Die Regel ist **eine** reine
+  Funktion in `features/<context>/lib/`: Läufe von Zeilenumbruchzeichen
+  werden zu einem Leerzeichen, dann wird auf die Grenze gekürzt, ohne ein
+  Surrogatpaar zu zerschneiden. Leer oder nur Leerraum wird zu `null`.
+  „Zeichen" ist die UTF-16-Codeeinheit (`String.length`), also dieselbe
+  Zählung wie bei `maxlength` und beim Zähler. Das **Gate sitzt im
+  Store-Setter** des besitzenden Contexts. Das Feld ist per Typ aus
+  `aktualisiereFeld` ausgenommen, damit es keinen zweiten Pfad ohne Gate
+  gibt (Struktur statt Konvention). `maxlength` ist Komfort und nicht das
+  Gate. Die Komponente ruft dieselbe Funktion auf, um das DOM nachzuziehen,
+  schreibt aber nur zurück, wenn sich der Text dadurch ändert (Caret, IME).
+  Der Import übernimmt den Wert unverändert. *Das ist eine Annahme bis zur
+  Antwort auf die Nutzerfrage aus PO-2026-09-27-002.*
 - **Ergebnisse statt Ausnahmen**: Lade-/Schreibfunktionen geben ein
   ausdrückliches Ergebnis zurück, das der Aufrufer auswerten muss.
 - **Geschrieben wird der vollständige Datensatz aus dem Store**, nie

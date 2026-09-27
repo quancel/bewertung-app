@@ -6,7 +6,12 @@
 > Halte sie kompakt (Faustregel: < 100 Zeilen). Sie ist ein Register,
 > kein Design-Dokument — Details gehören in ADRs unter `adr/`.
 
-- **Stand**: 2026-09-27 (Einordnen PO-2026-09-26-003: keine neue
+- **Stand**: 2026-09-27 (Einordnen PO-2026-09-27-002: keine neue
+  Context-Grenze. `orte` bekommt das Stammdatenfeld `anfangsnotiz`, und der
+  Bestand geht über den nächsten Migrationsschritt auf die nächste
+  `SCHEMA_VERSION`. `datensicherung` reicht das Feld ohne Codeänderung
+  durch.)
+  Davor 2026-09-27 (Einordnen PO-2026-09-26-003: keine neue
   Context-Grenze. Die Schnittstelle von `MasterDetail.vue` umfasst jetzt
   eine exponierte Methode, ADR-0033. Die veraltete Angabe „ab -006 von
   `karte` genutzt" ist korrigiert.)
@@ -49,7 +54,7 @@ identisch mit dem `bounded_context` im Handoff (ADR-0002).
 | Context | Repo/Service | Zuständigkeit (1 Satz) | Owner-Team |
 |---------|--------------|------------------------|------------|
 | `app-shell` | `src/app/`, `src/styles/`, `src/assets/`, `src/main.ts` | Gerüst, Design-Tokens, Schriften/Icons, Router, Offline-Auslieferung | frontend-lead |
-| `orte` | `src/features/orte/` | Ort als Aggregatwurzel (Bezeichnung, Adresse, Koordinaten), Liste, Detail, Sortierung, Ortssuche (ADR-0020) | frontend-lead |
+| `orte` | `src/features/orte/` | Ort als Aggregatwurzel (Bezeichnung, Anfangsnotiz, Adresse, Koordinaten), Liste, Detail, Sortierung, Ortssuche (ADR-0020) | frontend-lead |
 | `bewertungen` | `src/features/bewertungen/` | Vier Achsen 0–10 je Ort, Achsen-Kommentare, Gesamtnote | frontend-lead |
 | `tags` | `src/features/tags/` | Freie Tags je Ort und der Tag-Filter über die Liste | frontend-lead |
 | `medien` | `src/features/medien/` | Bilder je Ort (Verkleinerung, Anzeige, Löschen) | frontend-lead |
