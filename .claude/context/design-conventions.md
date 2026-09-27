@@ -231,7 +231,22 @@ Hervorhebungs-Schatten-Stufen mit fester Achsenzuordnung
 (Geschmack/Preis-Leistung), die Kombinationsregel für „beide Achsen ≥ 9"
 sowie die Technik, Auswahlkante und Hervorhebungs-Schatten in einer
 gemeinsamen `box-shadow`-Deklaration zu kombinieren, statt sich gegenseitig
-zu überschreiben.
+zu überschreiben. Eine fünfzehnte Runde (2026-09-27, PO-2026-09-27-004 —
+nach Freigabe durch den Nutzer) ergänzt den neuen Abschnitt „Bewertungsachse:
+Commit ohne Enter/Blur-Ersatz": derselbe Fehler-Kern wie bei „Tag-Eingabe:
+Commit ohne Enter" (PO-2026-09-26-001), hier für das mehrzeilige
+Kommentarfeld einer Bewertungsachse (PO-2026-09-27-001) — unbestätigter,
+nicht per `blur` committeter Text ging bei bestimmten Auslösern (u. a.
+Ortswechsel) stillschweigend verloren. Der neue Abschnitt verweist auf das
+dort bereits beschriebene Vier-Auslöser-Muster, statt es zu wiederholen,
+hält aber zwei Abweichungen fest: kein Enter-Commit als fünfter Auslöser
+(das Feld ist echt mehrzeilig, Enter bleibt regulärer Zeilenumbruch) und
+keine Rückkehr-Markierung (Begründung wie bei „Kurztextfeld mit
+Zeichenobergrenze": ein Kommentarfeld wechselt beim Commit seine Form
+nicht). Als Ursache des Verlustmechanismus hält der Abschnitt zusätzlich den
+fehlenden, ortsgebundenen `:key` an den vier `Bewertungsachse`-Instanzen
+fest (anders als `Ortssuche`/`TagEingabe`) — nur als Kontext für die
+Konvention, die technische Lösung liegt beim `architekt`.
 
 - **Zuletzt kuratiert**: 2026-09-27
 
@@ -673,6 +688,45 @@ B im Feld stehen.
   Wiederöffnen von Ort A: Der Nutzer hat den Wechsel selbst ausgelöst
   (Klick auf eine andere Listenzeile), dieselbe Begründung wie oben bei
   Blur/Route verlassen.
+
+## Bewertungsachse: Commit ohne Enter/Blur-Ersatz (PO-2026-09-27-004)
+
+Gleicher Fehler-Kern wie „Tag-Eingabe: Commit ohne Enter" oben, hier für das
+mehrzeilige Kommentarfeld einer Bewertungsachse (PO-2026-09-27-001,
+„Formulare" → „Mehrzeilige Textfelder wachsen mit dem Inhalt"):
+unbestätigter, nicht per `blur` committeter Text ging bei bestimmten
+Auslösern (u. a. Ortswechsel) stillschweigend verloren.
+
+- **Committet über dasselbe Vier-Auslöser-Muster wie „Tag-Eingabe: Commit
+  ohne Enter"** (Feld verlassen, Route verlassen, `visibilitychange`→
+  `hidden`, `pagehide`) — siehe dort für Details zu Reihenfolge,
+  Leer-Fall und technischer Anbindung, hier nicht wiederholt.
+- **Anders als bei Tag-Eingabe kein Enter-Commit als fünfter Auslöser**: Das
+  Kommentarfeld ist echt mehrzeilig und speichert reguläre Zeilenumbrüche
+  (anders als Tag-Eingabe/Kurztextfeld) — Enter fügt wie in jedem anderen
+  mehrzeiligen Textfeld dieser Konvention eine neue Zeile ein und wird nicht
+  abgefangen. Die vier Auslöser ersetzen hier ausschließlich das bisherige
+  alleinige `blur`, sie kommen zu keinem bestehenden Enter-Commit hinzu —
+  daher „Blur-Ersatz" im Abschnittstitel, nicht „zusätzlich zu Enter" wie
+  bei Tag-Eingabe.
+- **Keine Rückkehr-Markierung**, siehe Begründung unter „Kurztextfeld mit
+  Zeichenobergrenze": Jene Ausnahme von „Autosave hat keine sichtbare
+  Bestätigung" gilt nur, wo aus Text sichtbar etwas Neues entsteht (eine
+  Pille) — ein Kommentarfeld wechselt beim Commit seine Form nicht, Text
+  bleibt Text, deshalb gilt hier die allgemeine Autosave-Regel unverändert,
+  ohne Sonderkennzeichnung.
+- **Ursache, nur als Kontext — technische Lösung liegt beim `architekt`**:
+  Der Verlustmechanismus geht auf den fehlenden, ortsgebundenen `:key` an
+  den vier `Bewertungsachse`-Instanzen zurück. Anders als `Ortssuche`/
+  `TagEingabe` (`:key="ortId"`, siehe „Tag-Eingabe: Ortswechsel ab `lg`")
+  wird `Bewertungsachse.vue` bei einem Ortswechsel nicht neu gemountet
+  (bereits unter „Master-Detail (ab `lg`)" → „Fokus" als Randbemerkung zum
+  Auto-Grow festgehalten) — dieselbe fehlende Remount-Grenze, die dort das
+  Auto-Grow-Neuberechnen betraf, lässt hier zusätzlich unbestätigten
+  Kommentartext einer vorherigen Instanz stillschweigend untergehen, statt
+  ihn über einen der vier Auslöser zu committen. Diese Konvention hält nur
+  das Ziel fest (kein stiller Verlust) — ob und wie der `:key` ergänzt oder
+  der Commit anders technisch verankert wird, entscheidet der `architekt`.
 
 ## Listen: Sortieren, Filtern, Gruppierung
 
