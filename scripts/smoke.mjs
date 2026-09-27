@@ -135,6 +135,20 @@
  * Listen-Spalte samt ihrem „Ort hinzufügen"-Button ist ab `lg` neben einem
  * offenen Detail jetzt regulär sichtbar und klickbar.
  *
+ * Ab PO-2026-09-26-003 (ADR-0033, Korrektur zu ADR-0011 Punkt 6) kommt eine
+ * weitere harte Zusicherung dazu: `MasterDetail.vue` scrollt ab `lg` selbst,
+ * das `scrollBehavior` des Routers wirkt nur auf das Fenster und erreichte
+ * die Detail-Spalte deshalb nie — bei A→B blieb sie auf dem Scroll-Stand von
+ * A stehen. `pruefeScrollVersatzUndFokusBeiOrtswechsel()` prüft für JEDE
+ * Breite aus `BREITEN` mit `width >= 1024`: Nach A→B, einmal per Klick auf
+ * die Listenzeile und einmal ausschließlich über den Browserverlauf, hat der
+ * Scroll-Container der Detail-Spalte den Versatz 0 und der Fokus liegt auf
+ * „Detailansicht schließen" — mit der Vorbedingung, dass bei A tatsächlich
+ * ein Versatz > 0 erreicht wurde (sonst wäre „ist 0" kein Beleg). Zusätzlich
+ * hart in derselben Funktion: ein erneuter Klick auf die bereits
+ * hervorgehobene Zeile setzt den Versatz NICHT zurück, und die Listen-Spalte
+ * behält beim Klick-Wechsel ihren eigenen Versatz.
+ *
  * Aufruf: `npm run smoke` (baut vorher). Bildschirmfotos landen in
  * `.smoke/`, das Verzeichnis ist ignoriert.
  */
@@ -1253,6 +1267,178 @@ async function pruefeTagBleibtBeimOrtswechselAmRichtigenOrt(seite, befunde) {
   }
 }
 
+/**
+ * Zusicherung ab PO-2026-09-26-003 (ADR-0033, Korrektur zu ADR-0011 Punkt 6):
+ * Ab lg beginnt die Detail-Spalte bei A→B von oben (Versatz 0), unabhängig
+ * vom Scroll-Stand bei A, und der Fokus liegt danach auf "Detailansicht
+ * schließen" — geprüft für BEIDE Auslöser: Klick auf die Listenzeile und
+ * ausschließlich über den Browserverlauf (`goBack`/`goForward`, wie in
+ * `pruefeTagBleibtBeimOrtswechselAmRichtigenOrt`; `pushState` kappt dabei
+ * vorwärts liegende Einträge). Zusätzlich hart in derselben Funktion:
+ * Kriterium 2 — ein erneuter Klick auf die bereits hervorgehobene Zeile
+ * setzt den Versatz NICHT zurück (folgt strukturell aus dem Wertvergleich in
+ * `watch(ortId)`, kein eigener Code dafür) — und Kriterium 3 — A→B per Klick
+ * auf eine sichtbare Zeile ändert den Versatz der Listen-Spalte nicht.
+ *
+ * Der Scroll-Container der Detail-Spalte wird als EIGENSCHAFT bestimmt: der
+ * nächste Vorfahr des Buttons "Detailansicht schließen" mit
+ * `overflow-y: auto` oder `scroll` (ADR-0033 Punkt 7) — nie über eine
+ * Klassen- oder ID-Liste, bleibt so auch gültig, falls `MasterDetail.vue`
+ * seine interne Struktur ändert (ADR-0033 Punkt 2, "Vertrag ist die
+ * Methode, nicht die Struktur").
+ *
+ * Vorbedingung ist TEIL der Zusicherung (ADR-0033 Punkt 7): Vor jedem
+ * Wechsel muss bei Ort A tatsächlich ein Versatz > 0 erreicht sein — sonst
+ * wäre "Versatz ist 0" kein Beleg für einen wirksamen Reset, sondern nur
+ * dafür, dass nie gescrollt wurde. `verlaengereUndScrolleDetailSpalte` öffnet
+ * dafür den Koordinaten-Notnagel (verlängert das Formular zuverlässig über
+ * die Fensterhöhe hinaus) und scrollt danach ans Ende. Für Kriterium 3 legt
+ * diese Funktion zusätzlich zwölf Füll-Orte an, deren Bezeichnung
+ * alphabetisch VOR "Rauchtest-Versatz-A/-B" sortiert (Voreinstellung ist
+ * Bezeichnung aufsteigend) — die Listen-Spalte ist dadurch tatsächlich
+ * scrollbar, A und B liegen am Ende, und ein Scroll ans Ende hält die
+ * geklickte Zeile sichtbar, ohne dass Playwrights automatisches
+ * Ins-Sicht-Scrollen vor dem Klick selbst einen Versatz erzeugt, den der
+ * Test fälschlich der Anwendung zuschreiben würde.
+ *
+ * Läuft NUR ab lg (der Aufrufer filtert `BREITEN` auf `width >= 1024`) —
+ * unterhalb lg ist der Wrapper strukturell kein Scroll-Container
+ * (ADR-0033 Punkt 2).
+ */
+async function pruefeScrollVersatzUndFokusBeiOrtswechsel(seite, breite, befunde) {
+  const kontext = `${breite.name}/scroll-versatz-ortswechsel`
+
+  async function bestimmeVersatzUndFokus() {
+    return seite.evaluate(() => {
+      const schliessen = document.querySelector('[aria-label="Detailansicht schließen"]')
+      if (!schliessen) return null
+      let container = schliessen.parentElement
+      while (container && !['auto', 'scroll'].includes(getComputedStyle(container).overflowY)) {
+        container = container.parentElement
+      }
+      if (!container) return null
+      return {
+        versatz: container.scrollTop,
+        fokusIstSchliessen: document.activeElement === schliessen,
+      }
+    })
+  }
+
+  async function verlaengereUndScrolleDetailSpalte() {
+    const reveal = seite.getByRole('button', { name: 'Koordinaten von Hand eintragen' })
+    if ((await reveal.count()) > 0) {
+      await reveal.click().catch(() => {})
+      await seite.waitForTimeout(200)
+    }
+    await seite.evaluate(() => {
+      const schliessen = document.querySelector('[aria-label="Detailansicht schließen"]')
+      let container = schliessen?.parentElement ?? null
+      while (container && !['auto', 'scroll'].includes(getComputedStyle(container).overflowY)) {
+        container = container.parentElement
+      }
+      if (container) container.scrollTop = container.scrollHeight
+    })
+    await seite.waitForTimeout(150)
+  }
+
+  const zeileB = seite.locator('.ortszeile', { hasText: 'Rauchtest-Versatz-B' })
+
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    // Füll-Orte für Kriterium 3 (s. Funktionskommentar) — bewusst VOR A/B
+    // angelegt, damit die alphabetische Voreinstellung sie an den Anfang der
+    // Liste sortiert und A/B ans Ende, wo ein Scroll-ans-Ende sie sichtbar
+    // hält.
+    for (let i = 0; i < 12; i += 1) {
+      await legeOrtAnUndOeffneIhn(seite, `Rauchtest-Aaa-Fueller-${String(i).padStart(2, '0')}`)
+    }
+
+    await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Versatz-A') // Historie: [..., A]
+    await seite.getByRole('button', { name: 'Ort hinzufügen', exact: true }).first().click()
+    await seite.waitForTimeout(300)
+    await seite.locator('#ort-anlegen-bezeichnung').fill('Rauchtest-Versatz-B')
+    await seite.keyboard.press('Enter')
+    await seite.waitForTimeout(700) // Historie: [..., A, B]
+
+    await seite.goBack({ waitUntil: 'networkidle' }) // zurück zu A
+    await seite.waitForTimeout(300)
+
+    // --- Auslöser 1: Klick auf die Listenzeile, plus Kriterium 3 -------
+    const listeVorKlick = await seite.evaluate(() => {
+      const liste = document.querySelector('.master-detail__liste')
+      if (!liste) return null
+      liste.scrollTop = liste.scrollHeight
+      return liste.scrollTop
+    })
+    if (listeVorKlick === null || listeVorKlick === 0) {
+      befunde.push(`${kontext}: Listen-Spalte lässt sich nicht scrollen — Vorbedingung für Kriterium 3 nicht erreicht`)
+    }
+
+    await verlaengereUndScrolleDetailSpalte()
+    const vorKlick = await bestimmeVersatzUndFokus()
+    if (!vorKlick || vorKlick.versatz === 0) {
+      befunde.push(`${kontext}: Vorbedingung nicht erreicht — Versatz bei Ort A vor dem Klick-Wechsel ist ${vorKlick?.versatz ?? 'unbekannt'}, erwartet > 0`)
+    }
+
+    await zeileB.click()
+    await seite.waitForTimeout(400)
+
+    const nachKlick = await bestimmeVersatzUndFokus()
+    if (!nachKlick) {
+      befunde.push(`${kontext}: Scroll-Container/Schließen-Button nach Klick-Wechsel nicht gefunden`)
+    } else {
+      if (nachKlick.versatz !== 0) {
+        befunde.push(`${kontext}: Detail-Spalte beginnt nach Klick-Wechsel A→B nicht bei Versatz 0 (${nachKlick.versatz}px)`)
+      }
+      if (!nachKlick.fokusIstSchliessen) {
+        befunde.push(`${kontext}: Fokus liegt nach Klick-Wechsel A→B nicht auf "Detailansicht schließen"`)
+      }
+    }
+
+    const listeNachKlick = await seite.evaluate(() => document.querySelector('.master-detail__liste')?.scrollTop ?? null)
+    if (listeVorKlick !== null && listeNachKlick !== listeVorKlick) {
+      befunde.push(`${kontext}: Listen-Spalte ändert ihren Versatz beim Klick-Wechsel A→B (${listeVorKlick}px → ${listeNachKlick}px)`)
+    }
+
+    // --- Kriterium 2: erneuter Klick auf die bereits hervorgehobene Zeile --
+    await verlaengereUndScrolleDetailSpalte()
+    const vorErneutemKlick = await bestimmeVersatzUndFokus()
+    await zeileB.click()
+    await seite.waitForTimeout(300)
+    const nachErneutemKlick = await bestimmeVersatzUndFokus()
+    if (vorErneutemKlick && vorErneutemKlick.versatz > 0 && nachErneutemKlick && nachErneutemKlick.versatz === 0) {
+      befunde.push(`${kontext}: ein erneuter Klick auf die bereits ausgewählte Zeile setzt den Versatz der Detail-Spalte zurück (sollte stehen bleiben)`)
+    }
+
+    // --- Auslöser 2: rein über den Browserverlauf -----------------------
+    await seite.goBack({ waitUntil: 'networkidle' }) // zurück zu A
+    await seite.waitForTimeout(300)
+    await verlaengereUndScrolleDetailSpalte()
+    const vorGoForward = await bestimmeVersatzUndFokus()
+    if (!vorGoForward || vorGoForward.versatz === 0) {
+      befunde.push(`${kontext}: Vorbedingung nicht erreicht — Versatz bei Ort A vor dem Verlaufs-Wechsel ist ${vorGoForward?.versatz ?? 'unbekannt'}, erwartet > 0`)
+    }
+
+    await seite.goForward({ waitUntil: 'networkidle' }) // A -> B, ausschließlich über den Verlauf
+    await seite.waitForTimeout(400)
+    const nachGoForward = await bestimmeVersatzUndFokus()
+    if (!nachGoForward) {
+      befunde.push(`${kontext}: Scroll-Container/Schließen-Button nach Verlaufs-Wechsel nicht gefunden`)
+    } else {
+      if (nachGoForward.versatz !== 0) {
+        befunde.push(`${kontext}: Detail-Spalte beginnt nach Verlaufs-Wechsel A→B nicht bei Versatz 0 (${nachGoForward.versatz}px)`)
+      }
+      if (!nachGoForward.fokusIstSchliessen) {
+        befunde.push(`${kontext}: Fokus liegt nach Verlaufs-Wechsel A→B nicht auf "Detailansicht schließen"`)
+      }
+    }
+
+    console.log(`  ${kontext} — geprüft (Klick und Browserverlauf, Vorbedingung Versatz > 0, Listen-Spalte behält ihren Versatz, Wiederklick setzt nicht zurück)`)
+  } catch (fehler) {
+    befunde.push(`${kontext}: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  }
+}
+
 async function main() {
   const playwright = await ladePlaywright()
   if (!playwright) {
@@ -1344,6 +1530,15 @@ async function main() {
     const tagfilterSeite = await browser.newPage({ viewport: { width: 1280, height: 900 } })
     await pruefeTagFilterLeerBeiAusgewaehltemOrt(tagfilterSeite, befunde)
     await tagfilterSeite.close()
+
+    // Zusicherung ab PO-2026-09-26-003 (ADR-0033), s.o. — für JEDE Breite aus
+    // BREITEN mit width >= 1024 (aktuell nur 1280px), auf einer frischen
+    // Seite, eigene Füll-Orte statt Vermischung mit den übrigen Läufen.
+    for (const breite of BREITEN.filter((b) => b.width >= 1024) /* --breakpoint-lg */) {
+      const versatzSeite = await browser.newPage({ viewport: { width: breite.width, height: breite.height } })
+      await pruefeScrollVersatzUndFokusBeiOrtswechsel(versatzSeite, breite, befunde)
+      await versatzSeite.close()
+    }
   } finally {
     await browser?.close()
     beendeVorschau(server)
@@ -1379,6 +1574,10 @@ async function main() {
   console.log('gleichzeitig, überlappungsfrei und randbündig, ohne Fenster-Scroll —')
   console.log('unterhalb lg weiterhin nur die dem Zustand entsprechende Spalte')
   console.log('(PO-2026-09-26-002, ADR-0032).')
+  console.log('Ab lg beginnt die Detail-Spalte bei A→B (Klick oder Browserverlauf) bei')
+  console.log('Versatz 0 mit Fokus auf „Detailansicht schließen", ein erneuter Klick auf die')
+  console.log('bereits ausgewählte Zeile setzt nicht zurück, und die Listen-Spalte behält')
+  console.log('beim Klick-Wechsel ihren eigenen Versatz (PO-2026-09-26-003, ADR-0033).')
   // ADR-0029 Punkt 4: ein ERFOLGREICHER Lauf weist die Grenze selbst aus,
   // nicht nur der Fehlerfall (Playwright-Skip oben) und nicht nur der Kopf
   // dieser Datei. Als Eigenschaft formuliert, nicht als Funktions-/

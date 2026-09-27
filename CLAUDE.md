@@ -295,6 +295,26 @@ Nachweis bei 1280px deckt den Tag-Filter-Leerzustand bei ausgewähltem Ort ab
 Listen-Spalte samt ihrem „Ort hinzufügen"-Button ist ab `lg` neben einem
 offenen Detail jetzt regulär sichtbar und klickbar.
 
+Ab PO-2026-09-26-003 (ADR-0033, Korrektur zu ADR-0011 Punkt 6) kommt eine
+weitere harte Zusicherung dazu: `MasterDetail.vue` scrollt ab `lg` selbst,
+das `scrollBehavior` des Routers wirkt nur auf das Fenster und erreichte die
+Detail-Spalte deshalb nie — bei einem Ortswechsel A→B blieb sie auf dem
+Scroll-Stand von A stehen, statt oben zu beginnen.
+`pruefeScrollVersatzUndFokusBeiOrtswechsel()` läuft für **jede** Breite aus
+`BREITEN` mit `width >= 1024` und prüft für **beide Auslöser** — Klick auf
+die Listenzeile und ausschließlich über den Browserverlauf
+(`goBack`/`goForward`) —: Der Scroll-Container der Detail-Spalte (bestimmt
+als nächster Vorfahr von „Detailansicht schließen" mit `overflow-y:
+auto|scroll`, keine Klassen-/ID-Liste) hat danach den Versatz 0, und der
+Fokus liegt auf „Detailansicht schließen". **Vorbedingung Teil der
+Zusicherung**: Vor jedem Wechsel muss bei Ort A tatsächlich ein Versatz > 0
+erreicht worden sein (dafür öffnet die Funktion den Koordinaten-Notnagel und
+legt zwölf Füll-Orte an, damit auch die Listen-Spalte scrollbar ist) — sonst
+wäre „Versatz ist 0" kein Beleg für einen wirksamen Reset. In derselben
+Funktion zusätzlich hart: Ein erneuter Klick auf die bereits hervorgehobene
+Zeile setzt den Versatz **nicht** zurück, und ein Klick-Wechsel A→B ändert
+den Versatz der Listen-Spalte **nicht**.
+
 **Der Lead führt ihn aus, bevor er ein Paket als erledigt meldet** — nicht
 statt der Unit-Tests, sondern zusätzlich. Typecheck, Lint und Vitest
 prüfen, ob Code zusammenpasst; der Rauchtest prüft, ob das Ergebnis

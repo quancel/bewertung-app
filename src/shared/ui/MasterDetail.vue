@@ -36,12 +36,37 @@
  * `@media`-Bedingungen stehen als wörtliches Paar (dieselbe Bedingung, ein
  * Mal negiert) in dieser Datei — das gilt nach ADR-0011 Punkt 5/ADR-0028
  * Punkt 2 weiterhin als „eine Stelle".
+ *
+ * Exponierte Methode `setzeDetailVersatzZurueck()` (ADR-0033, Korrektur zu
+ * ADR-0011 Punkt 6): Der Baustein besitzt den Scroll-Container der
+ * Detail-Spalte, also gehört auch das Zurücksetzen seines Versatzes hierher
+ * — nicht einer DOM-Suche in der Bereichsansicht. Die Methode setzt
+ * ausschließlich `scrollTop = 0` am eigenen Wrapper, synchron, ohne
+ * Rückgabewert, ohne Breitenprüfung (kein `matchMedia`, ADR-0028 Punkt 4):
+ * Unterhalb `lg` ist der Wrapper kein Scroll-Container (teils sogar
+ * `display: none`), die Zuweisung bleibt dort wirkungslos statt das Fenster
+ * zu treffen. Wann sie aufgerufen wird, entscheidet ausschließlich die
+ * Bereichsansicht (sie allein kennt die Route) — der Baustein bleibt
+ * zustandslos und bekommt dafür weder Watcher noch Prop noch eigenen
+ * Zustand (ADR-0033 Punkt 3). Der Listen-Wrapper bekommt keine
+ * symmetrische Methode (ADR-0033 Punkt 5).
  */
+import { ref } from 'vue'
+
 defineProps<{
   /** Entspricht "ist eine Detailadresse aktiv" — unabhängig davon, ob sie
    * sich auf einen vorhandenen Datensatz auflöst (ADR-0011 Punkt 4). */
   detailOffen: boolean
 }>()
+
+const detailWrapperRef = ref<HTMLDivElement | null>(null)
+
+/** ADR-0033 Punkt 2: siehe Kopfkommentar. */
+function setzeDetailVersatzZurueck(): void {
+  if (detailWrapperRef.value) detailWrapperRef.value.scrollTop = 0
+}
+
+defineExpose({ setzeDetailVersatzZurueck })
 </script>
 
 <template>
@@ -52,7 +77,10 @@ defineProps<{
     <div class="master-detail__liste">
       <slot name="liste" />
     </div>
-    <div class="master-detail__detail">
+    <div
+      ref="detailWrapperRef"
+      class="master-detail__detail"
+    >
       <slot name="detail" />
     </div>
   </div>

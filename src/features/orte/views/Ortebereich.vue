@@ -82,6 +82,15 @@
  * `:key="ortId"`-Remount-Mechanismus wie `Ortssuche` (ADR-0025 Punkt 5,
  * ADR-0030 Punkt 6); die Emit-Handler binden `ort.id`, nicht die reaktive
  * `ortId` (ADR-0030 Punkt 5).
+ *
+ * Scroll-Versatz der Detail-Spalte bei A→B (PO-2026-09-26-003, ADR-0033,
+ * Korrektur zu ADR-0011 Punkt 6): Der Scroll-Container gehört
+ * `MasterDetail.vue`, nur diese Ansicht kennt die Route — deshalb löst sie
+ * nur AUS (`masterDetailRef.value?.setzeDetailVersatzZurueck()`), statt in
+ * dessen DOM zu greifen (ADR-0033 Punkt 1). `fuehreOeffneSequenzAus` bündelt
+ * die Reihenfolge Versatz-Reset → Fokus → Listen-Scroll (ADR-0033 Punkt 4)
+ * an einer Stelle, die sowohl `onMounted` (Deep-Link) als auch
+ * `watch(ortId)` (Öffnen ohne vorherige Auswahl UND A→B) benutzen.
  */
 import { computed, defineAsyncComponent, nextTick, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
@@ -292,12 +301,12 @@ function aufRichtungUmgeschaltet(): void {
 
 onMounted(async () => {
   await store.sicherstellenGeladen()
-  // Direkter Aufruf einer Detailadresse ab lg: Fokus + Listenposition wie
-  // bei jedem anderen Öffnen (design_notes PO-2026-09-07-012).
+  // Direkter Aufruf einer Detailadresse ab lg: Versatz-Reset + Fokus +
+  // Listenposition wie bei jedem anderen Öffnen (design_notes
+  // PO-2026-09-07-012, ADR-0033 Punkt 4).
   if (ortId.value) {
     await nextTick()
-    fokussiereDetailNachOeffnen()
-    scrolleZeileInSicht(ortId.value)
+    fuehreOeffneSequenzAus(ortId.value)
   }
 })
 
@@ -312,6 +321,10 @@ function setZeilenRef(id: string, el: Element | null): void {
 
 const schliessenButtonRef = ref<HTMLButtonElement | null>(null)
 const leerZustandRef = ref<HTMLElement | null>(null)
+// ADR-0033 Punkt 4/6: Template-Ref auf den Baustein, NICHT auf sein DOM
+// (Punkt 1) — `null` in den Zweigen Leerzustand/gefiltert-leer/Karte, der
+// Aufruf über sie bleibt deshalb optional (`?.`).
+const masterDetailRef = ref<InstanceType<typeof MasterDetail> | null>(null)
 // Von `aufLoeschenBestaetigt` gesetzt, damit die Fokusrückgabe nach dem
 // Löschen die Zeile an der NEUEN Position des gelöschten Eintrags trifft
 // (design_notes PO-2026-09-07-012), nicht die alte ID, die es nicht mehr gibt.
@@ -363,6 +376,23 @@ function fokussiereDetailNachOeffnen(): void {
   }
 }
 
+/**
+ * Bündelt die Reihenfolge aus ADR-0033 Punkt 4 an EINER Stelle, die sowohl
+ * `onMounted` (Deep-Link) als auch `watch(ortId)` unten benutzen, statt sie
+ * zweimal nachzubauen: (a) Scroll-Versatz der Detail-Spalte zurücksetzen,
+ * DAVOR (b) Fokus auf „Detailansicht schließen", DANACH (c) die Zeile in
+ * der Listen-Spalte in Sicht scrollen. (a) muss vor (b) stehen, damit das
+ * Fokussieren des klebenden Kopfes nie selbst scrollen muss (ADR-0033
+ * Punkt 4). Diese Funktion löst den Versatz-Reset nur AUS — er gehört
+ * `MasterDetail.vue` (ADR-0033 Punkt 1/2), diese Ansicht kennt nur die
+ * Route.
+ */
+function fuehreOeffneSequenzAus(zielOrtId: string): void {
+  masterDetailRef.value?.setzeDetailVersatzZurueck()
+  fokussiereDetailNachOeffnen()
+  scrolleZeileInSicht(zielOrtId)
+}
+
 function fokussiereListeNachSchliessen(vorherigeId: string): void {
   if (geloeschtVorherigerIndex.value !== null) {
     const index = geloeschtVorherigerIndex.value
@@ -393,9 +423,13 @@ watch(ortId, async (neu, alt) => {
     koordinatenAufgeklapptFuerOrtId.value = null
   }
   await nextTick()
-  if (neu && !alt) {
-    fokussiereDetailNachOeffnen()
-    scrolleZeileInSicht(neu)
+  if (neu) {
+    // Für JEDES neu !== null (ADR-0033 Punkt 4): Öffnen ohne vorherige
+    // Auswahl UND A→B, unabhängig vom Auslöser (Klick oder Browserverlauf).
+    // Ein erneuter Aufruf desselben Ortes erreicht diesen Watcher gar nicht
+    // (Wertvergleich, doppelte Navigation) — Kriterium 2 folgt aus der
+    // Struktur, ohne eigene Abfrage.
+    fuehreOeffneSequenzAus(neu)
   } else if (!neu && alt) {
     // Rücksprung in die Kartenansicht (design-conventions.md
     // „Ansichtswechsel innerhalb eines Bereichs"): `ansicht` liest zu diesem
@@ -741,6 +775,7 @@ async function aufLoeschenBestaetigt(): Promise<void> {
 
     <MasterDetail
       v-else
+      ref="masterDetailRef"
       :detail-offen="detailOffen"
     >
       <template #liste>
