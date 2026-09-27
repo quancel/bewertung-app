@@ -7,7 +7,11 @@
 > nicht hierhin.
 
 - **Modus**: `vorgegeben` (Greenfield, ADR-0002)
-- **Zuletzt geprüft**: 2026-09-27, beim Einordnen von PO-2026-09-26-002:
+- **Zuletzt geprüft**: 2026-09-27, Nachpflege zu PO-2026-09-26-002 und
+  Einordnen von PO-2026-09-26-003: `CSS_TARGET` als Kompatibilitätsvorgabe
+  (ADR-0032 Nachtrag), veraltete Aussage „`base` bleibt `/`" korrigiert
+  (`BASE` ist `/bewertung-app/`), Scroll-Versatz gehört dem Baustein
+  (ADR-0033). Davor 2026-09-27, beim Einordnen von PO-2026-09-26-002:
   breitenabhängige Sichtbarkeit wird begrenzt statt überschrieben
   (ADR-0032), plus die akzeptierte Abweichung im Chrome von
   `Ortebereich.vue`. Davor 2026-09-17, Nachpflege nach der Abnahme von
@@ -252,6 +256,15 @@ src/
   die Elternbreite anzunehmen. Vorbild: `orte/components/Werkzeugleiste.vue`.
 - **Ab `lg` scrollt die Listen-Spalte selbst, nicht das Fenster** (ADR-0011
   P6). Was kleben soll, klebt **innerhalb** des scrollenden Spaltenelements.
+- **Den Versatz eines Scroll-Containers setzt der Baustein zurück, dem der
+  Container gehört** (ADR-0033). Bei `MasterDetail.vue` geschieht das über
+  `defineExpose({ setzeDetailVersatzZurueck })`: synchron, nur
+  `scrollTop = 0` am eigenen Spalten-Wrapper, keine Breitenprüfung. Die
+  Bereichsansicht ruft die Methode über eine typisierte Template-Ref auf. Sie
+  greift **nie** über `querySelector`/`closest`/`parentElement` oder eine
+  Suche nach dem „nächsten scrollbaren Vorfahren" in das DOM des Bausteins.
+  Eigene Elemente im Slot (z. B. Listenzeilen) darf sie per
+  `scrollIntoView({ block: 'nearest' })` sichtbar machen.
 - **Alles, was in Grid/Flex schrumpfen soll, bekommt `min-width: 0`** — nicht
   nur Layout-Spalten, sondern **jedes Flex-Item mit eigener Inhaltsbreite**,
   besonders `input` (Standard-`size`, Spinner bei `type="number"`). Sonst
@@ -383,9 +396,23 @@ src/
 ## Build und Auslieferung (ADR-0001/0015)
 
 - **Rein statisches Bundle über HTTPS**, kein Server-Laufzeitanteil, kein SSR.
-  `base` in `vite.config.ts` bleibt `/`; nichts im Code verdrahtet einen
-  absoluten Pfad. Sicherer Kontext ist damit gegeben. Ein Versionswechsel
-  leert **Caches, niemals IndexedDB**.
+  Der Unterpfad der Auslieferung (GitHub Pages) steht **nur** in der
+  Konstante `BASE` in `vite.config.ts`. Router (`import.meta.env.BASE_URL`),
+  `navigateFallback` sowie `scripts/smoke.mjs` und
+  `scripts/verify-precache.mjs` beziehen ihn von dort. Sonst verdrahtet
+  nichts im Code einen absoluten Pfad. Damit ist ein sicherer Kontext
+  gegeben. Ein Versionswechsel leert **Caches, niemals IndexedDB**.
+- **`build.cssTarget` ist eine Kompatibilitätsvorgabe und kein
+  Vorgabewert** (ADR-0032 Punkt 2, Nachtrag). Die Konstante `CSS_TARGET` in
+  `vite.config.ts` hält Safari/iOS bewusst unter 16.4 (`safari15`/`ios15`),
+  alle anderen Browser bleiben auf der Baseline-Version. Der Grund:
+  LightningCSS schreibt `@media`-Bedingungen in Bereichssyntax um, sobald
+  alle Ziele sie beherrschen, und in WebKit < 16.4 trifft diese Syntax still
+  nie zu. Ein Bump von `build.target` oder ein Vite-Update zieht
+  `CSS_TARGET` **nicht** mit, und niemand soll den Wert „angleichen". Wer
+  `CSS_TARGET` oder `build.cssMinify` ändert oder Vite hebt, prüft
+  `grep -o "@media[^{]*" dist/assets/*.css` auf `width <`/`>=`. Das ist heute
+  eine Konvention ohne automatischen Check.
 - **Service Worker generiert, nicht handgeschrieben**: `vite-plugin-pwa`,
   Modus `generateSW`, `manifest: false`. **`globPatterns` werden
   überschrieben, nicht übernommen** (der Vorgabewert enthält kein `woff2`) —

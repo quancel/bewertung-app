@@ -10,6 +10,10 @@
   Stelle", schließt die wörtliche Negation derselben Bedingung in derselben
   Datei ein. Breitenabhängige Sichtbarkeit wird auf ihren Bereich begrenzt,
   statt sie zu überschreiben.
+- **Präzisiert durch**: ADR-0033 (2026-09-27): Zur Schnittstelle aus
+  Punkt 1 kommt eine exponierte Methode `setzeDetailVersatzZurueck()`. Den
+  Versatz aus Punkt 6 setzt der Baustein zurück, die Bereichsansicht löst
+  das nur aus.
 
 ## Kontext
 

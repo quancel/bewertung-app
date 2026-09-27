@@ -165,6 +165,15 @@
   sie. Ein Workaround im Prüfcode für einen fremden Fehler ist ein Befund
   und kein Testdetail: Er wird gemeldet, und das Fix-Paket entfernt ihn.
   (task_id: PO-2026-09-26-001)
+- [2026-09-27] app-shell/projektweit: Eine Syntax-Vorgabe, die eine
+  ungeprüfte Engine schützt (keine Media-Query-Bereichssyntax wegen WebKit
+  < 16.4), entscheidet sich im **Build-Ergebnis** und nicht im Quelltext. Der
+  Quelltext war korrekt, aber Vites Vorgabe-Ziel (seit Vite 8 mit Safari
+  16.4) ließ LightningCSS umschreiben, und erst die Abnahme fand es. Bei
+  Paketen mit Engine-Kompatibilitätsvorgabe `vite.config.ts`
+  (`build.cssTarget`) in `files_to_touch` aufnehmen und den Nachweis am
+  `dist/`-Stand als `constraint` setzen. (task_id: PO-2026-09-26-002,
+  ADR-0032 Nachtrag)
 - [2026-09-11] orte/tags/karte: Leerzustände sind je **Filterstufe** zu
   zählen, nicht pauschal einer. Bestand leer · Filter ohne Treffer · gefiltert,
   aber nichts davon darstellbar (Orte ohne Koordinaten) sind drei verschiedene

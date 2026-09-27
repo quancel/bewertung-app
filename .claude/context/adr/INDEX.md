@@ -13,7 +13,18 @@
 > Eine Zeile pro ADR. Keine Zusammenfassung des Inhalts — der Titel muss
 > reichen, um zu entscheiden, ob das ADR relevant ist.
 
-**Stand: 2026-09-27** — zweiunddreißig ADRs. **0032** stammt aus dem
+**Stand: 2026-09-27 (Einordnen PO-2026-09-26-003)** — dreiunddreißig ADRs.
+**0033** präzisiert ADR-0011 Punkt 1 und 6. Den Scroll-Versatz der
+Detail-Spalte setzt `MasterDetail.vue` selbst zurück, über eine exponierte
+Methode. `Ortebereich.vue` löst den Reset nur aus, und zwar im bestehenden
+`watch(ortId)`, und greift nie in das DOM des Bausteins. Das ist die zweite
+zugelassene Art exponierter Methode neben ADR-0030 Punkt 3. Kein
+`superseded by`. In der Nachpflege zu PO-2026-09-26-002 kam zu **0032** ein
+**Nachtrag zu Punkt 2** hinzu: Das Build-Ziel des CSS-Minifiers
+(`build.cssTarget`, `CSS_TARGET` in `vite.config.ts`) trägt jetzt die
+verbotene Bereichssyntax. Der normative Kern ist unverändert.
+
+Davor **Stand: 2026-09-27** — zweiunddreißig ADRs. **0032** stammt aus dem
 Einordnen von PO-2026-09-26-002 (Listen-Spalte ab `lg` bei offenem Detail
 unsichtbar; Ursache ist ein Spezifitäts-Override in `MasterDetail.vue`).
 Breitenabhängige Sichtbarkeit wird auf ihren Bereich begrenzt, statt sie zu
@@ -140,7 +151,7 @@ PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
 | [0008](0008-feldbesitz-und-ableitungen-ueber-context-grenzen.md) | Feldbesitz und Ableitungen über Context-Grenzen im Ort-Datensatz | orte, bewertungen, tags, medien, datensicherung | accepted | 2026-09-08 |
 | [0009](0009-ansichtszustand-der-ortsliste.md) | Ansichtszustand der Ortsliste gehört dem Context `orte` — und Gerätezustand darf eine Voreinstellung haben | orte, tags, datensicherung | accepted | 2026-09-08 |
 | [0010](0010-app-rahmen-chrome-grenze-und-routenbesitz.md) | App-Rahmen — Grenze der Navigationschrome, Routenbesitz und eine Meldung an zwei Orten | app-shell, orte | accepted | 2026-09-08 |
-| [0011](0011-master-detail-als-geteilter-baustein.md) | Master-Detail als geteilter Baustein — ein Adressraum, eine Bereichsansicht | app-shell, orte, karte | accepted (Punkt 5 präzisiert durch 0032) | 2026-09-08 |
+| [0011](0011-master-detail-als-geteilter-baustein.md) | Master-Detail als geteilter Baustein — ein Adressraum, eine Bereichsansicht | app-shell, orte, karte | accepted (Punkt 5 präzisiert durch 0032; Punkt 1/6 präzisiert durch 0033) | 2026-09-08 |
 | [0012](0012-breitenlogik-am-container-statt-am-viewport.md) | Breitenabhängige Layouts richten sich nach ihrem Container, nicht nach dem Viewport | app-shell, orte, medien, karte, bewertungen, tags | accepted | 2026-09-08 |
 | [0013](0013-fremde-bausteine-in-den-ortsansichten.md) | Fremde Bausteine in den Ortsansichten — Import-Richtung und die Slot-Naht der Werkzeugleiste | orte, bewertungen, tags, medien | accepted | 2026-09-09 |
 | [0014](0014-tag-modell-abgeleitetes-vokabular.md) | Tag-Modell — Feld im Ort-Datensatz, abgeleitetes Vokabular, case-insensitive Identität | tags, orte, datensicherung | accepted | 2026-09-09 |
@@ -161,7 +172,8 @@ PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
 | [0029](0029-engine-abhaengige-darstellung-und-der-blinde-fleck.md) | Engine-abhängige **Darstellung** — Chromium bleibt die einzige geprüfte Engine, und was eine Sichtbarkeits-Zusicherung dann tragen muss (Bestätigung und Erweiterung von ADR-0023 Punkt 5) | app-shell, bewertungen | accepted (Punkt 6 nachgetragen 2026-09-17) | 2026-09-16 |
 | [0030](0030-unbestaetigte-eingabe-ueber-die-komponentengrenze.md) | Unbestätigte Eingabe über die Komponentengrenze — die View holt sie über eine exponierte Methode ab, bevor sie persistiert (Erweiterung von ADR-0013 Punkt 3) | tags, orte, bewertungen | accepted | 2026-09-26 |
 | [0031](0031-schreiben-beim-entladen-der-seite.md) | Schreiben beim Entladen der Seite — gehärteter Schreibweg, aber keine Zusicherung (Präzisierung von ADR-0005 Punkt 2/5; benannte Ausnahme zu ADR-0023 Punkt 2) | orte, tags, bewertungen, app-shell | accepted | 2026-09-26 |
-| [0032](0032-sichtbarkeit-auf-ihren-breitenbereich-begrenzen.md) | Breitenabhängige Sichtbarkeit wird auf ihren Breitenbereich begrenzt, nicht überschrieben (Präzisierung von ADR-0011 Punkt 5 und ADR-0028 Punkt 2) | app-shell, orte | accepted (Punkt 7 bestätigt 2026-09-27) | 2026-09-27 |
+| [0032](0032-sichtbarkeit-auf-ihren-breitenbereich-begrenzen.md) | Breitenabhängige Sichtbarkeit wird auf ihren Breitenbereich begrenzt, nicht überschrieben (Präzisierung von ADR-0011 Punkt 5 und ADR-0028 Punkt 2) | app-shell, orte | accepted (Punkt 7 bestätigt 2026-09-27; Nachtrag zu Punkt 2: Build-Ziel, 2026-09-27) | 2026-09-27 |
+| [0033](0033-scroll-versatz-gehoert-dem-baustein-der-scrollt.md) | Den Scroll-Versatz einer Master-Detail-Spalte setzt der Baustein zurück, der sie scrollt — die Bereichsansicht löst nur aus (Präzisierung von ADR-0011 Punkt 1/6; zweite Art exponierter Methode neben ADR-0030 Punkt 3) | app-shell, orte | accepted | 2026-09-27 |
 
 **Status-Werte** wörtlich wie im ADR selbst: `proposed` · `accepted` ·
 `superseded by ADR-NNNN`.

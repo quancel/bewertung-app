@@ -6,7 +6,11 @@
 > Halte sie kompakt (Faustregel: < 100 Zeilen). Sie ist ein Register,
 > kein Design-Dokument — Details gehören in ADRs unter `adr/`.
 
-- **Stand**: 2026-09-26 (Rückläufer PO-2026-09-26-001: keine Änderung an
+- **Stand**: 2026-09-27 (Einordnen PO-2026-09-26-003: keine neue
+  Context-Grenze. Die Schnittstelle von `MasterDetail.vue` umfasst jetzt
+  eine exponierte Methode, ADR-0033. Die veraltete Angabe „ab -006 von
+  `karte` genutzt" ist korrigiert.)
+  Davor 2026-09-26 (Rückläufer PO-2026-09-26-001: keine Änderung an
   Context-Grenzen; ADR-0031 betrifft nur den Schreibweg in `persistence/`.
   Davor Einordnen von PO-2026-09-26-001: keine neue
   Context-Grenze. Die Darstellungs-Gegenrichtung `orte`-View → präsentationale
@@ -156,8 +160,11 @@ vollständiges Sequenzdiagramm.
   `src/shared/` und die globalen Stylesheets. Konkret ab -011/-012: Was
   `app-shell` **und** ein Feature brauchen, liegt in `src/shared/ui/` —
   `AdresseOhneZiel.vue` (Sammelroute in `app/` + Detailansicht in `orte`,
-  ADR-0010) und `MasterDetail.vue` (zustandsloser Zweispalter, ab -012 von
-  `orte`, ab -006 von `karte` genutzt, ADR-0011).
+  ADR-0010) und `MasterDetail.vue` (zustandsloser Zweispalter, ADR-0011;
+  einziger Nutzer ist heute `Ortebereich.vue`, die Kartenansicht rendert
+  ohne ihn, ADR-0019 Punkt 5). Die Schnittstelle umfasst zwei Slots, das
+  Flag und seit -003 eine exponierte Methode für den eigenen Scroll-Versatz
+  (ADR-0033).
 - **Der App-Rahmen kennt nur `persistence/` und `shared/`.** Er verzweigt auf
   die beiden Sperrzustände aus `src/persistence/` und rendert sonst
   Navigation und `<router-view>`; die Bereichsansichten dahinter gehören den

@@ -2,6 +2,8 @@
 
 - **Status**: accepted. Punkt 7 hat der Nutzer am 2026-09-27 bestätigt
   (siehe „Nutzerentscheidung zu Punkt 7"). Es gibt keinen Vorbehalt mehr.
+  Zu Punkt 2 gibt es einen Nachtrag vom 2026-09-27 (Build-Ziel, siehe
+  „Nachtrag zu Punkt 2").
 - **Datum**: 2026-09-27
 - **Bounded Context(s)**: `app-shell`, `orte`
 - **task_id**: `PO-2026-09-26-002`
@@ -109,6 +111,31 @@ nicht über Spezifität oder Reihenfolge laufen darf.
   Nutzerentscheidung und ein neues ADR. Der Grund: Die Zusicherung ginge nur
   über JavaScript, das den Versatz rettet, und das weicht von ADR-0028
   Punkt 4 ab.
+
+## Nachtrag zu Punkt 2 (2026-09-27, Abnahme von PO-2026-09-26-002)
+
+- **Befund**: Der Quelltext war korrekt (`min-width` / `not all and
+  (min-width: …)`), `dist/assets/*.css` enthielt aber Bereichssyntax. Vite 8
+  gibt `build.target` standardmäßig mit „Baseline widely available" vor. Das
+  schließt Safari/iOS 16.4 ein, und ohne eigene Angabe übernimmt
+  `build.cssTarget` diesen Wert. Der aktive CSS-Minifier ist LightningCSS,
+  nicht esbuild. Er schreibt eine Media-Query-Bedingung in Bereichssyntax um,
+  sobald alle Ziel-Browser sie beherrschen. Genau diese Form verbietet
+  Punkt 2. Gefunden hat das die Abnahme.
+- **Jetzt getragen durch**: `CSS_TARGET` in `vite.config.ts`
+  (`build.cssTarget`). Die Konstante hält Safari/iOS bei 15 und alle anderen
+  Browser auf der Baseline-Version. `build.target` (JS) bleibt beim
+  Vorgabewert. Nachweis: `grep -o "@media[^{]*" dist/assets/*.css`.
+- **Normativer Kern unverändert**: Punkt 2 schreibt weiterhin die
+  Eigenschaft vor, nicht das Mittel. Der Satz „prüft der Lead im
+  Build-Ergebnis" war richtig, und die Abnahme hat ihn bestätigt. Kein
+  `superseded by`.
+- **Grenze**: Heute ist das eine Konfigurations-Konvention, kein
+  automatischer Check. Wer `CSS_TARGET` oder `build.cssMinify` ändert oder
+  Vite hebt, prüft `dist/` erneut (`code-conventions.md` „Build und
+  Auslieferung"). Eine Prüfung in `npm run verify:pwa` (Bauform wie
+  `scripts/verify-precache.mjs`) würde daraus Struktur machen. Das wäre ein
+  eigenes Paket und ist bisher nicht geschnitten.
 
 ## Konsequenzen
 
