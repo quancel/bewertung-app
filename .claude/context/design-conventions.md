@@ -208,7 +208,21 @@ immer vollständig, ohne interne Scrollleiste, ohne Obergrenze — wächst
 beim Tippen/Einfügen mit, schrumpft beim Löschen, kein manuelles
 Resize-Handle mehr (ein von Hand verkleinertes Feld ohne begleitendes
 Eingabe-Ereignis würde sonst dauerhaft eine interne Scrollleiste
-erzwingen).
+erzwingen). Eine dreizehnte Runde (2026-09-27, PO-2026-09-27-002 — die
+Anfangsnotiz, ein neues 100-Zeichen-Kurztextfeld, dessen gespeicherter Wert
+nie einen Zeilenumbruch enthält) ergänzt zwei neue Abschnitte:
+„Kurztextfeld mit Zeichenobergrenze" (reiner Fließtext bleibt trotzdem ein
+mehrzeilig wachsendes Feld statt eines einzeiligen `<input>` mit
+horizontalem Scrollen — „ohne Scrollen im Feld" schließt horizontales
+Scrollen ein; Enter bleibt wirkungslos und erzeugt keinen fünften, nur hier
+existierenden Commit-Auslöser neben den vier aus „Tag-Eingabe: Commit ohne
+Enter"; Zeichenzähler nur bei Fokus, ohne Farbeskalation nahe der Grenze;
+keine Rückkehr-Markierung, weil ein einzelnes Textfeld beim Commit seine
+Form nicht wechselt) und „Ortszeile: Sekundärzeile (Adresse/Anfangsnotiz)"
+(Anfangsnotiz ersetzt die Adresse an derselben Stelle; die Sekundärzeile
+umbricht statt zu kürzen — bislang nur zufällig durch das Fehlen einer
+Truncation-Regel, jetzt bindend, inklusive Umbruch innerhalb eines
+einzelnen langen, leerzeichenlosen Wortes).
 
 - **Zuletzt kuratiert**: 2026-09-27
 
@@ -328,6 +342,45 @@ unten und für die beiden Karten-Leerzustände, siehe „Karte").
   - Ein neu geöffnetes, leeres Feld startet auf derselben Mindesthöhe wie
     bisher (zwei Zeilen) — die Größenänderung betrifft das Wachsen über
     diese Mindesthöhe hinaus, nicht den Ausgangszustand.
+
+## Kurztextfeld mit Zeichenobergrenze
+
+Erstmals für die Anfangsnotiz (PO-2026-09-27-002, max. 100 Zeichen) — gilt
+für jedes künftige Feld mit reinem Fließtext und einer harten
+Zeichenobergrenze, bei dem kein Zeilenumbruch gespeichert werden soll.
+
+- **Kein erzwungener Zeilenumbruch, aber trotzdem mehrzeilig wachsend.**
+  Der gespeicherte Wert ist ein einziger Fließtext ohne `\n`; die
+  *Anzeige* im Feld bleibt trotzdem ein mehrzeiliges, mit dem Inhalt
+  wachsendes Feld nach „Formulare" → „Mehrzeilige Textfelder wachsen mit
+  dem Inhalt" (gleiche Feld-Chrome wie Bezeichnung/Adresse: 1px `--border`,
+  Radius 8px, Platzhalter „noch nichts eingetragen", Mindesthöhe zwei
+  Zeilen wie jedes andere mehrzeilige Feld dieser Konvention). Ein
+  einzeiliges `<input>` mit horizontalem Scrollen ist ausdrücklich **kein**
+  gleichwertiger Ersatz: „ohne Scrollen im Feld" schließt horizontales
+  Scrollen ein, und bei 320px Gerätebreite würde ein 100-Zeichen-Wert dort
+  zwangsläufig scrollen. Reiner Fließtext betrifft nur den *gespeicherten*
+  Wert, nicht das Umbruchverhalten der Anzeige.
+- **Enter bleibt wirkungslos** (`keydown` Enter: `preventDefault`, sonst
+  nichts) — konsistent mit den einzeiligen `<input>`-Feldern
+  Bezeichnung/Adresse, wo Enter mangels Formular-Submit ebenfalls keine
+  Wirkung hat. Kein neuer, Enter-spezifischer Commit-Auslöser: Committet
+  wird ausschließlich über die bestehenden vier Auslöser (Feld verlassen,
+  Route verlassen, `visibilitychange`→hidden, `pagehide` — wie
+  „Tag-Eingabe: Commit ohne Enter"), nicht über eine fünfte, nur hier
+  existierende Wirkung der Enter-Taste.
+- **Zeichenzähler nur bei Fokus**, Format „{aktuell}/{Grenze}",
+  `--text-muted`/`font-size-14`, direkt unter dem Feld — nicht permanent
+  sichtbar, um die Notizbuch-Leichtigkeit nicht zu stören. Keine
+  Farbeskalation nahe der Grenze: Erreichen der Grenze ist kein
+  Fehlerzustand, das Feld nimmt einfach keine weiteren Zeichen mehr an,
+  analog zum Klemmen bei Zahlenfeldern unter „Formulare".
+- **Keine sichtbare Rückkehr-Markierung** wie bei „Tag-Eingabe: Commit ohne
+  Enter": Jene Ausnahme von „Autosave hat keine sichtbare Bestätigung"
+  gilt nur, wo aus Text sichtbar etwas Neues entsteht (eine Pille),
+  während der Nutzer nicht hinsieht. Ein einzelnes Textfeld ändert beim
+  Commit seine Form nicht — Text bleibt Text —, deshalb gilt hier die
+  allgemeine Autosave-Regel unverändert, ohne Sonderkennzeichnung.
 
 ## Bedingt sichtbare Formularabschnitte (Reveal ohne Rückweg)
 
@@ -748,6 +801,38 @@ B im Feld stehen.
   bei genügend Raum (volle Fensterbreite unterhalb der Master-Detail-
   Grenze) ebenso wie in der ~400px schmalen Listen-Spalte, wo sie sonst
   bei mehreren aktiven Tags nur durch Scrollen erreichbar wäre.
+
+## Ortszeile: Sekundärzeile (Adresse/Anfangsnotiz)
+
+Erstmals mit der Anfangsnotiz (PO-2026-09-27-002) — `Ortszeile.vue`
+bekommt einen zweiten möglichen Inhalt für dieselbe Sekundärzeile.
+
+- **Priorität**: Hat ein Ort eine Anfangsnotiz, zeigt die Sekundärzeile die
+  Notiz, nicht die Adresse. Ohne Notiz zeigt sie wie bisher die Adresse.
+  Ohne beides entfällt die Zeile ganz (unverändert „Leeres Feld (regulär)"
+  → Listen-Ausnahme).
+- **Wrap statt Kürzen — jetzt bindend, vorher nur zufällig.** Die
+  Sekundärzeile hatte bislang keine Truncation-Regel (kein `white-space:
+  nowrap`, kein `text-overflow: ellipsis`) und umbrach dadurch bereits
+  implizit. Ab jetzt ist das eine bewusste, bindende Festlegung, kein
+  Zufallsprodukt fehlender Einschränkung: kein Auslassungszeichen, kein
+  `line-clamp`, die Zeile wächst über so viele Zeilen wie der Inhalt
+  braucht. Grund: Eine 100-Zeichen-Anfangsnotiz muss bei 320/390/1280px
+  vollständig lesbar sein, ohne abgeschnitten zu werden.
+- **Einzelnes langes Wort ohne Leerzeichen**: `overflow-wrap: anywhere`
+  (bzw. `word-break: break-word`) auf der Sekundärzeile, analog zur
+  bestehenden Regel für das wachsende Formularfeld unter „Formulare" —
+  sonst sprengt ein zusammenhängendes 100-Zeichen-„Wort" die Zeilenbreite
+  und verletzt „nichts ragt aus dem Bildschirm".
+- **Kein erzwungener Absatz/Zeilenumbruch beim Rendern**: reiner Fließtext
+  (kein `white-space: pre-line`, kein eingefügtes `<br>`) — ergibt sich
+  bereits daraus, dass der gespeicherte Wert nie ein Zeilenumbruchzeichen
+  enthält, hier zur Klarheit trotzdem benannt.
+- **Reagiert ohne Neuladen**: `Ortszeile.vue` liest Adresse/Notiz
+  weiterhin rein aus Props/Store (kein eigener Zwischenzustand der
+  Komponente) — ändert sich die Anfangsnotiz eines offenen Orts ab `lg`,
+  zeigt die Listenzeile den neuen Text automatisch an, sobald der
+  Store-Commit geschrieben ist.
 
 ## Karte
 
