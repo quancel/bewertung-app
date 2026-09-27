@@ -1,6 +1,7 @@
 # ADR-0030: Unbestätigte Eingabe über die Komponentengrenze — die View holt sie über eine exponierte Methode ab, bevor sie persistiert (Erweiterung von ADR-0013 Punkt 3, Anwendung von ADR-0005 Punkt 5 und ADR-0025 Punkt 4/5)
 
-- **Status**: accepted
+- **Status**: accepted (Punkt 4/8 präzisiert durch ADR-0035: bei mehreren
+  Entwurfsbesitzern alle abholen, einmal schreiben)
 - **Datum**: 2026-09-26
 - **Bounded Context(s)**: `tags`, `orte`, `bewertungen`
 - **task_id**: `PO-2026-09-26-001`

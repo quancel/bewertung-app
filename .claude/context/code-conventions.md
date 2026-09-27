@@ -131,7 +131,13 @@ src/
     nachgebaut. Die Komponente registriert dafür keinen eigenen
     `document`/`window`-Listener. Der Emit-Handler in der View bindet die
     Ort-ID des gerenderten Ortes, nicht die reaktive `ortId`; die Komponente
-    wird per `:key` auf der `ortId` eingebunden.
+    wird per `:key` auf der `ortId` eingebunden. Bei **mehreren**
+    Entwurfsbesitzern (seit PO-2026-09-27-004: `TagEingabe` und die vier
+    `Bewertungsachse`-Instanzen) holt die Hilfsfunktion **alle** ab. Während
+    des Abholens persistieren die Emit-Handler nicht selbst, danach wird
+    genau einmal persistiert (ADR-0035). Ein zweiter Aufruf ohne neue Eingabe
+    emittiert nichts. Verglichen wird dafür mit dem zuletzt übernommenen
+    Stand, nicht mit den möglicherweise veralteten Props.
 - **Eine projektweit entschiedene Interaktionsregel steht einmal in
   `shared/composables/`**, nicht je Feature nachgebaut (ADR-0024; Bauform wie
   `useNetzzustand.ts`). `shared/` ist kein Bounded Context — ein Baustein

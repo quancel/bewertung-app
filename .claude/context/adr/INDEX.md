@@ -13,7 +13,14 @@
 > Eine Zeile pro ADR. Keine Zusammenfassung des Inhalts — der Titel muss
 > reichen, um zu entscheiden, ob das ADR relevant ist.
 
-**Stand: 2026-09-27 (Einordnen PO-2026-09-27-003)** — vierunddreißig ADRs.
+**Stand: 2026-09-27 (Einordnen PO-2026-09-27-004)** — fünfunddreißig ADRs.
+**0035** präzisiert ADR-0030 Punkt 4/8 für mehrere Entwurfsbesitzer im
+Ortsdetail. Ein externer Auslöser holt alle Entwürfe ab (Tag und die vier
+Achsen) und schreibt danach genau einmal. `Bewertungsachse.vue` bekommt eine
+exponierte Methode je Instanz und `:key` auf der `ortId`. Kein
+`superseded by`.
+
+Davor **Stand: 2026-09-27 (Einordnen PO-2026-09-27-003)** — vierunddreißig ADRs.
 **0034** legt Zonenzuordnung und Hervorhebungs-Auswertung der Ortsliste als
 reine Funktionen nach `features/orte/lib/` statt nach `shared/lib/`, weil es
 nur einen Nutzer gibt. Das präzisiert ADR-0008 Punkt 6. Die Zone wird am
@@ -180,11 +187,12 @@ PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
 | [0027](0027-komponentenverhalten-verifizieren.md) | Komponentenverhalten verifizieren — `@vue/test-utils` + jsdom als datei-lokales Opt-in, sichtbare Bedienelemente im Rauchtest (Erweiterung von ADR-0023 Punkt 4) | bewertungen, orte, app-shell | accepted (Punkt 5 korrigiert 2026-09-15) | 2026-09-14 |
 | [0028](0028-detail-chrome-folgt-dem-rahmen-breakpoint.md) | Chrome der Detailspalte folgt dem Rahmen-Breakpoint per `@media`, nicht der Containerbreite (Präzisierung von ADR-0012 Punkt 3) | orte, app-shell | accepted (Punkt 2 präzisiert durch 0032) | 2026-09-14 |
 | [0029](0029-engine-abhaengige-darstellung-und-der-blinde-fleck.md) | Engine-abhängige **Darstellung** — Chromium bleibt die einzige geprüfte Engine, und was eine Sichtbarkeits-Zusicherung dann tragen muss (Bestätigung und Erweiterung von ADR-0023 Punkt 5) | app-shell, bewertungen | accepted (Punkt 6 nachgetragen 2026-09-17) | 2026-09-16 |
-| [0030](0030-unbestaetigte-eingabe-ueber-die-komponentengrenze.md) | Unbestätigte Eingabe über die Komponentengrenze — die View holt sie über eine exponierte Methode ab, bevor sie persistiert (Erweiterung von ADR-0013 Punkt 3) | tags, orte, bewertungen | accepted | 2026-09-26 |
+| [0030](0030-unbestaetigte-eingabe-ueber-die-komponentengrenze.md) | Unbestätigte Eingabe über die Komponentengrenze — die View holt sie über eine exponierte Methode ab, bevor sie persistiert (Erweiterung von ADR-0013 Punkt 3) | tags, orte, bewertungen | accepted (Punkt 4/8 präzisiert durch 0035) | 2026-09-26 |
 | [0031](0031-schreiben-beim-entladen-der-seite.md) | Schreiben beim Entladen der Seite — gehärteter Schreibweg, aber keine Zusicherung (Präzisierung von ADR-0005 Punkt 2/5; benannte Ausnahme zu ADR-0023 Punkt 2) | orte, tags, bewertungen, app-shell | accepted | 2026-09-26 |
 | [0032](0032-sichtbarkeit-auf-ihren-breitenbereich-begrenzen.md) | Breitenabhängige Sichtbarkeit wird auf ihren Breitenbereich begrenzt, nicht überschrieben (Präzisierung von ADR-0011 Punkt 5 und ADR-0028 Punkt 2) | app-shell, orte | accepted (Punkt 7 bestätigt 2026-09-27; Nachtrag zu Punkt 2: Build-Ziel, 2026-09-27) | 2026-09-27 |
 | [0033](0033-scroll-versatz-gehoert-dem-baustein-der-scrollt.md) | Den Scroll-Versatz einer Master-Detail-Spalte setzt der Baustein zurück, der sie scrollt — die Bereichsansicht löst nur aus (Präzisierung von ADR-0011 Punkt 1/6; zweite Art exponierter Methode neben ADR-0030 Punkt 3) | app-shell, orte | accepted | 2026-09-27 |
 | [0034](0034-zonen-und-hervorhebung-der-ortsliste.md) | Zonen und Hervorhebungen der Ortsliste — reine Funktionen in `features/orte/lib/`, Zone am ungerundeten Wert (Präzisierung von ADR-0008 Punkt 6, Anwendung von ADR-0007 Punkt 6/7) | orte, bewertungen | accepted | 2026-09-27 |
+| [0035](0035-mehrere-entwurfsbesitzer-alle-abholen-einmal-schreiben.md) | Mehrere Entwurfsbesitzer im Ortsdetail — alle abholen, einmal schreiben; `Bewertungsachse.vue` als zweiter Nutzer von ADR-0030 (Präzisierung von ADR-0030 Punkt 4/8) | orte, bewertungen, tags | accepted | 2026-09-27 |
 
 **Status-Werte** wörtlich wie im ADR selbst: `proposed` · `accepted` ·
 `superseded by ADR-NNNN`.

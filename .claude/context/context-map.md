@@ -6,7 +6,10 @@
 > Halte sie kompakt (Faustregel: < 100 Zeilen). Sie ist ein Register,
 > kein Design-Dokument — Details gehören in ADRs unter `adr/`.
 
-- **Stand**: 2026-09-27 (Einordnen PO-2026-09-27-003: keine neue
+- **Stand**: 2026-09-27 (Einordnen PO-2026-09-27-004: keine neue
+  Context-Grenze, keine neue Beziehung. `bewertungen` ist der zweite Nutzer
+  der exponierten Abhol-Methode, ADR-0035.)
+  Davor 2026-09-27 (Einordnen PO-2026-09-27-003: keine neue
   Context-Grenze, keine neue Beziehung. Die Zonen- und
   Hervorhebungs-Auswertung der Ortsliste liegt in `features/orte/lib/`, nicht
   in `shared/lib/`, ADR-0034.)
@@ -102,7 +105,9 @@ vollständiges Sequenzdiagramm.
   Emits anbinden — die Filterleiste und die Tag-Eingabe aus -004, die
   Achsen-Bearbeitung aus -002. Hält eine solche Komponente einen
   unbestätigten Entwurf, holt die View ihn vor dem Persistieren über genau
-  eine exponierte Methode ab (ADR-0030, ab PO-2026-09-26-001 `TagEingabe.vue`). Dasselbe gilt für **reine Funktionen** aus
+  eine exponierte Methode ab (ADR-0030, ab PO-2026-09-26-001 `TagEingabe.vue`,
+  ab PO-2026-09-27-004 auch `Bewertungsachse.vue`. Bei mehreren gilt: alle
+  abholen, einmal schreiben, ADR-0035). Dasselbe gilt für **reine Funktionen** aus
   `features/<context>/lib/` (ADR-0022, ab -006: `koordinatenFilter.ts` und
   `leerzustand.ts` aus `karte`). Sobald ein solches Modul selbst einen Store
   anfasst oder aus `orte` importiert, entfällt die Erlaubnis; nur so bleibt
