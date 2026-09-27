@@ -199,9 +199,18 @@ einen neuen Bullet „Scroll-Position beim Wechsel des Inhalts": Die
 Detail-Spalte beginnt bei A → B wieder bei Versatz 0, die Listen-Spalte
 behält ihren Versatz und scrollt höchstens minimal nach. Beides **kein
 neues Verhalten**, sondern Wiederherstellung des in ADR-0011 Punkt 6
-bereits spezifizierten, aber nie erreichbaren/umgesetzten Zustands.
+bereits spezifizierten, aber nie erreichbaren/umgesetzten Zustands. Eine
+zwölfte Runde (2026-09-27, PO-2026-09-27-001 — die vier
+Achsen-Kommentarfelder schnitten Inhalt nach zwei Zeilen ab und scrollten
+intern) ergänzt unter „Formulare" den neuen Bullet „Mehrzeilige Textfelder
+wachsen mit dem Inhalt": ein mehrzeiliges Textfeld zeigt seinen Inhalt
+immer vollständig, ohne interne Scrollleiste, ohne Obergrenze — wächst
+beim Tippen/Einfügen mit, schrumpft beim Löschen, kein manuelles
+Resize-Handle mehr (ein von Hand verkleinertes Feld ohne begleitendes
+Eingabe-Ereignis würde sonst dauerhaft eine interne Scrollleiste
+erzwingen).
 
-- **Zuletzt kuratiert**: 2026-09-26
+- **Zuletzt kuratiert**: 2026-09-27
 
 ## Zustände
 
@@ -282,6 +291,43 @@ unten und für die beiden Karten-Leerzustände, siehe „Karte").
   schrumpfendem Regler, `min-width: 0`) — dort ist die Zahl kurz (0–10,
   max. 2 Nachkommastellen) und kein Vergleichsfall für längere Werte wie
   Koordinaten.
+- **Mehrzeilige Textfelder wachsen mit dem Inhalt** (PO-2026-09-27-001,
+  erstmals für die vier Achsen-Kommentare; gilt für jedes künftige
+  mehrzeilige Textfeld, nicht für einzeilige Felder wie Bezeichnung/
+  Adresse). Ursache des Fehlers: eine feste `rows`-Anzahl schnitt langen
+  Inhalt sichtbar ab und scrollte intern.
+  - **Keine Obergrenze, kein internes Scrollen** — das Feld zeigt seinen
+    Inhalt beim Öffnen, beim Tippen, beim Einfügen und beim Löschen immer
+    vollständig; die Höhe folgt der Zeilenzahl, nicht umgekehrt.
+  - **Kein manuelles Resize-Handle** (`resize: none` statt `resize:
+    vertical`): Ein von Hand verkleinertes Feld hätte ohne ein
+    begleitendes Eingabe-Ereignis keinen Anlass, seine Höhe zu
+    korrigieren, und stünde damit dauerhaft mit interner Scrollleiste da
+    — genau der Zustand, den diese Konvention ausschließt.
+  - **Neuberechnung nicht nur bei `input`**: Auch ein programmatischer
+    Inhaltswechsel ohne Tastatureingabe muss die Höhe neu setzen —
+    insbesondere beim Öffnen über „Kommentar hinzufügen", beim ersten
+    Anzeigen eines vorhandenen Kommentars und bei jedem Wechsel des
+    zugrundeliegenden Werts von außen (siehe „Master-Detail (ab `lg`)" →
+    „Fokus"). Ebenso bei einer reinen Breitenänderung ohne Textänderung
+    (schmaleres Fenster lässt denselben Text in mehr Zeilen umbrechen) —
+    ohne Neuberechnung bliebe die alte, jetzt zu niedrige Höhe stehen.
+  - **Kein Anwachsen/Schrumpfen als Zustandsanimation** — die Höhe
+    springt sofort auf den neuen Wert, analog zu „Sprung, keine
+    Zustandsanimation" bei anderen vollständigen Inhaltswechseln (siehe
+    „Master-Detail (ab `lg`)" → „Wechsel des Inhalts"); eine Übergangs-
+    Animation bei jedem Tastenanschlag wirkt unruhig statt erklärend.
+  - **Umsetzung ist Sache des `frontend-lead`**, muss aber in jedem
+    Browser wirken, den das Produkt unterstützt — anders als die auf
+    Chromium begrenzte Prüftiefe des Rauchtests (ADR-0023 Punkt 5) ist
+    „kein Scrollen im Feld" hier reales Nutzerverhalten, keine rein
+    optische, degradierbare Feinheit.
+  - Lange, leerzeichenlose Zeichenfolgen (z. B. eingefügte URLs) brechen
+    innerhalb des Feldes um, statt es in der Breite zu sprengen — sonst
+    wäre „kein Element ragt aus dem Bildschirm" (Rauchtest) gefährdet.
+  - Ein neu geöffnetes, leeres Feld startet auf derselben Mindesthöhe wie
+    bisher (zwei Zeilen) — die Größenänderung betrifft das Wachsen über
+    diese Mindesthöhe hinaus, nicht den Ausgangszustand.
 
 ## Bedingt sichtbare Formularabschnitte (Reveal ohne Rückweg)
 
@@ -939,7 +985,11 @@ B im Feld stehen.
   neues Verhalten, Wiederherstellung der ursprünglich gemeinten Fassung.
   Schließen oder Löschen gibt den Fokus zurück auf die zugehörige
   Listenzeile bzw. die an ihrer Position nachrückende Zeile — nicht an den
-  Listenanfang.
+  Listenanfang. Gilt sinngemäß auch für die Höhe wachsender Textfelder
+  (siehe „Formulare" → „Mehrzeilige Textfelder wachsen mit dem Inhalt"):
+  `Bewertungsachse.vue` wird bei einem Ortswechsel **nicht** neu gemountet
+  (anders als `Ortssuche`/`TagEingabe`), ein reiner `@input`-Trigger für
+  das Auto-Grow griffe deshalb bei diesem Wechsel nicht.
 - **Scroll-Position beim Wechsel des Inhalts** (Korrektur PO-2026-09-26-003
   zu ADR-0011 Punkt 6, ebenfalls kein neues Verhalten): Die Detail-Spalte
   beginnt bei jedem Wechsel auf einen anderen Ort (A → B) wieder bei
