@@ -13,8 +13,9 @@
 > mitgelesen. Stehen Tokens später im Code, gehört hierher das **System**
 > und der Verweis auf die Quelle, nicht die ausgeschriebene Werteliste.
 
-- **Herkunft**: `neu entworfen (bestätigt am 2026-09-07)`
-- **Zuletzt überarbeitet**: 2026-09-07
+- **Herkunft**: `neu entworfen (bestätigt am 2026-09-07)`; Ausnahme
+  „Ortsliste" vom Nutzer entschieden am 2026-09-27 (PO-2026-09-27-003)
+- **Zuletzt überarbeitet**: 2026-09-27
 - **Quellen**: keine — Repo war zum Zeitpunkt des Entwurfs ohne Anwendungscode
   (kein Token-File, keine Theme-Config, kein Stylesheet). Alles hier ist
   **Setzung**, nicht Bestandsaufnahme.
@@ -56,6 +57,8 @@ Grünlich getönte Neutrale, damit sie zum Primärton passen; Primär sparsam.
   Intensitätsstufe **eines** Tons dargestellt, nicht rot→gelb→grün. Eine 2 bei
   „Preis/Leistung" ist ein Messwert, kein Fehler; Rot/Gelb sind für echte
   Probleme reserviert und verlieren ihre Bedeutung, wenn sie hier auftauchen.
+  **Einzige Ausnahme**: Zonenfarben in der Ortsliste, siehe „Ausnahme
+  Ortsliste" — überall sonst gilt diese Regel unverändert.
 - **Fehlende Daten sind neutral.** Unvollständige Orte und leere Achsen
   bekommen `neutral-500` auf `neutral-50` — nie Warn- oder Fehlerfarbe. Der
   unvollständige Ort ist der **Normalzustand** des Produkts.
@@ -108,9 +111,57 @@ Grünlich getönte Neutrale, damit sie zum Primärton passen; Primär sparsam.
   16px Sheets/Dialoge, 999px Tag-Pills.
 - **Elevation**: nur zwei Stufen. Karten sind **flach** (Rahmen statt
   Schatten); Schatten hat ausschließlich, was über dem Inhalt schwebt
-  (Sheet, Dialog, Menü).
+  (Sheet, Dialog, Menü). **Einzige Ausnahme**: Hervorhebungs-Schatten der
+  Zeilen in der Ortsliste, siehe „Ausnahme Ortsliste" — sie sind keine
+  dritte Elevation-Stufe.
 - **Rahmen**: 1px `neutral-200`. Trennung bevorzugt über Abstand.
 - **Bilder**: 12px Radius, 4:3 als Standardverhältnis, `object-fit: cover`.
+
+## Ausnahme Ortsliste: Zonenfarben und Hervorhebungs-Schatten
+
+Nutzerentscheidung 2026-09-27 zu PO-2026-09-27-003 („Einteilung der
+Punkte"): Konzept **nur für die Ortsliste** gezielt geöffnet. Benannte
+Ausnahme, kein neues Prinzip.
+
+- **Geltungsbereich**: ausschließlich die Zeilen der Ortsliste (volle Breite
+  mobil, Listen-Spalte ab `lg`). **Nicht**: Ortsdetail (Gesamtnote,
+  Bewertungsachsen, deren Intensitätsbalken), Kartenansicht (Marker,
+  Trefferzahl), Sheets, andere Listen. Der geteilte Intensitätsbalken bleibt
+  außerhalb der Ortsliste eine Tonleiter eines Tons. Jede Ausweitung ist eine
+  neue Konzeptänderung, keine Auslegung.
+- **Zonen**: fünf Bewertungs-Zonen (8 · 8,5 · 9 · 9,5 · 10). Grenzen und
+  maßgeblicher Wert (Gesamtnote/sortierte Achse) legt das Paket fest. Werte
+  unterhalb der untersten Zone, die Gruppe „ohne Wert" und fehlende
+  Bewertungen bekommen **weder** Zonenfarbe noch Schatten.
+- **Zonenfarben** — fünf eigene Tokens (Benennung: `architekt`), Werte legt
+  der `ux-ui-designer` in diesem Rahmen fest:
+  - **Geordnete Skala, keine Ampel**: Helligkeit sinkt von 8 nach 10 streng
+    monoton (höher = dunkler/satter); Nachbarzonen unterscheiden sich vor
+    allem in der Helligkeit, nicht nur im Farbton — lesbar auch bei
+    Farbfehlsichtigkeit und in Graustufen.
+  - **Kühler Farbraum**: vom Primärton (Teal) Richtung Blau/Indigo.
+    Ausgeschlossen sind Rot, Orange, Gelb/Amber, reines Grün und Terrakotta
+    — belegt durch Fehler, Warnung, Erfolg und Kartenakzent.
+  - **Auswahl bleibt eindeutig**: `primary-50` als Zeilenfläche und die
+    linke 3px-Kante bleiben der Auswahl-Hervorhebung vorbehalten;
+    `primary-600` nicht als Zeilenfläche (Verwechslung mit Hauptaktion).
+  - **Kontrast** gegen `neutral-0` und die Hover-Fläche `neutral-50`: als
+    Text oder Text auf Zonenfläche 4.5:1; trägt die Farbe als Punkt, Balken
+    oder Rahmen die Zone, 3:1. Eine reine Flächentönung ist nur Zusatzsignal.
+  - **Nie alleiniger Bedeutungsträger**: Die Zahl bleibt sichtbar. Keine
+    Worte, Badges oder Ränge dazu — „keine Bewertungs-Rhetorik" gilt weiter.
+- **Hervorhebungs-Schatten** — zwei Stufen (schwach/stark); welche Zonen sie
+  tragen, legt das Paket fest:
+  - **Hervorhebung, keine Elevation**: Die Zeile bleibt im Fluss, kein
+    Anheben (`transform`, `z-index`) über Nachbarzeilen; beide Stufen
+    deutlich schwächer als der Schatten schwebender Elemente.
+  - Die Stufen unterscheiden sich sichtbar in Ausdehnung/Deckkraft, nicht
+    nur im Farbton. Schattenfarbe `neutral-900` mit geringer Deckkraft oder
+    der Ton der Zone — nie Warn-, Fehler- oder Akzentfarbe. Radius folgt der
+    Zeile (12px).
+- **Unberührt**: Light-only (Werte als Tokens, nicht als Literale), Motion,
+  Fokusring. Zonen färben Wertebereiche, nicht Achsen — die Farbcodierung
+  der Achsen bleibt offen.
 
 ## Ikonografie
 
