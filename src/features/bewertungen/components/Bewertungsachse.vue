@@ -37,6 +37,31 @@
  * View `Ortebereich.vue` (Context `orte`, vormals `Ortsdetail.vue` bis
  * PO-2026-09-07-012) diese Komponente importieren, ohne einen verbotenen
  * Import-Zyklus zu öffnen (ADR-0013 Punkt 3).
+ *
+ * Commit ohne Enter/Blur-Ersatz (PO-2026-09-27-004, ADR-0035, design-
+ * conventions.md „Bewertungsachse: Commit ohne Enter/Blur-Ersatz"): Neben
+ * `@blur`/`@change` am Feld selbst holt `Ortebereich.vue` unbestätigte
+ * Entwürfe dieser Achse bei drei externen Auslösern ab (Route verlassen,
+ * `visibilitychange`→`hidden`, `pagehide`) — über die EINE exponierte
+ * Methode `defineExpose({ uebernimmOffeneEingabe })`, synchron, OHNE
+ * `anlass`-Parameter (es gibt an dieser Komponente keine Rückkehr-
+ * Markierung, anders als bei `TagEingabe`). Die Methode ruft in einem
+ * Aufruf `aufEingabeCommit` (Zahl) UND `aufKommentarCommit` (Kommentar) auf
+ * — beide enden in ihrem bestehenden Emit, kein drittes Emit, kein
+ * gemeinsamer Patch, `aufZuruecksetzen` wird dabei nie aufgerufen (ADR-0035
+ * Punkt 2/3). Beide Commit-Funktionen vergleichen dafür gegen den ZULETZT
+ * ÜBERNOMMENEN Stand (`letzterUebernommenWert`/`letzterUebernommenerKommentar`,
+ * nachgeführt bei jedem eigenen Emit und jeder Prop-Synchronisierung), nicht
+ * nur gegen `props` — Route-Guard und `blur` beim Aushängen können im
+ * selben Tick feuern, bevor Props neu gerendert sind; sonst würde ein
+ * zweiter Aufruf ohne neue Eingabe erneut emittieren (ADR-0035 Punkt 4).
+ * `validity.badInput` (z. B. ein getipptes „-") ist dabei NICHT „nicht
+ * bewertet" — die Anzeige fällt auf den zuletzt übernommenen Wert zurück,
+ * kein Emit; deshalb liest `aufEingabeCommit` das Zahlenfeld über
+ * `zahlFeldRef` statt nur den lokalen Textzustand, `uebernimmOffeneEingabe`
+ * hat schließlich kein Event, aus dem sich `validity` läse. Der
+ * Regler-Commit-Weg bleibt davon unberührt — `uebernimmOffeneEingabe` ruft
+ * ihn nicht auf, ein Regler-Wert ist nie ein offener, unbestätigter Entwurf.
  */
 import { computed, ref, watch } from 'vue'
 import { useMitwachsendesTextfeld } from '../../../shared/composables/useMitwachsendesTextfeld'
@@ -66,10 +91,23 @@ const reglerId = computed(() => `bewertungsachse-${props.achseName}-regler`)
 // Feldes/`change`) wird gerundet, geklemmt und emittiert (ADR-0007 Punkt 7).
 const eingabe = ref(props.wert === null ? '' : String(props.wert))
 
+// Referenz auf das Zahlenfeld selbst (ADR-0035 Punkt 2): `uebernimmOffeneEingabe`
+// ruft `aufEingabeCommit` ohne Event auf, `validity.badInput` muss deshalb
+// direkt am Element gelesen werden, nicht aus einem Event-Objekt.
+const zahlFeldRef = ref<HTMLInputElement | null>(null)
+
+// Zuletzt an den Elternteil übergebener Stand (ADR-0035 Punkt 4): Mehrere
+// Auslöser (Route-Guard, `blur` beim Aushängen) können im selben Tick
+// feuern, bevor `props.wert` neu gerendert ist — `aufEingabeCommit`
+// vergleicht deshalb gegen diesen lokal nachgeführten Stand, nicht nur
+// gegen `props.wert`.
+const letzterUebernommenWert = ref(props.wert)
+
 watch(
   () => props.wert,
   (neu) => {
     eingabe.value = neu === null ? '' : String(neu)
+    letzterUebernommenWert.value = neu
   },
 )
 
@@ -78,24 +116,39 @@ function aufEingabeTippen(event: Event): void {
 }
 
 function aufEingabeCommit(): void {
+  // Eine ungültige Zwischenkette (z. B. ein getipptes "-") meldet
+  // `validity.badInput`, `eingabe.value`/`event.target.value` liefern dabei
+  // ebenfalls "" — das ist KEIN leeres Feld (ADR-0035): die Anzeige fällt auf
+  // den zuletzt übernommenen Wert zurück, kein Emit.
+  if (zahlFeldRef.value?.validity.badInput) {
+    eingabe.value = letzterUebernommenWert.value === null ? '' : String(letzterUebernommenWert.value)
+    return
+  }
+
   const roh = eingabe.value.trim()
 
   if (roh === '') {
     // Ein geleertes Feld ist kein Wert und wird nicht geklemmt — es führt
     // direkt zu „nicht bewertet" (design-conventions.md, „Formulare").
-    if (props.wert !== null) emit('wert-geaendert', null)
+    if (letzterUebernommenWert.value !== null) {
+      letzterUebernommenWert.value = null
+      emit('wert-geaendert', null)
+    }
     return
   }
 
   const zahl = Number(roh)
   if (!Number.isFinite(zahl)) {
-    eingabe.value = props.wert === null ? '' : String(props.wert)
+    eingabe.value = letzterUebernommenWert.value === null ? '' : String(letzterUebernommenWert.value)
     return
   }
 
   const bereinigt = rundenUndKlemmen(zahl)
   eingabe.value = String(bereinigt)
-  if (bereinigt !== props.wert) emit('wert-geaendert', bereinigt)
+  if (bereinigt !== letzterUebernommenWert.value) {
+    letzterUebernommenWert.value = bereinigt
+    emit('wert-geaendert', bereinigt)
+  }
 }
 
 // Committet auf JEDES `input`-Ereignis (design-conventions.md „Formulare"),
@@ -143,6 +196,11 @@ function aufZuruecksetzen(): void {
 const kommentarOffen = ref(props.kommentar !== null)
 const kommentarEntwurf = ref(props.kommentar ?? '')
 
+// Zuletzt an den Elternteil übergebener Stand (ADR-0035 Punkt 4, analog zu
+// `letzterUebernommenWert` oben) — `aufKommentarCommit` vergleicht dagegen,
+// nicht nur gegen `props.kommentar`.
+const letzterUebernommenerKommentar = ref(props.kommentar)
+
 // Mitwachsendes Kommentarfeld (ADR-0024, PO-2026-09-27-001, s. Composable-
 // Kommentar): `kommentarFeldRef` wird erst gesetzt, sobald das Feld über
 // „Kommentar hinzufügen" bzw. einen bereits vorhandenen Kommentar im DOM
@@ -157,6 +215,7 @@ watch(
   (neu) => {
     kommentarEntwurf.value = neu ?? ''
     if (neu !== null) kommentarOffen.value = true
+    letzterUebernommenerKommentar.value = neu
   },
 )
 
@@ -164,8 +223,29 @@ function aufKommentarCommit(): void {
   const bereinigt = kommentarEntwurf.value.trim()
   // Ein geleerter Kommentar wird `null`, nie `""` (ADR-0007 Punkt 4).
   const naechster = bereinigt === '' ? null : bereinigt
-  if (naechster !== props.kommentar) emit('kommentar-geaendert', naechster)
+  if (naechster !== letzterUebernommenerKommentar.value) {
+    letzterUebernommenerKommentar.value = naechster
+    emit('kommentar-geaendert', naechster)
+  }
 }
+
+/**
+ * Einzige exponierte Methode (ADR-0035 Punkt 2, code-conventions.md „Einzige
+ * Ausnahme vom ‚nur Emits raus'"): synchrone Übernahme BEIDER unbestätigter
+ * Entwürfe dieser Achse — Zahl UND Kommentar — in einem Aufruf, orchestriert
+ * von `Ortebereich.vue`. Läuft durch die bestehenden Commit-Funktionen und
+ * endet in deren bestehenden Emits (`wert-geaendert`/`kommentar-geaendert`):
+ * kein drittes Emit, kein gemeinsamer Patch, kein `anlass`-Parameter (keine
+ * Rückkehr-Markierung an dieser Komponente). Ruft NIE `aufZuruecksetzen` auf
+ * (ADR-0035 Punkt 3) — ein geleertes Zahlenfeld wird über `aufEingabeCommit`
+ * zu `wert-geaendert(null)`, der Kommentar bleibt davon unberührt.
+ */
+function uebernimmOffeneEingabe(): void {
+  aufEingabeCommit()
+  aufKommentarCommit()
+}
+
+defineExpose({ uebernimmOffeneEingabe })
 </script>
 
 <template>
@@ -186,6 +266,7 @@ function aufKommentarCommit(): void {
     <div class="bewertungsachse__eingabezeile">
       <input
         :id="eingabeId"
+        ref="zahlFeldRef"
         type="number"
         inputmode="numeric"
         min="0"

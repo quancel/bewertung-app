@@ -78,10 +78,28 @@
  * `onBeforeRouteUpdate`/`onBeforeRouteLeave` (`anlass: 'verlassen'`) und aus
  * `useAutosaveBeimVerlassen` (`'hintergrund'` bei `visibilitychange`→`hidden`,
  * `'verlassen'` bei `pagehide`) — in jedem Fall VOR dem Persistieren, siehe
- * `uebernimmOffeneTagEingabeUndPersistiere`. `TagEingabe` bekommt denselben
+ * `uebernimmOffeneEingabenUndPersistiere` unten. `TagEingabe` bekommt denselben
  * `:key="ortId"`-Remount-Mechanismus wie `Ortssuche` (ADR-0025 Punkt 5,
  * ADR-0030 Punkt 6); die Emit-Handler binden `ort.id`, nicht die reaktive
  * `ortId` (ADR-0030 Punkt 5).
+ *
+ * Mehrere Entwurfsbesitzer, einmal schreiben (PO-2026-09-27-004, ADR-0035,
+ * Präzisierung von ADR-0030 Punkt 4/8): Mit den vier `Bewertungsachse`-
+ * Instanzen hält das Ortsdetail gleichzeitig bis zu neun unbestätigte
+ * Entwürfe (Tag-Text + je Achse Zahl/Kommentar). `uebernimmOffeneEingabenUndPersistiere`
+ * holt bei JEDEM der drei externen Auslöser deshalb ALLE Entwurfsbesitzer ab
+ * — Tag-Eingabe UND alle vier Achsen (über `achsenRefs`, s. u.) — und
+ * persistiert danach GENAU EINMAL. Während dieses synchronen Abholens
+ * unterdrückt das nicht-reaktive Flag `waehrendAbholenOffenerEingaben` die
+ * sofortige Persistenz in den Emit-Handlern `aufTagHinzugefuegt`,
+ * `aufAchsenwertGeaendert` und `aufAchsenkommentarGeaendert` — außerhalb
+ * des Abholens persistieren sie wie bisher sofort. Der ERSTE `put()` nach
+ * einem externen Auslöser trägt dadurch JEDEN vorher offenen Entwurf
+ * (ADR-0035 Punkt 1). Die vier Achsen-Refs hält diese View als EINE nach
+ * `AchsenName` geschlüsselte Sammlung (`achsenRefs`, Funktions-Ref, Vorbild
+ * `setZeilenRef`/`zeilenRefs`) und tragen seit diesem Paket ebenfalls
+ * `:key="ortId"` (ADR-0035 Punkt 5) — das Abholen läuft im Route-Guard, also
+ * VOR dem Remount, ein Entwurf von Ort A kann dadurch nicht in Ort B landen.
  *
  * Scroll-Versatz der Detail-Spalte bei A→B (PO-2026-09-26-003, ADR-0033,
  * Korrektur zu ADR-0011 Punkt 6): Der Scroll-Container gehört
@@ -260,7 +278,10 @@ function aufTagfilterZurueckgesetzt(): void {
 // er trotzdem auf den Ort, an dem er entstanden ist.
 function aufTagHinzugefuegt(zielOrtId: string, tag: string): void {
   store.fuegeTagHinzu(zielOrtId, tag)
-  void store.persistiereOrt(zielOrtId)
+  // Während des synchronen Abholens (ADR-0035 Punkt 1) NUR den Store
+  // aktualisieren — die eine, gebündelte Persistenz übernimmt
+  // `uebernimmOffeneEingabenUndPersistiere` danach.
+  if (!waehrendAbholenOffenerEingaben) void store.persistiereOrt(zielOrtId)
 }
 
 function aufTagEntfernt(zielOrtId: string, tag: string): void {
@@ -476,20 +497,52 @@ function aufZurueck(): void {
 
 const tagEingabeRef = ref<InstanceType<typeof TagEingabe> | null>(null)
 
+// Refs auf die vier Achsen-Instanzen (ADR-0035 Punkt 8): EINE nach
+// `AchsenName` geschlüsselte Sammlung, gefüllt über Funktions-Refs (Vorbild
+// `setZeilenRef`/`zeilenRefs` oben) — die Orchestrierung iteriert darüber,
+// statt vier Aufrufe von Hand zu schreiben. Fehlt eine Ref (Achse gerade
+// nicht im DOM), wird sie durch die Map-Struktur strukturell übersprungen.
+const achsenRefs = new Map<AchsenName, InstanceType<typeof Bewertungsachse>>()
+function setAchseRef(achseName: AchsenName, instanz: InstanceType<typeof Bewertungsachse> | null): void {
+  if (instanz) achsenRefs.set(achseName, instanz)
+  else achsenRefs.delete(achseName)
+}
+
+// Nicht-reaktives Flag (ADR-0035 Punkt 1): unterdrückt während des
+// synchronen Abholens unten die sofortige Persistenz in den Emit-Handlern
+// `aufTagHinzugefuegt`/`aufAchsenwertGeaendert`/`aufAchsenkommentarGeaendert`
+// — außerhalb des Abholens bleibt ihr Verhalten unverändert (sofort
+// persistieren). Bewusst kein `ref()`: Reaktivität wird hier nicht
+// gebraucht, nur eine synchrone Sperre um den Abhol-Block.
+let waehrendAbholenOffenerEingaben = false
+
 /**
- * Orchestrierung (ADR-0030 Punkt 4): JEDER der drei externen Auslöser
- * (Route verlassen, `visibilitychange`→`hidden`, `pagehide`) holt zuerst
- * die unbestätigte Tag-Eingabe ab, DANACH wird persistiert — über diese
- * EINE Hilfsfunktion, nicht an drei Stellen einzeln nachgebaut.
- * `TagEingabe.vue` registriert dafür bewusst keinen eigenen Listener auf
- * `document`/`window`: Eine per `:key` neu gemountete Instanz registriert
- * ihren Fokus-Listener erst NACH dieser View. Schriebe die View zuerst,
- * liefe ein Schreibvorgang ohne den Tag vor dem mit Tag — bei `pagehide`
- * unwiederbringlich verloren (ADR-0030 Punkt 4).
+ * Orchestrierung (ADR-0030 Punkt 4, präzisiert durch ADR-0035 Punkt 1): JEDER
+ * der drei externen Auslöser (Route verlassen, `visibilitychange`→`hidden`,
+ * `pagehide`) holt zuerst ALLE Entwurfsbesitzer des gerenderten Ortes ab —
+ * die Tag-Eingabe UND alle vier Bewertungsachse-Instanzen —, DANACH wird
+ * GENAU EINMAL persistiert, über diese EINE Hilfsfunktion, nicht an drei
+ * Stellen einzeln nachgebaut. Weder `TagEingabe.vue` noch `Bewertungsachse.vue`
+ * registrieren dafür einen eigenen Listener auf `document`/`window`: Eine per
+ * `:key` neu gemountete Instanz registriert ihren Fokus-Listener erst NACH
+ * dieser View. Schriebe die View zuerst, liefe ein Schreibvorgang ohne die
+ * offenen Entwürfe vor dem mit ihnen — bei `pagehide` unwiederbringlich
+ * verloren (ADR-0030 Punkt 4). Das Flag `waehrendAbholenOffenerEingaben`
+ * sorgt dafür, dass die Emit-Handler der abgeholten Komponenten währenddessen
+ * NUR den Store aktualisieren, kein eigenes `persistiereOrt` anstoßen — der
+ * EINE `put()` am Ende trägt dadurch JEDEN zuvor offenen Entwurf.
  */
-function uebernimmOffeneTagEingabeUndPersistiere(zielOrtId: string | null, anlass: 'hintergrund' | 'verlassen'): void {
+function uebernimmOffeneEingabenUndPersistiere(zielOrtId: string | null, anlass: 'hintergrund' | 'verlassen'): void {
   if (!zielOrtId) return
-  tagEingabeRef.value?.uebernimmOffeneEingabe(anlass)
+  waehrendAbholenOffenerEingaben = true
+  try {
+    tagEingabeRef.value?.uebernimmOffeneEingabe(anlass)
+    for (const achse of achsenRefs.values()) {
+      achse.uebernimmOffeneEingabe()
+    }
+  } finally {
+    waehrendAbholenOffenerEingaben = false
+  }
   void store.persistiereOrt(zielOrtId)
 }
 
@@ -498,23 +551,23 @@ function persistiereJetzt(): void {
   void store.persistiereOrt(ortId.value)
 }
 
-useAutosaveBeimVerlassen((anlass) => uebernimmOffeneTagEingabeUndPersistiere(ortId.value, anlass))
+useAutosaveBeimVerlassen((anlass) => uebernimmOffeneEingabenUndPersistiere(ortId.value, anlass))
 
 // „Route verlassen": Wechsel zwischen `/orte` und `/orte/:ortId` bleibt auf
 // dieser Komponente ein Update, kein Leave (siehe Modul-Kommentar oben) —
 // deshalb hier statt in `onBeforeRouteLeave` persistiert, und zwar die
 // VORHERIGE ID aus `from`, nicht die reaktive `ortId` (die zu diesem
-// Zeitpunkt schon den neuen Wert tragen kann). `TagEingabe` ist zu diesem
-// Zeitpunkt noch auf den VORHERIGEN Ort gekeyt (der Remount folgt erst nach
-// der Navigation) — der Commit trifft also noch die richtige Instanz
-// (ADR-0030 Punkt 6).
+// Zeitpunkt schon den neuen Wert tragen kann). `TagEingabe`/`Bewertungsachse`
+// sind zu diesem Zeitpunkt noch auf den VORHERIGEN Ort gekeyt (der Remount
+// folgt erst nach der Navigation) — der Commit trifft also noch die
+// richtige Instanz (ADR-0030 Punkt 6, ADR-0035 Punkt 5).
 onBeforeRouteUpdate((_to, from) => {
   const vorherigeId = typeof from.params.ortId === 'string' ? from.params.ortId : null
-  uebernimmOffeneTagEingabeUndPersistiere(vorherigeId, 'verlassen')
+  uebernimmOffeneEingabenUndPersistiere(vorherigeId, 'verlassen')
 })
 
 onBeforeRouteLeave(() => {
-  uebernimmOffeneTagEingabeUndPersistiere(ortId.value, 'verlassen')
+  uebernimmOffeneEingabenUndPersistiere(ortId.value, 'verlassen')
 })
 
 function aufBezeichnungEingabe(event: Event): void {
@@ -594,16 +647,20 @@ function aufLaengeEingabe(event: Event): void {
   if (ortId.value) store.aktualisiereFeld(ortId.value, { laenge: parseZahlenfeld(wert) })
 }
 
-function aufAchsenwertGeaendert(achse: AchsenName, wert: number | null): void {
-  if (!ortId.value) return
-  store.aktualisiereAchse(ortId.value, achse, { wert })
-  persistiereJetzt()
+// Ort-Bindung wie bei `aufTagHinzugefuegt` (ADR-0030 Punkt 5/ADR-0035 Punkt 6):
+// Das Template bindet `ort!.id`, nicht die reaktive `ortId` im Handler — ein
+// Emit, das nach einer bereits weitergezogenen Navigation ankommt, schreibt
+// trotzdem auf den Ort, an dem es entstanden ist.
+function aufAchsenwertGeaendert(zielOrtId: string, achse: AchsenName, wert: number | null): void {
+  store.aktualisiereAchse(zielOrtId, achse, { wert })
+  // Während des synchronen Abholens (ADR-0035 Punkt 1) NUR den Store
+  // aktualisieren, s. `aufTagHinzugefuegt`.
+  if (!waehrendAbholenOffenerEingaben) void store.persistiereOrt(zielOrtId)
 }
 
-function aufAchsenkommentarGeaendert(achse: AchsenName, kommentar: string | null): void {
-  if (!ortId.value) return
-  store.aktualisiereAchse(ortId.value, achse, { kommentar })
-  persistiereJetzt()
+function aufAchsenkommentarGeaendert(zielOrtId: string, achse: AchsenName, kommentar: string | null): void {
+  store.aktualisiereAchse(zielOrtId, achse, { kommentar })
+  if (!waehrendAbholenOffenerEingaben) void store.persistiereOrt(zielOrtId)
 }
 
 async function aufLoeschenBestaetigt(): Promise<void> {
@@ -1037,39 +1094,52 @@ async function aufLoeschenBestaetigt(): Promise<void> {
             </template>
           </div>
 
+          <!-- `:key="ortId"` (ADR-0035 Punkt 5, analog zu `Ortssuche`/
+               `TagEingabe` oben): Ortswechsel mountet jede Achse neu, das
+               Abholen läuft im Route-Guard VOR diesem Remount. Emit-Handler
+               binden `ort!.id`, nicht die reaktive `ortId` (ADR-0035
+               Punkt 6). -->
           <div class="ortsdetail__bewertungen">
             <Bewertungsachse
+              :key="ortId ?? undefined"
+              :ref="(el) => setAchseRef('ambiente', el as InstanceType<typeof Bewertungsachse> | null)"
               achse-name="ambiente"
               label="Ambiente"
               :wert="ort.bewertungen.ambiente.wert"
               :kommentar="ort.bewertungen.ambiente.kommentar"
-              @wert-geaendert="(wert) => aufAchsenwertGeaendert('ambiente', wert)"
-              @kommentar-geaendert="(kommentar) => aufAchsenkommentarGeaendert('ambiente', kommentar)"
+              @wert-geaendert="(wert) => aufAchsenwertGeaendert(ort!.id, 'ambiente', wert)"
+              @kommentar-geaendert="(kommentar) => aufAchsenkommentarGeaendert(ort!.id, 'ambiente', kommentar)"
             />
             <Bewertungsachse
+              :key="ortId ?? undefined"
+              :ref="(el) => setAchseRef('zeit', el as InstanceType<typeof Bewertungsachse> | null)"
               achse-name="zeit"
               label="Zeit (Wartezeit)"
               kurzerklaerung="10 = keine spürbare Wartezeit"
               :wert="ort.bewertungen.zeit.wert"
               :kommentar="ort.bewertungen.zeit.kommentar"
-              @wert-geaendert="(wert) => aufAchsenwertGeaendert('zeit', wert)"
-              @kommentar-geaendert="(kommentar) => aufAchsenkommentarGeaendert('zeit', kommentar)"
+              @wert-geaendert="(wert) => aufAchsenwertGeaendert(ort!.id, 'zeit', wert)"
+              @kommentar-geaendert="(kommentar) => aufAchsenkommentarGeaendert(ort!.id, 'zeit', kommentar)"
             />
             <Bewertungsachse
+              :key="ortId ?? undefined"
+              :ref="(el) => setAchseRef('geschmack', el as InstanceType<typeof Bewertungsachse> | null)"
               achse-name="geschmack"
               label="Geschmack"
               :wert="ort.bewertungen.geschmack.wert"
               :kommentar="ort.bewertungen.geschmack.kommentar"
-              @wert-geaendert="(wert) => aufAchsenwertGeaendert('geschmack', wert)"
-              @kommentar-geaendert="(kommentar) => aufAchsenkommentarGeaendert('geschmack', kommentar)"
+              @wert-geaendert="(wert) => aufAchsenwertGeaendert(ort!.id, 'geschmack', wert)"
+              @kommentar-geaendert="(kommentar) => aufAchsenkommentarGeaendert(ort!.id, 'geschmack', kommentar)"
             />
             <Bewertungsachse
+              :key="ortId ?? undefined"
+              :ref="(el) => setAchseRef('preisLeistung', el as InstanceType<typeof Bewertungsachse> | null)"
               achse-name="preisLeistung"
               label="Preis/Leistung"
               :wert="ort.bewertungen.preisLeistung.wert"
               :kommentar="ort.bewertungen.preisLeistung.kommentar"
-              @wert-geaendert="(wert) => aufAchsenwertGeaendert('preisLeistung', wert)"
-              @kommentar-geaendert="(kommentar) => aufAchsenkommentarGeaendert('preisLeistung', kommentar)"
+              @wert-geaendert="(wert) => aufAchsenwertGeaendert(ort!.id, 'preisLeistung', wert)"
+              @kommentar-geaendert="(kommentar) => aufAchsenkommentarGeaendert(ort!.id, 'preisLeistung', kommentar)"
             />
           </div>
 

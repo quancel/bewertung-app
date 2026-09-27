@@ -161,15 +161,36 @@
  * Ansicht `ortsdetail-langer-kommentar` legt lange Kommentare an allen vier
  * Achsen an, committet sie und lädt neu, bevor irgendetwas gemessen wird,
  * bei allen drei `BREITEN`; (2) Ortswechsel ab lg PER KLICK von einem Ort mit
- * langem Kommentar zu einem mit einzeiligem — `Bewertungsachse.vue` wird
- * dabei NICHT neu gemountet (kein `:key` auf `ortId`), die Höhe muss sich
- * also über die Composable-Neuberechnung anpassen, nicht über einen Neumount
- * (`pruefeMehrzeiligesFeldBeiOrtswechsel()`); (3) eine reine Breitenänderung
- * 1280→390 ohne jede Texteingabe (`pruefeMehrzeiligesFeldBeiBreitenwechsel()`).
- * Die Umsetzung selbst (`shared/composables/useMitwachsendesTextfeld.ts`)
- * muss in jedem unterstützten Browser wirken, nicht nur in Chromium — dieser
+ * langem Kommentar zu einem mit einzeiligem (`pruefeMehrzeiligesFeldBeiOrtswechsel()`,
+ * seit PO-2026-09-27-004 mit dem dort ergänzten `:key` ein Neumount, s.
+ * dessen eigenen Kommentar); (3) eine reine Breitenänderung 1280→390 ohne
+ * jede Texteingabe (`pruefeMehrzeiligesFeldBeiBreitenwechsel()`). Die
+ * Umsetzung selbst (`shared/composables/useMitwachsendesTextfeld.ts`) muss in
+ * jedem unterstützten Browser wirken, nicht nur in Chromium — dieser
  * Rauchtest kann das nur für Chromium belegen (ADR-0023 Punkt 5), WebKit/
  * Firefox bleiben nur manuell prüfbar.
+ *
+ * Ab PO-2026-09-27-004 (ADR-0035, „mehrere Entwurfsbesitzer: alle abholen,
+ * einmal schreiben") kommen vier weitere HARTE Zusicherungen dazu
+ * (`pruefeBewertungsachseUeberlebtNeuladen()`, nur bei 1280px, dasselbe
+ * Vier-Auslöser-Muster wie bei der Tag-Eingabe oben, jetzt für Zahl UND
+ * Kommentar der vier `Bewertungsachse`-Instanzen): (a) Kommentar und Zahl
+ * per TAB verlassen überstehen ein Neuladen, ein geleertes Zahlenfeld kommt
+ * als „nicht bewertet" zurück, nicht als 0; (b1) DREI gleichzeitig offene
+ * Entwürfe — Tag-Text, Kommentar einer Achse, Zahlenwert einer ANDEREN
+ * Achse —, `pagehide` am WEITERLEBENDEN Dokument: der ERSTE `put()` trägt
+ * bereits alle drei (der eigentliche Nachweis für ADR-0035 Punkt 1, „alle
+ * abholen, einmal schreiben"); (c) Ortswechsel ab lg AUSSCHLIESSLICH über
+ * den Browserverlauf lässt Kommentar- UND Zahlen-Entwurf bei A, B zeigt
+ * danach seine eigenen Werte — geprüft mit einem an A UND B VORAB
+ * IDENTISCHEN Kommentar, dem Beleg dafür, dass der Fix über das neue
+ * `:key` läuft (ADR-0035 Punkt 5), nicht über einen Watcher, der bei
+ * gleichem Wert nicht feuert; (d) sowohl das Schließen `/orte/:a`→`/orte`
+ * als auch `visibilitychange`→`hidden` übernehmen beide gleichzeitig
+ * offenen Entwürfe. GEMELDET, nicht hart (analog Fall b2 oben): ein ECHTES
+ * `seite.reload()` mit Fokus im Kommentarfeld — dieselbe, bereits für Tags
+ * dokumentierte, strukturelle Grenze (ADR-0031) gilt für jedes Feld im
+ * Ortsdetail.
  *
  * Aufruf: `npm run smoke` (baut vorher). Bildschirmfotos landen in
  * `.smoke/`, das Verzeichnis ist ignoriert.
@@ -1384,6 +1405,403 @@ async function pruefeTagBleibtBeimOrtswechselAmRichtigenOrt(seite, befunde) {
 }
 
 /**
+ * Setzt mehrere Feldwerte über SYNTHETISCHE `input`-Ereignisse, OHNE die
+ * Felder real zu fokussieren. Grund: Ein echter Fokuswechsel (`.fill()`/
+ * `.click()` auf ein ANDERES Feld) würde das zuvor fokussierte Feld über
+ * dessen EIGENES `blur`/`focusout` sofort committen — genau der bereits
+ * bestehende vierte Auslöser „Feld verlassen" (ADR-0005/ADR-0030) — und
+ * dadurch den zu prüfenden Zustand „mehrere GLEICHZEITIG offene,
+ * unbestätigte Entwürfe" zunichtemachen, noch bevor der eigentliche externe
+ * Auslöser (Route/`visibilitychange`/`pagehide`) überhaupt feuert. Ohne
+ * `.focus()`/Klick ändert sich `document.activeElement` nicht, also blurt
+ * auch nichts. Wo ein einzelnes Feld bewusst per „Feld verlassen" committen
+ * SOLL (Fall a: Tab), bleibt `.fill()` das richtige Mittel.
+ *
+ * `eintraege[].feld`: `'tag'` (das Tag-Eingabefeld), `'kommentar'`/`'zahl'`
+ * (das jeweilige Feld der `achsenIndex`-ten `.bewertungsachse`, 0-basiert,
+ * DOM-Reihenfolge = Template-Reihenfolge ambiente/zeit/geschmack/preisLeistung).
+ */
+async function setzeEingabenOhneFokus(seite, eintraege) {
+  await seite.evaluate((eintraege) => {
+    const achsen = document.querySelectorAll('.bewertungsachse')
+    for (const eintrag of eintraege) {
+      let el
+      if (eintrag.feld === 'tag') el = document.querySelector('.tag-eingabe__feld')
+      else if (eintrag.feld === 'kommentar') el = achsen[eintrag.achsenIndex].querySelector('.bewertungsachse__kommentar-feld')
+      else el = achsen[eintrag.achsenIndex].querySelector('input[type="number"]')
+      el.value = eintrag.wert
+      el.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+  }, eintraege)
+}
+
+/**
+ * Liest den Wert eines Felds, das je nach (unter Umständen defektem)
+ * Anwendungsstand GAR NICHT im DOM steht (z. B. das Kommentarfeld einer
+ * Achse, das nur bei `kommentar !== null` erscheint). `locator.inputValue()`
+ * wartet bei einem fehlenden Element bis zum Timeout (30s) und wirft dann —
+ * das würde den gesamten Lauf mit einer unbehandelten Ausnahme abbrechen und
+ * den Bericht der übrigen Zusicherungen kosten (Begründung analog
+ * `pruefeTagBleibtBeimOrtswechselAmRichtigenOrt`). `locator.count()` wartet
+ * dagegen nicht und liefert `0`, wenn das Feld fehlt — genau das ist dann
+ * selbst der Befund (der erwartete Wert kann unmöglich dort stehen).
+ */
+async function wertOderLeer(locator) {
+  return (await locator.count()) > 0 ? await locator.inputValue() : ''
+}
+
+/**
+ * Zusicherungen ab PO-2026-09-27-004 (ADR-0035): dasselbe Vier-Auslöser-Muster
+ * wie `pruefeTagUeberlebtNeuladen()` oben, jetzt für die vier
+ * `Bewertungsachse`-Instanzen (Zahl UND Kommentar je Achse) — nur bei 1280px
+ * (Fall c/d brauchen die ab `lg` gleichzeitig sichtbare Listen-Spalte).
+ * Wiederverwendet dieselbe `put()`-Aufzeichnung wie oben (neue Seite, eigenes
+ * `addInitScript`).
+ */
+async function pruefeBewertungsachseUeberlebtNeuladen(browser, befunde, gemeldeteGrenzen) {
+  const seite = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+  await seite.addInitScript(() => {
+    window.__putAufzeichnung = []
+    const originalPut = IDBObjectStore.prototype.put
+    IDBObjectStore.prototype.put = function (value, key) {
+      if (this.name === 'orte') {
+        window.__putAufzeichnung.push(JSON.parse(JSON.stringify(value)))
+      }
+      return originalPut.call(this, value, key)
+    }
+  })
+  await pruefeBewertungsachseFeldVerlassenUeberlebtNeuladen(seite, befunde)
+  await pruefeBewertungsachsePagehideAmLebendenDokument(seite, befunde)
+  await pruefeBewertungsachseOrtswechselUeberBrowserverlauf(seite, befunde)
+  await pruefeBewertungsachseSchliessenUndSichtbarkeitswechsel(seite, befunde)
+  await pruefeBewertungsachseFokussiertesFeldBeimEchtenReload(seite, gemeldeteGrenzen)
+  await seite.close()
+}
+
+/**
+ * Fall (a): Kommentar UND Zahl per Tab verlassen (nicht Enter/Klick) —
+ * beide committen über `@blur`/`@change` (unverändert seit ADR-0007/ADR-0027)
+ * und überstehen ein Neuladen. Zusätzlich an einer ZWEITEN Achse: ein
+ * gesetzter, dann wieder GELEERTER Zahlenwert kommt als „nicht bewertet"
+ * zurück (`wert: null`), nicht als 0 — geprüft über den Platzhalter-Zustand
+ * des Feldes UND `aria-valuetext="nicht bewertet"` am Regler (ADR-0007
+ * Punkt 7/ADR-0035).
+ */
+async function pruefeBewertungsachseFeldVerlassenUeberlebtNeuladen(seite, befunde) {
+  const kommentarMarker = 'rauchtest-achse-tab-kommentar'
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Achse-Tab')
+
+    const ersteAchse = seite.locator('.bewertungsachse').first()
+    await ersteAchse.locator('input[type="number"]').fill('7')
+    await seite.keyboard.press('Tab')
+    await seite.waitForTimeout(150)
+    await ersteAchse.getByRole('button', { name: 'Kommentar hinzufügen' }).click()
+    await ersteAchse.locator('.bewertungsachse__kommentar-feld').fill(kommentarMarker)
+    await seite.keyboard.press('Tab')
+    await seite.waitForTimeout(150)
+
+    // Zweite Achse: erst setzen, dann wieder leeren — muss „nicht bewertet"
+    // ergeben, nicht 0.
+    const zweiteAchse = seite.locator('.bewertungsachse').nth(1)
+    await zweiteAchse.locator('input[type="number"]').fill('5')
+    await seite.keyboard.press('Tab')
+    await seite.waitForTimeout(150)
+    await zweiteAchse.locator('input[type="number"]').fill('')
+    await seite.keyboard.press('Tab')
+    await seite.waitForTimeout(300)
+
+    await seite.reload({ waitUntil: 'networkidle' })
+    await seite.waitForTimeout(400)
+
+    const ersteAchseNeu = seite.locator('.bewertungsachse').first()
+    if ((await ersteAchseNeu.locator('input[type="number"]').inputValue()) !== '7') {
+      befunde.push('bewertungsachse-feld-verlassen: Zahlenwert "7" fehlt nach dem Neuladen an der ersten Achse')
+    }
+    if ((await wertOderLeer(ersteAchseNeu.locator('.bewertungsachse__kommentar-feld'))) !== kommentarMarker) {
+      befunde.push(`bewertungsachse-feld-verlassen: Kommentar "${kommentarMarker}" fehlt nach dem Neuladen an der ersten Achse`)
+    }
+
+    const zweiteAchseNeu = seite.locator('.bewertungsachse').nth(1)
+    if ((await zweiteAchseNeu.locator('input[type="number"]').inputValue()) !== '') {
+      befunde.push('bewertungsachse-feld-verlassen: geleertes Zahlenfeld ist nach dem Neuladen nicht leer (evtl. fälschlich als 0 gespeichert)')
+    }
+    if ((await zweiteAchseNeu.locator('input[type="range"]').getAttribute('aria-valuetext')) !== 'nicht bewertet') {
+      befunde.push('bewertungsachse-feld-verlassen: geleertes Feld meldet am Regler nicht "nicht bewertet" — evtl. als 0 gespeichert')
+    }
+  } catch (fehler) {
+    befunde.push(`bewertungsachse-feld-verlassen: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  }
+}
+
+/**
+ * Fall (b1), HART (ADR-0035 Punkt 1): DREI gleichzeitig offene Entwürfe —
+ * Tag-Text, Kommentar der ERSTEN Achse, Zahlenwert der ZWEITEN Achse —, alle
+ * fokussiert und NICHT verlassen. `pagehide` wird am WEITERLEBENDEN Dokument
+ * ausgelöst (kein echtes Entladen, analog `pruefeTagPagehideAmLebendenDokument`).
+ * Der ERSTE `put()` danach muss bereits ALLE DREI tragen — genau die
+ * Eigenschaft, die ADR-0035 Punkt 1 verlangt (mehrere Entwurfsbesitzer,
+ * einmal schreiben).
+ *
+ * Rot-Nachweis (ADR-0027 Punkt 8, Handoff-Constraint): gegen einen Stand, in
+ * dem die Emit-Handler auch WÄHREND des Abholens sofort persistieren (kein
+ * `waehrendAbholenOffenerEingaben`-Guard), trägt der erste `put()` nur den
+ * TAG (zuerst abgeholt) — Kommentar und Zahl fehlen, weil ihre je eigenen,
+ * asynchron nachlaufenden Schreibvorgänge erst NACH dem ersten `put()`
+ * ankommen.
+ */
+async function pruefeBewertungsachsePagehideAmLebendenDokument(seite, befunde) {
+  const tagMarker = 'rauchtest-achse-pagehide-tag'
+  const kommentarMarker = 'rauchtest-achse-pagehide-kommentar'
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Achse-Pagehide')
+
+    // Kommentarfeld der ersten Achse öffnen (einmaliger, isolierter Klick,
+    // betrifft noch keines der drei unten gleichzeitig offenen Felder).
+    const ersteAchse = seite.locator('.bewertungsachse').first()
+    await ersteAchse.getByRole('button', { name: 'Kommentar hinzufügen' }).click()
+    await seite.waitForTimeout(150)
+
+    // Alle drei Entwürfe gleichzeitig, ÜBER `setzeEingabenOhneFokus` (s. dort,
+    // warum kein `.fill()`/Klick).
+    await setzeEingabenOhneFokus(seite, [
+      { feld: 'tag', wert: tagMarker },
+      { feld: 'kommentar', achsenIndex: 0, wert: kommentarMarker },
+      { feld: 'zahl', achsenIndex: 1, wert: '8' },
+    ])
+    await seite.waitForTimeout(150)
+
+    await seite.evaluate(() => {
+      window.__putAufzeichnung.length = 0
+    })
+    await seite.evaluate(() => window.dispatchEvent(new Event('pagehide'))) // Dokument lebt weiter
+    await seite.waitForTimeout(300)
+
+    const aufzeichnung = await seite.evaluate(() => window.__putAufzeichnung)
+    if (aufzeichnung.length === 0) {
+      befunde.push('bewertungsachse-pagehide-lebend: pagehide (am weiterlebenden Dokument) hat keinen put() ausgelöst')
+    } else {
+      const erster = aufzeichnung[0]
+      if (!(erster?.tags ?? []).includes(tagMarker)) {
+        befunde.push(
+          `bewertungsachse-pagehide-lebend: der ERSTE put() trägt den Tag "${tagMarker}" nicht (tags: ${JSON.stringify(erster?.tags)})`,
+        )
+      }
+      if (erster?.bewertungen?.ambiente?.kommentar !== kommentarMarker) {
+        befunde.push(
+          `bewertungsachse-pagehide-lebend: der ERSTE put() trägt den Kommentar "${kommentarMarker}" der ersten Achse nicht (war: ${JSON.stringify(erster?.bewertungen?.ambiente?.kommentar)}) — ADR-0035 Punkt 1 verletzt`,
+        )
+      }
+      if (erster?.bewertungen?.zeit?.wert !== 8) {
+        befunde.push(
+          `bewertungsachse-pagehide-lebend: der ERSTE put() trägt den Zahlenwert "8" der zweiten Achse nicht (war: ${JSON.stringify(erster?.bewertungen?.zeit?.wert)}) — ADR-0035 Punkt 1 verletzt`,
+        )
+      }
+    }
+
+    await seite.reload({ waitUntil: 'networkidle' })
+    await seite.waitForTimeout(400)
+    if ((await seite.locator('.tag-eingabe__pill', { hasText: tagMarker }).count()) === 0) {
+      befunde.push(`bewertungsachse-pagehide-lebend: Pille "${tagMarker}" fehlt nach dem Neuladen`)
+    }
+    if ((await wertOderLeer(seite.locator('.bewertungsachse').first().locator('.bewertungsachse__kommentar-feld'))) !== kommentarMarker) {
+      befunde.push(`bewertungsachse-pagehide-lebend: Kommentar "${kommentarMarker}" fehlt nach dem Neuladen`)
+    }
+    if ((await seite.locator('.bewertungsachse').nth(1).locator('input[type="number"]').inputValue()) !== '8') {
+      befunde.push('bewertungsachse-pagehide-lebend: Zahlenwert "8" fehlt nach dem Neuladen')
+    }
+  } catch (fehler) {
+    befunde.push(`bewertungsachse-pagehide-lebend: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  }
+}
+
+/**
+ * Fall (c): Ortswechsel ab `lg` AUSSCHLIESSLICH über den Browserverlauf
+ * (`goBack`/`goForward`, nie Klick — analog `pruefeTagBleibtBeimOrtswechselAmRichtigenOrt`).
+ * Ort A und B tragen VOR der eigentlichen Prüfung denselben committeten
+ * Kommentar an der ersten Achse (Handoff-Constraint „mindestens einmal mit
+ * identischem Kommentar bei A und B") — der Beleg dafür, dass der Fix über
+ * das neue `:key` läuft (ADR-0035 Punkt 5), nicht über
+ * `watch(props.kommentar)`, das bei GLEICHEM Wert nicht feuert (ADR-0035,
+ * Kontext). Unbestätigter Kommentar- UND Zahlen-Entwurf bei A müssen nach
+ * A→B bei A bleiben, B zeigt danach seine EIGENEN Werte.
+ */
+async function pruefeBewertungsachseOrtswechselUeberBrowserverlauf(seite, befunde) {
+  const geteilterKommentar = 'Rauchtest-Achse-Verlauf: geteilter Kommentar'
+  const kommentarEntwurfBeiA = 'rauchtest-achse-verlauf-a-kommentar'
+  const zahlEntwurfBeiA = '3'
+
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Achse-Verlauf-A') // Historie: [/orte, A]
+
+    const achseA = seite.locator('.bewertungsachse').first()
+    await achseA.getByRole('button', { name: 'Kommentar hinzufügen' }).click()
+    await achseA.locator('.bewertungsachse__kommentar-feld').fill(geteilterKommentar)
+    await seite.keyboard.press('Tab')
+    await seite.waitForTimeout(200)
+
+    await seite.getByRole('button', { name: 'Ort hinzufügen', exact: true }).first().click()
+    await seite.waitForTimeout(300)
+    await seite.locator('#ort-anlegen-bezeichnung').fill('Rauchtest-Achse-Verlauf-B')
+    await seite.keyboard.press('Enter')
+    await seite.waitForTimeout(700) // Historie: [/orte, A, B]
+
+    const achseB = seite.locator('.bewertungsachse').first()
+    await achseB.getByRole('button', { name: 'Kommentar hinzufügen' }).click()
+    await achseB.locator('.bewertungsachse__kommentar-feld').fill(geteilterKommentar) // identisch zu A
+    await seite.keyboard.press('Tab')
+    await seite.waitForTimeout(200)
+
+    await seite.goBack({ waitUntil: 'networkidle' }) // zurück zu A, rein über den Verlauf
+    await seite.waitForTimeout(300)
+    // Feld ist an A bereits offen (Kommentar committet) — neuer, unbestätigter
+    // Entwurf ÜBERSCHREIBT den Text; BEIDE Felder gleichzeitig über
+    // `setzeEingabenOhneFokus` (s. dort), sonst würde das Fokussieren des
+    // Zahlenfelds den Kommentar über sein eigenes `blur` sofort committen.
+    await setzeEingabenOhneFokus(seite, [
+      { feld: 'kommentar', achsenIndex: 0, wert: kommentarEntwurfBeiA },
+      { feld: 'zahl', achsenIndex: 1, wert: zahlEntwurfBeiA },
+    ])
+    await seite.waitForTimeout(150)
+
+    await seite.goForward({ waitUntil: 'networkidle' }) // A -> B, ausschließlich über den Verlauf
+    await seite.waitForTimeout(300)
+
+    const kommentarWertB = await wertOderLeer(seite.locator('.bewertungsachse').first().locator('.bewertungsachse__kommentar-feld'))
+    if (kommentarWertB !== geteilterKommentar) {
+      befunde.push(`bewertungsachse-ortswechsel: Kommentarfeld von Ort B zeigt nach A→B nicht Bs eigenen Kommentar ("${kommentarWertB}")`)
+    }
+    const zahlWertB = await seite.locator('.bewertungsachse').nth(1).locator('input[type="number"]').inputValue()
+    if (zahlWertB !== '') {
+      befunde.push(`bewertungsachse-ortswechsel: Zahlenfeld der zweiten Achse von Ort B ist nach A→B nicht leer ("${zahlWertB}")`)
+    }
+
+    await seite.goBack({ waitUntil: 'networkidle' }) // zurück zu A, Verifikation
+    await seite.waitForTimeout(300)
+    const kommentarWertA = await wertOderLeer(seite.locator('.bewertungsachse').first().locator('.bewertungsachse__kommentar-feld'))
+    if (kommentarWertA !== kommentarEntwurfBeiA) {
+      befunde.push(
+        `bewertungsachse-ortswechsel: Ort A trägt den Kommentar-Entwurf "${kommentarEntwurfBeiA}" nach dem Wechsel zu B nicht (Commit im Route-Guard fehlgeschlagen, war: "${kommentarWertA}")`,
+      )
+    }
+    const zahlWertA = await seite.locator('.bewertungsachse').nth(1).locator('input[type="number"]').inputValue()
+    if (zahlWertA !== zahlEntwurfBeiA) {
+      befunde.push(`bewertungsachse-ortswechsel: Ort A trägt den Zahlen-Entwurf "${zahlEntwurfBeiA}" nach dem Wechsel zu B nicht (war: "${zahlWertA}")`)
+    }
+  } catch (fehler) {
+    befunde.push(`bewertungsachse-ortswechsel: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  }
+}
+
+/**
+ * Fall (d): ZWEI weitere Auslöser übernehmen beide offenen Entwürfe.
+ * Teil 1 — Schließen `/orte/:a` → `/orte` (Klick auf „Detailansicht
+ * schließen", ab `lg` sichtbar statt „Zurück", `onBeforeRouteUpdate` bleibt
+ * hier ein Update, kein Leave, s. Modul-Kommentar `Ortebereich.vue`). Teil 2
+ * — `visibilitychange`→`hidden`, über eine Eigenschafts-Überschreibung auf
+ * `document.visibilityState` simuliert (kein Tab-/Fenster-Wechsel im
+ * Testrunner selbst möglich).
+ */
+async function pruefeBewertungsachseSchliessenUndSichtbarkeitswechsel(seite, befunde) {
+  try {
+    // Teil 1: /orte/:a -> /orte über „Detailansicht schließen".
+    const kommentarMarkerSchliessen = 'rauchtest-achse-schliessen-kommentar'
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Achse-Schliessen')
+    await seite.locator('.bewertungsachse').first().getByRole('button', { name: 'Kommentar hinzufügen' }).click()
+    await seite.waitForTimeout(150)
+    // Beide Felder gleichzeitig offen — über `setzeEingabenOhneFokus` (s. dort),
+    // sonst würde das Fokussieren des Zahlenfelds den Kommentar sofort committen.
+    await setzeEingabenOhneFokus(seite, [
+      { feld: 'kommentar', achsenIndex: 0, wert: kommentarMarkerSchliessen },
+      { feld: 'zahl', achsenIndex: 1, wert: '9' },
+    ])
+    await seite.waitForTimeout(150)
+
+    await seite.locator('[aria-label="Detailansicht schließen"]').click() // /orte/:a -> /orte
+    await seite.waitForTimeout(300)
+    await seite.locator('.ortszeile', { hasText: 'Rauchtest-Achse-Schliessen' }).click()
+    await seite.waitForTimeout(300)
+
+    const achseS1Neu = seite.locator('.bewertungsachse').first()
+    const kommentarNachSchliessen = await wertOderLeer(achseS1Neu.locator('.bewertungsachse__kommentar-feld'))
+    if (kommentarNachSchliessen !== kommentarMarkerSchliessen) {
+      befunde.push(`bewertungsachse-schliessen: Kommentar "${kommentarMarkerSchliessen}" fehlt nach /orte/:a→/orte (Schließen), war: "${kommentarNachSchliessen}"`)
+    }
+    const achseS2Neu = seite.locator('.bewertungsachse').nth(1)
+    const zahlNachSchliessen = await achseS2Neu.locator('input[type="number"]').inputValue()
+    if (zahlNachSchliessen !== '9') {
+      befunde.push(`bewertungsachse-schliessen: Zahlenwert "9" fehlt nach /orte/:a→/orte (Schließen), war: "${zahlNachSchliessen}"`)
+    }
+
+    // Teil 2: visibilitychange -> hidden.
+    const kommentarMarkerHidden = 'rauchtest-achse-hidden-kommentar'
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Achse-Hidden')
+    await seite.locator('.bewertungsachse').first().getByRole('button', { name: 'Kommentar hinzufügen' }).click()
+    await seite.waitForTimeout(150)
+    await setzeEingabenOhneFokus(seite, [
+      { feld: 'kommentar', achsenIndex: 0, wert: kommentarMarkerHidden },
+      { feld: 'zahl', achsenIndex: 1, wert: '4' },
+    ])
+    await seite.waitForTimeout(150)
+
+    await seite.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' })
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    await seite.waitForTimeout(300)
+
+    await seite.reload({ waitUntil: 'networkidle' })
+    await seite.waitForTimeout(400)
+    const achseH1Neu = seite.locator('.bewertungsachse').first()
+    const kommentarNachHidden = await wertOderLeer(achseH1Neu.locator('.bewertungsachse__kommentar-feld'))
+    if (kommentarNachHidden !== kommentarMarkerHidden) {
+      befunde.push(`bewertungsachse-hidden: Kommentar "${kommentarMarkerHidden}" fehlt nach visibilitychange→hidden, war: "${kommentarNachHidden}"`)
+    }
+    const achseH2Neu = seite.locator('.bewertungsachse').nth(1)
+    const zahlNachHidden = await achseH2Neu.locator('input[type="number"]').inputValue()
+    if (zahlNachHidden !== '4') {
+      befunde.push(`bewertungsachse-hidden: Zahlenwert "4" fehlt nach visibilitychange→hidden, war: "${zahlNachHidden}"`)
+    }
+  } catch (fehler) {
+    befunde.push(`bewertungsachse-schliessen-hidden: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  }
+}
+
+/**
+ * GEMELDET, OHNE Einfluss auf `process.exitCode` (analog `pruefeTagFokussiertesFeldBeimEchtenReload`,
+ * ADR-0031 Punkt 5/6): Kommentar im FOKUSSIERTEN Feld, ein ECHTES
+ * `seite.reload()` löst das entladungsbedingte `pagehide` aus. Dieselbe,
+ * bereits für Tags dokumentierte Grenze (ADR-0031 Punkt 1) gilt strukturell
+ * für JEDES Feld im Ortsdetail, nicht nur Tags — kein Kriterium verlangt,
+ * dass das zusicherbar wäre.
+ */
+async function pruefeBewertungsachseFokussiertesFeldBeimEchtenReload(seite, gemeldeteGrenzen) {
+  const kommentarMarker = 'rauchtest-achse-fokus-kommentar'
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Achse-Fokus')
+    const achse = seite.locator('.bewertungsachse').first()
+    await achse.getByRole('button', { name: 'Kommentar hinzufügen' }).click()
+    await achse.locator('.bewertungsachse__kommentar-feld').fill(kommentarMarker) // Fokus bleibt im Feld
+    await seite.waitForTimeout(200)
+
+    await seite.reload({ waitUntil: 'networkidle' })
+    await seite.waitForTimeout(400)
+    const erhalten = (await wertOderLeer(seite.locator('.bewertungsachse').first().locator('.bewertungsachse__kommentar-feld'))) === kommentarMarker
+    gemeldeteGrenzen.push(
+      `bewertungsachse-fokussiertes-feld-echter-reload (ADR-0031/ADR-0035, benannte Grenze, kein Kriterium): Kommentar "${kommentarMarker}" ist nach dem echten Neuladen ${erhalten ? 'ERHALTEN geblieben' : 'VERLOREN gegangen'}.`,
+    )
+  } catch (fehler) {
+    gemeldeteGrenzen.push(`bewertungsachse-fokussiertes-feld-echter-reload: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  }
+}
+
+/**
  * Zusicherung ab PO-2026-09-26-003 (ADR-0033, Korrektur zu ADR-0011 Punkt 6):
  * Ab lg beginnt die Detail-Spalte bei A→B von oben (Versatz 0), unabhängig
  * vom Scroll-Stand bei A, und der Fokus liegt danach auf "Detailansicht
@@ -1559,22 +1977,24 @@ async function pruefeScrollVersatzUndFokusBeiOrtswechsel(seite, breite, befunde)
  * PO-2026-09-27-001, Weg (2): Ortswechsel ab lg PER KLICK von Ort A (langer
  * Kommentar an der ersten Achse) zu Ort B (einzeiliger Kommentar an der
  * ersten Achse) darf die Feldhöhe von A nicht auf B übertragen.
- * `Bewertungsachse.vue` wird beim Ortswechsel HEUTE NICHT neu gemountet
- * (kein `:key` auf `ortId`, `Ortebereich.vue`) — die Höhe muss sich also über
- * die Composable-Neuberechnung bei Wertänderung anpassen, nicht über einen
- * Neumount. Referenz für die Zwei-Zeilen-Mindesthöhe ist ein frisch
- * geöffnetes, LEERES Kommentarfeld an einem eigenen, unbeteiligten Ort —
- * kein hart codierter Pixelwert (das Feld kennt seine Mindesthöhe nur über
- * `rows="2"`, s. `useMitwachsendesTextfeld.ts`).
  *
- * VORBEDINGUNG dieser Funktion selbst (nicht Gegenstand der Prüfung, außerhalb
- * des Scopes dieses Pakets — `kommentarOffen` in `Bewertungsachse.vue` wird
- * beim Ortswechsel NIE wieder auf `false` zurückgesetzt, weil derselbe
- * fehlende Neumount die Komponenteninstanz über jeden Ortswechsel hinweg
- * erhält): Einmal über „Kommentar hinzufügen" geöffnet, bleibt die ERSTE
- * Achse für JEDEN in dieser Seitenlebensdauer danach besuchten Ort offen —
- * deshalb wird der Button nur einmal (an der Referenz) geklickt, an A und B
- * ist das Feld bereits sichtbar.
+ * Seit PO-2026-09-27-004 (ADR-0035 Punkt 5) trägt `Bewertungsachse.vue` ein
+ * ortsgebundenes `:key` — ein Ortswechsel mountet die Instanz seitdem neu,
+ * statt sie zu erhalten (vorher: HEUTE-NICHT-neu-gemountet, s. Historie
+ * dieser Funktion). `kommentarOffen` beginnt dadurch je Ort frisch:
+ * „Kommentar hinzufügen" wird deshalb an JEDEM neu angelegten Ort (Referenz,
+ * A, B) einzeln geklickt, nicht mehr nur einmal an der Referenz. Bei der
+ * Rückkehr zu A/B ist das Feld bereits offen, weil beide dort inzwischen
+ * einen gespeicherten Kommentar tragen (`kommentar !== null` öffnet
+ * automatisch, design_notes PO-2026-09-07-002). Referenz für die
+ * Zwei-Zeilen-Mindesthöhe ist ein frisch geöffnetes, LEERES Kommentarfeld an
+ * einem eigenen, unbeteiligten Ort — kein hart codierter Pixelwert (das Feld
+ * kennt seine Mindesthöhe nur über `rows="2"`, s. `useMitwachsendesTextfeld.ts`).
+ * Das Composable selbst muss laut seiner eigenen Einordnung sowohl MIT als
+ * auch OHNE Remount funktionieren (Auslöser (a) Mount / (b) externe
+ * Wertänderung, `useMitwachsendesTextfeld.ts`) — diese Zusicherung bleibt
+ * deshalb unverändert gültig, auch wenn der Ortswechsel jetzt strukturell
+ * über Auslöser (a) statt (b) läuft.
  */
 async function pruefeMehrzeiligesFeldBeiOrtswechsel(seite, befunde) {
   const kontext = 'desktop-1280/ortswechsel-mehrzeiliges-feld'
@@ -1590,24 +2010,28 @@ async function pruefeMehrzeiligesFeldBeiOrtswechsel(seite, befunde) {
       .locator('.bewertungsachse__kommentar-feld')
       .evaluate((el) => el.getBoundingClientRect().height)
 
-    // Ort A: langer Kommentar an der ersten Achse — Feld bereits offen (s.
-    // Funktionskommentar), kein weiterer Klick auf „Kommentar hinzufügen".
+    // Ort A: langer Kommentar an der ersten Achse — frischer Ort, `:key`
+    // sorgt für eine neue Instanz mit `kommentarOffen === false`, „Kommentar
+    // hinzufügen" muss deshalb hier (seit PO-2026-09-27-004) erneut geklickt
+    // werden.
     await seite.getByRole('button', { name: 'Ort hinzufügen', exact: true }).first().click()
     await seite.waitForTimeout(300)
     await seite.locator('#ort-anlegen-bezeichnung').fill('Rauchtest-Mehrzeilig-A')
     await seite.keyboard.press('Enter')
     await seite.waitForTimeout(700)
+    await seite.locator('.bewertungsachse').first().getByRole('button', { name: 'Kommentar hinzufügen' }).click()
     await seite.locator('.bewertungsachse').first().locator('.bewertungsachse__kommentar-feld').fill(LANGER_KOMMENTAR)
     await seite.keyboard.press('Tab')
     await seite.waitForTimeout(300)
 
-    // Ort B: einzeiliger Kommentar an der ersten Achse — ebenfalls bereits
-    // offen.
+    // Ort B: einzeiliger Kommentar an der ersten Achse — ebenfalls ein
+    // frischer Ort, „Kommentar hinzufügen" erneut klicken.
     await seite.getByRole('button', { name: 'Ort hinzufügen', exact: true }).first().click()
     await seite.waitForTimeout(300)
     await seite.locator('#ort-anlegen-bezeichnung').fill('Rauchtest-Mehrzeilig-B')
     await seite.keyboard.press('Enter')
     await seite.waitForTimeout(700)
+    await seite.locator('.bewertungsachse').first().getByRole('button', { name: 'Kommentar hinzufügen' }).click()
     await seite.locator('.bewertungsachse').first().locator('.bewertungsachse__kommentar-feld').fill('Kurzer einzeiliger Kommentar.')
     await seite.keyboard.press('Tab')
     await seite.waitForTimeout(300)
@@ -1791,6 +2215,10 @@ async function main() {
     const mehrzeiligBreiteSeite = await browser.newPage()
     await pruefeMehrzeiligesFeldBeiBreitenwechsel(mehrzeiligBreiteSeite, befunde)
     await mehrzeiligBreiteSeite.close()
+
+    // Zusicherungen ab PO-2026-09-27-004 (ADR-0035), s.o. — nur bei 1280px
+    // (Fall c/d brauchen die gleichzeitig sichtbare Listen-Spalte ab `lg`).
+    await pruefeBewertungsachseUeberlebtNeuladen(browser, befunde, gemeldeteGrenzen)
   } finally {
     await browser?.close()
     beendeVorschau(server)
@@ -1834,6 +2262,14 @@ async function main() {
   console.log('Scrollen und ohne manuellen Anfasser (resize: none) — beim Mount, nach einem')
   console.log('Ortswechsel ab lg PER KLICK und nach einer reinen Breitenänderung ohne')
   console.log('Texteingabe (PO-2026-09-27-001).')
+  console.log('Kommentar und Zahl einer Bewertungsachse committen auch ohne Enter/Klick')
+  console.log('(Feld verlassen, Route verlassen inkl. Schließen, Hintergrund, pagehide am')
+  console.log('weiterlebenden Dokument) und überstehen ein Neuladen; ein geleertes Zahlenfeld')
+  console.log('kommt als "nicht bewertet" zurück, nicht als 0. Mehrere gleichzeitig offene')
+  console.log('Entwürfe (Tag + Kommentar + Zahl verschiedener Achsen) landen in EINEM')
+  console.log('Schreibvorgang (PO-2026-09-27-004, ADR-0035). Das Verhalten beim ECHTEN')
+  console.log('Entladen mit Fokus im Kommentarfeld ist dieselbe benannte, nicht zusicherbare')
+  console.log('Grenze wie bei Tags (ADR-0031) — siehe „Gemeldet" oben.')
   // ADR-0029 Punkt 4: ein ERFOLGREICHER Lauf weist die Grenze selbst aus,
   // nicht nur der Fehlerfall (Playwright-Skip oben) und nicht nur der Kopf
   // dieser Datei. Als Eigenschaft formuliert, nicht als Funktions-/

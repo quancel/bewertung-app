@@ -328,14 +328,35 @@ Tippen, die eigentliche Messung aber nicht): (1) Mount — die Ansicht
 `ortsdetail-langer-kommentar` legt lange Kommentare an allen vier Achsen an,
 committet sie und lädt neu, bevor gemessen wird, bei allen drei `BREITEN`;
 (2) ein Ortswechsel ab `lg` **per Klick** von einem Ort mit langem zu einem
-mit einzeiligem Kommentar — `Bewertungsachse.vue` wird dabei **nicht** neu
-gemountet (kein `:key` auf `ortId`), die Höhe muss sich also über die
-Composable-Neuberechnung anpassen, nicht über einen Neumount
+mit einzeiligem Kommentar — seit PO-2026-09-27-004 trägt `Bewertungsachse.vue`
+ein `:key="ortId ?? undefined"` und wird dabei neu gemountet; das
+Kommentarfeld muss deshalb je Ort erneut über „Kommentar hinzufügen" geöffnet
+werden, die Höhe stellt sich über den Mount-Auslöser des Composables ein, nicht
+mehr über die Neuberechnung bei externer Wertänderung ohne Neumount
 (`pruefeMehrzeiligesFeldBeiOrtswechsel()`); (3) eine reine Breitenänderung
 1280→390 **ohne** Texteingabe (`pruefeMehrzeiligesFeldBeiBreitenwechsel()`).
 Die Umsetzung selbst (`shared/composables/useMitwachsendesTextfeld.ts`) muss
 in jedem unterstützten Browser wirken — dieser Rauchtest belegt das nur für
 Chromium, WebKit/Firefox bleiben nur manuell prüfbar.
+
+Ab PO-2026-09-27-004 (ADR-0035, Korrektur zu ADR-0030 Punkt 4/8) kommt eine
+weitere Gruppe harter Zusicherungen dazu, nur bei 1280px: Kommentar UND
+Zahlenwert einer Bewertungsachse committen auch ohne Enter oder Klick auf
+denselben vier Auslösern wie die Tag-Eingabe (Feld verlassen, Route
+verlassen inkl. Schließen der Detailansicht, `visibilitychange`→hidden,
+`pagehide`) und überstehen ein Neuladen; ein geleertes Zahlenfeld kommt als
+„nicht bewertet" zurück, nicht als 0. Der eigentliche Kern von ADR-0035
+ist eine eigene Zusicherung: Sind gleichzeitig ein Tag-Text UND ein
+Kommentar-Entwurf UND ein Zahlenwert-Entwurf (an zwei verschiedenen Achsen)
+offen, trägt bereits der **erste** `put()` nach `pagehide` am
+weiterlebenden Dokument alle drei — nicht erst ein nachfolgender, aus der
+Warteschlange nachgezogener Schreibvorgang. Ein Ortswechsel ab `lg`
+ausschließlich über den Browserverlauf lässt unbestätigten Kommentar UND
+Zahlenwert bei Ort A, mindestens einmal mit demselben Kommentar wie an
+Ort B vor der Eingabe — der Fall, den ein bloßer Prop-Watcher nicht fängt.
+Wie bei den Tags bleibt das Verhalten beim ECHTEN Entladen mit Fokus im
+Kommentarfeld eine benannte, nicht zusicherbare Grenze (ADR-0031) und wird
+nur gemeldet.
 
 **Der Lead führt ihn aus, bevor er ein Paket als erledigt meldet** — nicht
 statt der Unit-Tests, sondern zusätzlich. Typecheck, Lint und Vitest

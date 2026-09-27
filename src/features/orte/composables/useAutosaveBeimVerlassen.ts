@@ -13,7 +13,13 @@
  * `'verlassen'` für `pagehide`) — die View braucht das, um vor dem
  * Persistieren `TagEingabe.uebernimmOffeneEingabe(anlass)` mit dem richtigen
  * `anlass` aufzurufen (steuert dort ausschließlich die Rückkehr-Markierung,
- * nie den Commit-Weg selbst).
+ * nie den Commit-Weg selbst). Seit ADR-0035 (PO-2026-09-27-004) ruft die View
+ * über diesen Callback die breitere Orchestrierung
+ * `uebernimmOffeneEingabenUndPersistiere` auf, die neben `TagEingabe` auch
+ * alle vier `Bewertungsachse`-Instanzen abholt — `anlass` bleibt dabei
+ * ausschließlich für `TagEingabe` relevant, `Bewertungsachse.uebernimmOffeneEingabe`
+ * kennt den Parameter nicht (keine Rückkehr-Markierung dort, ADR-0035
+ * Punkt 2).
  */
 import { onBeforeUnmount, onMounted } from 'vue'
 
