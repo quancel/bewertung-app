@@ -46,8 +46,31 @@ function pagesTiefenlinkFallback(): Plugin {
   }
 }
 
+// CSS-Minifier-Ziel (ADR-0032 Punkt 2, Nachbesserung PO-2026-09-26-002):
+// Ohne explizite Angabe fällt `build.cssTarget` auf `build.target`
+// zurück, dessen Vorgabewert in dieser Vite-Version
+// `chrome111/edge111/firefox114/safari16.4/ios16.4` ist ("Baseline widely
+// available"). Der CSS-Minifier (LightningCSS, hier aktiv, weil
+// `build.cssMinify` nicht ausdrücklich auf `'esbuild'` steht) schreibt
+// `@media (min-width: …)` für **jeden** Ziel-Browser, der Media-Queries-
+// Range-Syntax beherrscht, verlustfrei in `@media (width >= …)` um — ab
+// Safari/iOS 16.4 ist das der Fall, und `dist/assets/*.css` bestätigt das
+// (`grep -o "@media[^{]*" dist/assets/*.css`). ADR-0032 Punkt 2 verbietet
+// genau diese Bereichssyntax im Ergebnis, weil sie in WebKit < 16.4 still
+// nie zutrifft. Deshalb hier dieselbe Baseline-Liste, nur mit
+// `safari15`/`ios15` statt `16.4` — das hält jeden anderen Browser auf
+// seiner Baseline-Version (kein Rückschritt dort) und zwingt den Minifier
+// mangels lückenlosem Support unter allen Zielen auf die unveränderte
+// `min-width`/`not all and (min-width: …)`-Form. Betrifft nur die
+// **CSS**-Ausgabe; `build.target` (JS) bleibt unverändert auf seinem
+// Vorgabewert.
+const CSS_TARGET = ['chrome111', 'edge111', 'firefox114', 'safari15', 'ios15']
+
 export default defineConfig({
   base: BASE,
+  build: {
+    cssTarget: CSS_TARGET,
+  },
   plugins: [
     vue(),
     // Tiefenlink-Fallback für GitHub Pages (reiner Dateiserver, kein
