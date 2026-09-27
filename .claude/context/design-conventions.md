@@ -222,7 +222,16 @@ Form nicht wechselt) und „Ortszeile: Sekundärzeile (Adresse/Anfangsnotiz)"
 (Anfangsnotiz ersetzt die Adresse an derselben Stelle; die Sekundärzeile
 umbricht statt zu kürzen — bislang nur zufällig durch das Fehlen einer
 Truncation-Regel, jetzt bindend, inklusive Umbruch innerhalb eines
-einzelnen langen, leerzeichenlosen Wortes).
+einzelnen langen, leerzeichenlosen Wortes). Eine vierzehnte Runde
+(2026-09-27, PO-2026-09-27-003 — Zonenfarben und Hervorhebungs-Schatten der
+Ortsliste, `design-concept.md` „Ausnahme Ortsliste") ergänzt den neuen
+Abschnitt „Ortsliste: Zonenfarben und Hervorhebungs-Schatten": fünf
+Zonenfarben-Werte (Benennung bleibt beim `architekt`), zwei
+Hervorhebungs-Schatten-Stufen mit fester Achsenzuordnung
+(Geschmack/Preis-Leistung), die Kombinationsregel für „beide Achsen ≥ 9"
+sowie die Technik, Auswahlkante und Hervorhebungs-Schatten in einer
+gemeinsamen `box-shadow`-Deklaration zu kombinieren, statt sich gegenseitig
+zu überschreiben.
 
 - **Zuletzt kuratiert**: 2026-09-27
 
@@ -833,6 +842,134 @@ bekommt einen zweiten möglichen Inhalt für dieselbe Sekundärzeile.
   Komponente) — ändert sich die Anfangsnotiz eines offenen Orts ab `lg`,
   zeigt die Listenzeile den neuen Text automatisch an, sobald der
   Store-Commit geschrieben ist.
+
+## Ortsliste: Zonenfarben und Hervorhebungs-Schatten (PO-2026-09-27-003)
+
+Design-Konzept-Ausnahme (`design-concept.md` → „Ausnahme Ortsliste"), hier
+die operative Umsetzung. Gilt ausschließlich für `Ortszeile.vue`-Zeilen —
+nicht für Ortsdetail, Kartenansicht, Sheets oder andere Listen.
+
+- **Fünf Zonenfarben** (Benennung der Tokens liegt beim `architekt`, hier
+  die Werte): kühle Skala von Teal nach Indigo, Helligkeit sinkt streng
+  monoton (rel. Luminanz gegen Weiß nach WCAG-Formel, zur
+  Nachvollziehbarkeit mit angegeben):
+
+  | Zone | Wertebereich | Hex | HSL | Kontrast weiß / neutral-50 |
+  |---|---|---|---|---|
+  | 8 | 8,0 bis unter 8,5 | `#29707A` | `hsl(188 50% 32%)` | 5,7:1 / 5,4:1 |
+  | 8,5 | 8,5 bis unter 9,0 | `#20546F` | `hsl(200 55% 28%)` | 8,2:1 / 7,7:1 |
+  | 9 | 9,0 bis unter 9,5 | `#1A3B61` | `hsl(212 58% 24%)` | 11,4:1 / 10,7:1 |
+  | 9,5 | 9,5 bis unter 10 | `#142552` | `hsl(224 60% 20%)` | 14,9:1 / 14,0:1 |
+  | 10 | genau 10 | `#101342` | `hsl(236 62% 16%)` | 17,6:1 / 16,5:1 |
+
+  Alle fünf liegen weit über dem geforderten 4,5:1 (Text) bzw. 3:1
+  (Rahmen) — bewusst mit Marge, nicht nur knapp erfüllt: Spielraum für eine
+  spätere Feinjustage durch den `architekt`, ohne die Reihenfolge zu
+  gefährden. Kein Rot/Orange/Gelb/reines Grün/Terrakotta verwendet.
+
+- **Visueller Träger: nur Zahltext + Rahmen, keine Flächentönung** — hält
+  die Kontrastrechnung einfach („Text ODER Text auf Zonenfläche" wird nicht
+  gebraucht, es bleibt bei „Text"). Der Wert-Slot einer Zeile mit Zone
+  (`.ortszeile__gesamtnote` bzw. der Wrapper um `Intensitaetsbalken` bei
+  Sortierung nach Einzelachse) bekommt: Zahlenfarbe = Zonenfarbe (ersetzt
+  `--color-primary-700` bei der Gesamtnote bzw. `--text` bei der
+  Achsenzahl) und zusätzlich `border-left: 2px solid <Zonenfarbe>` +
+  `padding-left: var(--space-8)` **auf dem Wert-Slot selbst**, nicht auf
+  der ganzen Zeile — das ist der „Rahmen"-Träger für das 3:1-Kriterium
+  (hier ohnehin weit überschritten, da dieselbe Farbe wie der Text). Kein
+  Flächenwash hinter der Zahl in dieser Runde — kann bei Bedarf später als
+  reines Zusatzsignal ergänzt werden, ist kein Blocker dieses Pakets.
+  - `Intensitaetsbalken.vue` bekommt dafür einen optionalen,
+    rückwärtskompatiblen CSS-Hook: `.intensitaetsbalken__zahl { color:
+    var(--intensitaetsbalken-zahl-farbe, var(--text)); }` — Default
+    unverändert überall außer dort, wo `Ortszeile.vue` die Custom Property
+    lokal auf ihrem Wrapper setzt. Kein sichtbarer Unterschied in
+    Ortsdetail oder einem künftigen dritten Nutzer der Komponente.
+  - **Kein Zonenfarben-Wechsel an der Balkenfüllung selbst** (bewusste
+    Vereinfachung): Die Füllung von `Intensitaetsbalken` bleibt die
+    bestehende Tonleiter neutral-100→primary-600, unverändert auch
+    innerhalb der Ortsliste. Die Zone drückt sich ausschließlich über Zahl
+    + Rahmen aus — ein zweites, unabhängiges Farbsystem am selben Balken
+    wäre doppelte Kodierung ohne Erkenntnisgewinn und ein Rückschritt
+    Richtung „Ampel" (design-concept.md).
+  - Zonenzuordnung folgt den Grenzen der Tabelle oben, angewendet auf den
+    jeweils angezeigten Wert (Gesamtnote oder sortierte Achse). Werte < 8,
+    die Gruppe „ohne Wert" und fehlende Bewertungen bekommen keinen der
+    beiden Träger.
+
+- **Hervorhebungs-Schatten, zwei Stufen, feste Achsenzuordnung** (Reihen-
+  folge nach `ACHSEN_KRITERIEN`: Geschmack steht vor Preis-Leistung):
+  - **Schwach → Geschmack ≥ 9**: `0 1px 4px 0 rgb(26 31 29 / 8%)`
+  - **Stark → Preis-Leistung ≥ 9**: `0 3px 10px 1px rgb(26 31 29 / 16%)`
+  - Beide auf `--color-neutral-900`-Basis (`rgb(26 31 29 / …)`), kein
+    Zonenton, keine Warn-/Fehler-/Akzentfarbe. Deutlich schwächer als der
+    Sheet-Schatten (`0 -4px 24px rgb(0 0 0 / 12%)`, `Sheet.vue`): visuelles
+    Gewicht (Blur × Deckkraft) ca. 0,3 (schwach) bzw. 1,6 (stark) gegen 2,9
+    beim Sheet.
+  - **Beide Achsen ≥ 9**: beide Layer gemeinsam in derselben `box-shadow`-
+    Deklaration (schwach- und stark-Layer kommagetrennt nebeneinander) —
+    kein dritter, eigens gemischter Wert. Da beide Layer denselben Farbton
+    tragen, wirkt die Kombination optisch wie eine geringfügig verstärkte
+    Version des starken Schattens; welche Achse(n) genau zutreffen, trägt
+    ausschließlich der Screenreader-Text (siehe unten), nicht die Optik.
+  - `border-radius` folgt der Zeile (`var(--radius-12)`, bereits auf
+    `.ortszeile` vorhanden). Keine Elevation: kein `transform`, kein
+    `z-index` — die Zeile bleibt im Fluss (design-concept.md).
+
+- **Kombination mit der Auswahlkante — eine `box-shadow`-Deklaration,
+  mehrere Layer.** `.ortszeile--ausgewaehlt` setzt aktuell `box-shadow:
+  inset 3px 0 0 var(--color-primary-600)` direkt — eine zweite
+  `box-shadow`-Regel für den Hervorhebungs-Schatten würde das ERSETZEN,
+  nicht ergänzen (CSS kennt pro Element nur einen wirksamen `box-shadow`-
+  Wert). Empfohlene Umsetzung (Sache des `frontend-lead`, aber das Ergebnis
+  ist verbindlich): je Signal eine CSS-Custom-Property mit neutralem
+  Fallback, kombiniert in einer gemeinsamen Deklaration:
+  ```css
+  .ortszeile {
+    --schatten-auswahl: 0 0 0 0 transparent;
+    --schatten-hervorhebung: 0 0 0 0 transparent;
+    box-shadow: var(--schatten-auswahl), var(--schatten-hervorhebung);
+  }
+  .ortszeile--ausgewaehlt { --schatten-auswahl: inset 3px 0 0 var(--color-primary-600); }
+  .ortszeile--hervorhebung-schwach { --schatten-hervorhebung: 0 1px 4px 0 rgb(26 31 29 / 8%); }
+  .ortszeile--hervorhebung-stark { --schatten-hervorhebung: 0 3px 10px 1px rgb(26 31 29 / 16%); }
+  ```
+  Bei beiden Achsen ≥ 9 bekommt `--schatten-hervorhebung` beide Layer
+  kommagetrennt als EINEN Wert. Verbindlich: Die Auswahlkante bleibt in
+  JEDEM Zustand sichtbar, unabhängig von Zone und/oder Schatten.
+
+- **Screenreader-Text**: ein zusätzliches, visuell verstecktes `<span>`
+  (gleiche Technik wie `.ortebereich__sr-titel`, `clip`-Pattern) am Ende
+  des `RouterLink`-Inhalts in `Ortszeile.vue`, je auslösender Achse ein
+  Eintrag, Format „{Achsenname} {Wert, eine Nachkommastelle, Komma}" —
+  keine wertenden Worte:
+  - nur Geschmack: „Geschmack 9,4"
+  - nur Preis-Leistung: „Preis-Leistung 9,0"
+  - beide: „Geschmack 9,4, Preis-Leistung 9,0" (Geschmack zuerst, gleiche
+    Reihenfolge wie die Stufenzuordnung oben)
+  - Erscheint unabhängig davon, ob die auslösende Achse in der Zeile
+    sichtbar ist (z. B. bei Sortierung nach Ambiente).
+
+- **Legende**: Icon-only Button (neues `IconInfo.vue`, Lucide `info`,
+  Outline, 20px — analog zu den bestehenden Icon-Komponenten in
+  `shared/ui/icons/`), 44×44 Trefferfläche, `aria-label="Zonenfarben und
+  Hervorhebungen erklären"`, `aria-haspopup="dialog"`. **Ort**: in
+  `.ortebereich__kopf`, zwischen `<h1>Orte</h1>` und dem „Ort
+  hinzufügen"-Button — nur in den beiden Listen-Kopfzeilen (Master-Detail-
+  Liste und der Null-Treffer-Zustand), **nicht** im Kopf der Kartenansicht
+  (dort gibt es keine Zeilen, also nichts zu erklären). Bewusst nicht in
+  `Werkzeugleiste.vue` Zeile 1: Der dortige Platz ist bereits gegen drei
+  Elemente durchgerechnet (siehe „Ansichtsumschalter" oben) — ein viertes
+  Element kippt diese Rechnung erneut.
+  - **Öffnet die bestehende `Sheet.vue`-Chrome** (wie das
+    Sortierungs-Sheet), kein neues Popover-Muster. Inhalt: ein kurzer
+    erklärender Satz ohne Bewertungs-Rhetorik, danach eine Liste der fünf
+    Zonen (Farbfeld 16×16px, Radius 4px + Wertebereich-Text wie in der
+    Tabelle oben) und darunter die zwei Hervorhebungen (kleine
+    Vorschau-Kachel mit dem jeweiligen Schatten auf `--surface` + Text
+    „Geschmack ab 9" / „Preis-Leistung ab 9").
+  - Tastatur/Escape/Backdrop-Klick zum Schließen kommen unverändert aus
+    `Sheet.vue` — kein Zusatzaufwand.
 
 ## Karte
 
