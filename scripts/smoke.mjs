@@ -149,6 +149,28 @@
  * hervorgehobene Zeile setzt den Versatz NICHT zurück, und die Listen-Spalte
  * behält beim Klick-Wechsel ihren eigenen Versatz.
  *
+ * Ab PO-2026-09-27-001 (design-conventions.md „Mehrzeilige Textfelder
+ * wachsen mit dem Inhalt") kommt eine harte Zusicherung dazu, die nur eine
+ * echte Engine tragen kann: JEDES sichtbare `<textarea>` zeigt seinen Inhalt
+ * vollständig, ohne internes Scrollen und ohne manuellen Anfasser
+ * (`pruefeMehrzeiligeTextfelder()`, benannte Bedingung — jedes `<textarea>`,
+ * keine Klassen-/Ansichtsliste, deckt das Anfangsnotiz-Feld aus
+ * PO-2026-09-27-002 automatisch mit ab, sobald es entsteht). Geprüft für
+ * DREI WEGE OHNE Tippen in derselben Seitenlebensdauer, die gemessen wird
+ * (Treiberaktion und Messgröße getrennt, learnings.md): (1) Mount — die neue
+ * Ansicht `ortsdetail-langer-kommentar` legt lange Kommentare an allen vier
+ * Achsen an, committet sie und lädt neu, bevor irgendetwas gemessen wird,
+ * bei allen drei `BREITEN`; (2) Ortswechsel ab lg PER KLICK von einem Ort mit
+ * langem Kommentar zu einem mit einzeiligem — `Bewertungsachse.vue` wird
+ * dabei NICHT neu gemountet (kein `:key` auf `ortId`), die Höhe muss sich
+ * also über die Composable-Neuberechnung anpassen, nicht über einen Neumount
+ * (`pruefeMehrzeiligesFeldBeiOrtswechsel()`); (3) eine reine Breitenänderung
+ * 1280→390 ohne jede Texteingabe (`pruefeMehrzeiligesFeldBeiBreitenwechsel()`).
+ * Die Umsetzung selbst (`shared/composables/useMitwachsendesTextfeld.ts`)
+ * muss in jedem unterstützten Browser wirken, nicht nur in Chromium — dieser
+ * Rauchtest kann das nur für Chromium belegen (ADR-0023 Punkt 5), WebKit/
+ * Firefox bleiben nur manuell prüfbar.
+ *
  * Aufruf: `npm run smoke` (baut vorher). Bildschirmfotos landen in
  * `.smoke/`, das Verzeichnis ist ignoriert.
  */
@@ -205,6 +227,12 @@ const ANSICHTEN = [
   // `Ortebereich.vue` zeigt `unbekannt` INNERHALB der Detail-Spalte, die
   // Listen-Spalte bleibt daneben sichtbar (Bestand nicht leer).
   { name: 'ortsdetail-unbekannte-id', pfad: '/orte', vorbereiten: legeOrtAnUndOeffneUnbekannteId },
+  // PO-2026-09-27-001: Mount-Weg OHNE Tippen für „Mehrzeilige Textfelder
+  // wachsen mit dem Inhalt" — die Kommentare wurden beim Vorbereiten
+  // committet und die Seite danach neu geladen; die Messung hier läuft auf
+  // einer frischen Seitenlebensdauer ohne weitere Eingabe (Treiberaktion und
+  // Messgröße getrennt, s. `legeOrtAnUndOeffneIhnMitLangenKommentaren`).
+  { name: 'ortsdetail-langer-kommentar', pfad: '/orte', vorbereiten: legeOrtAnUndOeffneIhnMitLangenKommentaren },
 ]
 
 /** Photon-Endpunkt, NUR zum Abfangen (Request-Interception) — es wird
@@ -368,6 +396,46 @@ async function legeOrtAnUndOeffneIhnMitKoordinatenReveal(seite) {
 async function legeOrtAnUndOeffneUnbekannteId(seite) {
   await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Unbekannte-Detailadresse')
   await seite.goto(BASIS + '/orte/rauchtest-existiert-nicht', { waitUntil: 'networkidle' })
+}
+
+/** Langer Kommentartext für PO-2026-09-27-001 — bewusst deutlich länger als
+ *  zwei Zeilen bei jeder geprüften Breite (auch 1280px). */
+const LANGER_KOMMENTAR =
+  'Dies ist ein sehr langer Kommentartext für den Rauchtest, der bewusst deutlich mehr als zwei Zeilen im Feld belegen soll, damit die automatische Höhenberechnung nachweislich ohne internes Scrollen den kompletten Inhalt zeigt, auch bei einer schmalen Fensterbreite von 320 Pixeln und ganz ohne manuelles Vergrößern durch die Person, die den Ort bewertet.'
+
+/** Zusätzlich eine Zeichenfolge OHNE Leerzeichen (Kriterium „lange
+ *  Zeichenfolge ohne Leerzeichen bricht um") — an der ersten Achse, damit
+ *  `pruefeUeberlauf()`/`pruefeMehrzeiligeTextfelder()` einen echten
+ *  Umbruch-Fall sehen, nicht nur normalen Fließtext. */
+const LANGE_ZEICHENFOLGE_OHNE_LEERZEICHEN =
+  'https://beispiel-rauchtest.test/ein-sehr-langer-pfad-ohne-leerzeichen-der-in-jedem-feld-umbrechen-muss-1234567890abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz'
+
+/**
+ * PO-2026-09-27-001, Weg (1) — Mount OHNE Tippen: legt einen Ort mit langen
+ * Kommentaren an ALLEN VIER Achsen an (die erste zusätzlich mit einer
+ * leerzeichenlosen Zeichenfolge), committet sie regulär (Tab verlässt das
+ * Feld, löst `@blur` aus) und lädt danach NEU. Die eigentliche Messung
+ * (Aufrufer) findet erst NACH diesem Neuladen statt — Treiberaktion
+ * (Tippen) und Messgröße (Höhe ohne weitere Eingabe) bleiben damit getrennt
+ * (learnings.md): Ohne das Neuladen würde nur der `input`-Weg geprüft, nicht
+ * der Mount-Weg.
+ */
+async function legeOrtAnUndOeffneIhnMitLangenKommentaren(seite) {
+  await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Langer-Kommentar')
+
+  const achsen = await seite.locator('.bewertungsachse').all()
+  for (let i = 0; i < achsen.length; i += 1) {
+    const achse = achsen[i]
+    await achse.getByRole('button', { name: 'Kommentar hinzufügen' }).click()
+    const text = i === 0 ? `${LANGE_ZEICHENFOLGE_OHNE_LEERZEICHEN} ${LANGER_KOMMENTAR}` : LANGER_KOMMENTAR
+    await achse.locator('.bewertungsachse__kommentar-feld').fill(text)
+    await seite.keyboard.press('Tab') // verlässt das Feld, löst @blur/Commit aus
+    await seite.waitForTimeout(150)
+  }
+  await seite.waitForTimeout(400)
+
+  await seite.reload({ waitUntil: 'networkidle' })
+  await seite.waitForTimeout(500)
 }
 
 /** Zusicherung 4: Was über CSS geladen wird, ist aufgelöst. Ein `.icon`
@@ -573,6 +641,49 @@ function pruefeUeberlauf() {
       befunde.push(`${bezeichner(el)} ragt ${Math.round(kasten.right - breite)}px über den rechten Bildschirmrand hinaus`)
     } else if (kasten.left < -1) {
       befunde.push(`${bezeichner(el)} ragt ${Math.round(-kasten.left)}px über den linken Bildschirmrand hinaus`)
+    }
+  }
+  return befunde
+}
+
+/**
+ * Zusicherung ab PO-2026-09-27-001 (design-conventions.md „Mehrzeilige
+ * Textfelder wachsen mit dem Inhalt"): JEDES sichtbare `<textarea>` zeigt
+ * seinen Inhalt vollständig, ohne internes Scrollen und ohne manuellen
+ * Anfasser — benannte Bedingung (jedes `<textarea>` im DOM), keine Klassen-
+ * oder Ansichtsliste. Das Anfangsnotiz-Feld aus PO-2026-09-27-002 läuft
+ * dadurch automatisch mit, sobald es entsteht.
+ *
+ * Läuft in `pruefeAnsichtenBeiBreite()` für jede Ansicht/Breite mit — deckt
+ * damit bereits Weg (1) (Mount, inkl. der neuen Ansicht
+ * `ortsdetail-langer-kommentar`, bei allen drei `BREITEN`) ab, wird aber auch
+ * von den eigenständigen Funktionen für Weg (2) (Ortswechsel) und Weg (3)
+ * (Breitenwechsel) unten erneut aufgerufen.
+ */
+function pruefeMehrzeiligeTextfelder() {
+  function bezeichner(el) {
+    if (el.id) return '#' + el.id
+    const klasse = typeof el.className === 'string' ? el.className : el.getAttribute('class') || ''
+    return el.tagName.toLowerCase() + (klasse ? '.' + klasse.trim().replace(/\s+/g, '.') : '')
+  }
+
+  const befunde = []
+  for (const feld of document.querySelectorAll('textarea')) {
+    const kasten = feld.getBoundingClientRect()
+    const stil = getComputedStyle(feld)
+    if (kasten.width === 0 || kasten.height === 0) continue
+    if (stil.visibility === 'hidden' || stil.display === 'none') continue
+
+    if (stil.resize !== 'none') {
+      befunde.push(`${bezeichner(feld)}: resize ist "${stil.resize}", erwartet "none" (kein manueller Anfasser)`)
+    }
+    if (feld.scrollHeight > feld.clientHeight + 1) {
+      befunde.push(
+        `${bezeichner(feld)}: Inhalt ist abgeschnitten (scrollHeight ${feld.scrollHeight}px > clientHeight ${feld.clientHeight}px)`,
+      )
+    }
+    if (kasten.right > innerWidth + 1) {
+      befunde.push(`${bezeichner(feld)}: ragt ${Math.round(kasten.right - innerWidth)}px über den rechten Bildschirmrand hinaus`)
     }
   }
   return befunde
@@ -902,6 +1013,11 @@ async function pruefeAnsichtenBeiBreite(seite, breite, befunde) {
       befunde.push(`${breite.name}/${ansicht.name}: ${eintrag}`)
     }
     for (const eintrag of await seite.evaluate(pruefeUeberlauf)) {
+      befunde.push(`${breite.name}/${ansicht.name}: ${eintrag}`)
+    }
+    // PO-2026-09-27-001: läuft auf JEDER Ansicht/Breite — benannte
+    // Bedingung „jedes sichtbare <textarea>", keine Ansichtsnamen-Liste.
+    for (const eintrag of await seite.evaluate(pruefeMehrzeiligeTextfelder)) {
       befunde.push(`${breite.name}/${ansicht.name}: ${eintrag}`)
     }
     // PO-2026-09-26-002 (ADR-0032 Punkt 6): läuft auf JEDER Ansicht, deren
@@ -1439,6 +1555,128 @@ async function pruefeScrollVersatzUndFokusBeiOrtswechsel(seite, breite, befunde)
   }
 }
 
+/**
+ * PO-2026-09-27-001, Weg (2): Ortswechsel ab lg PER KLICK von Ort A (langer
+ * Kommentar an der ersten Achse) zu Ort B (einzeiliger Kommentar an der
+ * ersten Achse) darf die Feldhöhe von A nicht auf B übertragen.
+ * `Bewertungsachse.vue` wird beim Ortswechsel HEUTE NICHT neu gemountet
+ * (kein `:key` auf `ortId`, `Ortebereich.vue`) — die Höhe muss sich also über
+ * die Composable-Neuberechnung bei Wertänderung anpassen, nicht über einen
+ * Neumount. Referenz für die Zwei-Zeilen-Mindesthöhe ist ein frisch
+ * geöffnetes, LEERES Kommentarfeld an einem eigenen, unbeteiligten Ort —
+ * kein hart codierter Pixelwert (das Feld kennt seine Mindesthöhe nur über
+ * `rows="2"`, s. `useMitwachsendesTextfeld.ts`).
+ *
+ * VORBEDINGUNG dieser Funktion selbst (nicht Gegenstand der Prüfung, außerhalb
+ * des Scopes dieses Pakets — `kommentarOffen` in `Bewertungsachse.vue` wird
+ * beim Ortswechsel NIE wieder auf `false` zurückgesetzt, weil derselbe
+ * fehlende Neumount die Komponenteninstanz über jeden Ortswechsel hinweg
+ * erhält): Einmal über „Kommentar hinzufügen" geöffnet, bleibt die ERSTE
+ * Achse für JEDEN in dieser Seitenlebensdauer danach besuchten Ort offen —
+ * deshalb wird der Button nur einmal (an der Referenz) geklickt, an A und B
+ * ist das Feld bereits sichtbar.
+ */
+async function pruefeMehrzeiligesFeldBeiOrtswechsel(seite, befunde) {
+  const kontext = 'desktop-1280/ortswechsel-mehrzeiliges-feld'
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+
+    // Referenz: frisch geöffnetes, leeres Feld — unbeteiligt am Wechsel unten.
+    await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Mehrzeilig-Referenz')
+    const referenzAchse = seite.locator('.bewertungsachse').first()
+    await referenzAchse.getByRole('button', { name: 'Kommentar hinzufügen' }).click()
+    await seite.waitForTimeout(200)
+    const referenzHoehe = await referenzAchse
+      .locator('.bewertungsachse__kommentar-feld')
+      .evaluate((el) => el.getBoundingClientRect().height)
+
+    // Ort A: langer Kommentar an der ersten Achse — Feld bereits offen (s.
+    // Funktionskommentar), kein weiterer Klick auf „Kommentar hinzufügen".
+    await seite.getByRole('button', { name: 'Ort hinzufügen', exact: true }).first().click()
+    await seite.waitForTimeout(300)
+    await seite.locator('#ort-anlegen-bezeichnung').fill('Rauchtest-Mehrzeilig-A')
+    await seite.keyboard.press('Enter')
+    await seite.waitForTimeout(700)
+    await seite.locator('.bewertungsachse').first().locator('.bewertungsachse__kommentar-feld').fill(LANGER_KOMMENTAR)
+    await seite.keyboard.press('Tab')
+    await seite.waitForTimeout(300)
+
+    // Ort B: einzeiliger Kommentar an der ersten Achse — ebenfalls bereits
+    // offen.
+    await seite.getByRole('button', { name: 'Ort hinzufügen', exact: true }).first().click()
+    await seite.waitForTimeout(300)
+    await seite.locator('#ort-anlegen-bezeichnung').fill('Rauchtest-Mehrzeilig-B')
+    await seite.keyboard.press('Enter')
+    await seite.waitForTimeout(700)
+    await seite.locator('.bewertungsachse').first().locator('.bewertungsachse__kommentar-feld').fill('Kurzer einzeiliger Kommentar.')
+    await seite.keyboard.press('Tab')
+    await seite.waitForTimeout(300)
+
+    // Zurück zu A (Klick in der ab lg gleichzeitig sichtbaren
+    // Listen-Spalte) — die Prüfung DIREKT NACH DIESEM Klick ist Teil der
+    // Zusicherung, nicht nur Vorbereitung: Eine Fehlimplementierung, die nur
+    // auf das native `input`-Ereignis reagiert, würde hier die zuletzt beim
+    // eigenen Tippen an Ort B gesetzte (kurze) Höhe stehen lassen, während A
+    // schon seinen LANGEN Inhalt zeigt — ohne diesen Zwischenschritt bliebe
+    // das unentdeckt, weil ein anschließender Wechsel zurück zu B seine
+    // eigene, ebenfalls beim Tippen bereits korrekte Höhe einfach wieder
+    // vorfände.
+    await seite.locator('.ortszeile', { hasText: 'Rauchtest-Mehrzeilig-A' }).click()
+    await seite.waitForTimeout(300)
+    for (const eintrag of await seite.evaluate(pruefeMehrzeiligeTextfelder)) {
+      befunde.push(`${kontext} (nach Wechsel zu A): ${eintrag}`)
+    }
+
+    // Der eigentliche, zu prüfende Wechsel A→B PER KLICK.
+    await seite.locator('.ortszeile', { hasText: 'Rauchtest-Mehrzeilig-B' }).click()
+    await seite.waitForTimeout(300)
+
+    const hoeheNachWechsel = await seite
+      .locator('.bewertungsachse')
+      .first()
+      .locator('.bewertungsachse__kommentar-feld')
+      .evaluate((el) => el.getBoundingClientRect().height)
+
+    if (hoeheNachWechsel > referenzHoehe + 1) {
+      befunde.push(
+        `${kontext}: Kommentarfeld von Ort B ist nach dem Wechsel von A ${Math.round(hoeheNachWechsel)}px hoch, erwartet die Zwei-Zeilen-Mindesthöhe eines frisch geöffneten leeren Felds (${Math.round(referenzHoehe)}px)`,
+      )
+    }
+
+    for (const eintrag of await seite.evaluate(pruefeMehrzeiligeTextfelder)) {
+      befunde.push(`${kontext}: ${eintrag}`)
+    }
+    console.log(`  ${kontext} — geprüft (Kommentarfeldhöhe folgt dem Wert von Ort B, nicht der Höhe von Ort A)`)
+  } catch (fehler) {
+    befunde.push(`${kontext}: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  }
+}
+
+/**
+ * PO-2026-09-27-001, Weg (3): eine reine Breitenänderung OHNE Texteingabe
+ * (1280 → 390) muss die Feldhöhe erneut anpassen — einziger Auslöser dafür
+ * ist der `ResizeObserver` im Composable (design-conventions.md „bei jeder
+ * reinen Breitenänderung ohne Textänderung").
+ */
+async function pruefeMehrzeiligesFeldBeiBreitenwechsel(seite, befunde) {
+  const kontext = 'ortsdetail-langer-kommentar/breitenwechsel-ohne-eingabe'
+  try {
+    await seite.setViewportSize({ width: 1280, height: 900 })
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await legeOrtAnUndOeffneIhnMitLangenKommentaren(seite)
+
+    await seite.setViewportSize({ width: 390, height: 844 })
+    await seite.waitForTimeout(300)
+
+    for (const eintrag of await seite.evaluate(pruefeMehrzeiligeTextfelder)) {
+      befunde.push(`${kontext}: ${eintrag}`)
+    }
+    console.log(`  ${kontext} — geprüft (Breitenwechsel 1280px→390px ohne Texteingabe)`)
+  } catch (fehler) {
+    befunde.push(`${kontext}: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  }
+}
+
 async function main() {
   const playwright = await ladePlaywright()
   if (!playwright) {
@@ -1539,6 +1777,20 @@ async function main() {
       await pruefeScrollVersatzUndFokusBeiOrtswechsel(versatzSeite, breite, befunde)
       await versatzSeite.close()
     }
+
+    // Zusicherung ab PO-2026-09-27-001 (design-conventions.md „Mehrzeilige
+    // Textfelder wachsen mit dem Inhalt"), Weg (2) — nur bei 1280px (ab lg
+    // gleichzeitig sichtbare Listen-Spalte, s. Funktionskommentar). Weg (1)
+    // (Mount) läuft bereits über `ANSICHTEN`/`pruefeAnsichtenBeiBreite` bei
+    // allen drei Breiten mit.
+    const mehrzeiligWechselSeite = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+    await pruefeMehrzeiligesFeldBeiOrtswechsel(mehrzeiligWechselSeite, befunde)
+    await mehrzeiligWechselSeite.close()
+
+    // Weg (3): Breitenwechsel 1280→390 ohne Texteingabe.
+    const mehrzeiligBreiteSeite = await browser.newPage()
+    await pruefeMehrzeiligesFeldBeiBreitenwechsel(mehrzeiligBreiteSeite, befunde)
+    await mehrzeiligBreiteSeite.close()
   } finally {
     await browser?.close()
     beendeVorschau(server)
@@ -1578,6 +1830,10 @@ async function main() {
   console.log('Versatz 0 mit Fokus auf „Detailansicht schließen", ein erneuter Klick auf die')
   console.log('bereits ausgewählte Zeile setzt nicht zurück, und die Listen-Spalte behält')
   console.log('beim Klick-Wechsel ihren eigenen Versatz (PO-2026-09-26-003, ADR-0033).')
+  console.log('Jedes sichtbare <textarea> zeigt seinen Inhalt vollständig, ohne internes')
+  console.log('Scrollen und ohne manuellen Anfasser (resize: none) — beim Mount, nach einem')
+  console.log('Ortswechsel ab lg PER KLICK und nach einer reinen Breitenänderung ohne')
+  console.log('Texteingabe (PO-2026-09-27-001).')
   // ADR-0029 Punkt 4: ein ERFOLGREICHER Lauf weist die Grenze selbst aus,
   // nicht nur der Fehlerfall (Playwright-Skip oben) und nicht nur der Kopf
   // dieser Datei. Als Eigenschaft formuliert, nicht als Funktions-/

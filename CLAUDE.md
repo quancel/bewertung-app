@@ -315,6 +315,28 @@ Funktion zusätzlich hart: Ein erneuter Klick auf die bereits hervorgehobene
 Zeile setzt den Versatz **nicht** zurück, und ein Klick-Wechsel A→B ändert
 den Versatz der Listen-Spalte **nicht**.
 
+Ab PO-2026-09-27-001 (design-conventions.md „Mehrzeilige Textfelder wachsen
+mit dem Inhalt") kommt eine weitere harte Zusicherung dazu:
+`pruefeMehrzeiligeTextfelder()` prüft für **jedes sichtbare** `<textarea>`
+(benannte Bedingung, keine Klassen-/Ansichtsliste — das Anfangsnotiz-Feld aus
+PO-2026-09-27-002 läuft dadurch automatisch mit), dass berechnetes
+`resize === 'none'`, `scrollHeight <= clientHeight` (1px Toleranz) und kein
+horizontaler Überstand vorliegt. Geprüft für **drei Wege ohne Tippen** in der
+Seitenlebensdauer, die gemessen wird (Treiberaktion und Messgröße getrennt,
+learnings.md — das Anlegen der Kommentare selbst braucht zwangsläufig
+Tippen, die eigentliche Messung aber nicht): (1) Mount — die Ansicht
+`ortsdetail-langer-kommentar` legt lange Kommentare an allen vier Achsen an,
+committet sie und lädt neu, bevor gemessen wird, bei allen drei `BREITEN`;
+(2) ein Ortswechsel ab `lg` **per Klick** von einem Ort mit langem zu einem
+mit einzeiligem Kommentar — `Bewertungsachse.vue` wird dabei **nicht** neu
+gemountet (kein `:key` auf `ortId`), die Höhe muss sich also über die
+Composable-Neuberechnung anpassen, nicht über einen Neumount
+(`pruefeMehrzeiligesFeldBeiOrtswechsel()`); (3) eine reine Breitenänderung
+1280→390 **ohne** Texteingabe (`pruefeMehrzeiligesFeldBeiBreitenwechsel()`).
+Die Umsetzung selbst (`shared/composables/useMitwachsendesTextfeld.ts`) muss
+in jedem unterstützten Browser wirken — dieser Rauchtest belegt das nur für
+Chromium, WebKit/Firefox bleiben nur manuell prüfbar.
+
 **Der Lead führt ihn aus, bevor er ein Paket als erledigt meldet** — nicht
 statt der Unit-Tests, sondern zusätzlich. Typecheck, Lint und Vitest
 prüfen, ob Code zusammenpasst; der Rauchtest prüft, ob das Ergebnis

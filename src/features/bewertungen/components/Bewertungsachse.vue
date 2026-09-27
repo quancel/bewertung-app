@@ -39,6 +39,7 @@
  * Import-Zyklus zu öffnen (ADR-0013 Punkt 3).
  */
 import { computed, ref, watch } from 'vue'
+import { useMitwachsendesTextfeld } from '../../../shared/composables/useMitwachsendesTextfeld'
 import Intensitaetsbalken from '../../../shared/ui/Intensitaetsbalken.vue'
 import TextButton from '../../../shared/ui/TextButton.vue'
 import IconKreuz from '../../../shared/ui/icons/IconKreuz.vue'
@@ -142,6 +143,15 @@ function aufZuruecksetzen(): void {
 const kommentarOffen = ref(props.kommentar !== null)
 const kommentarEntwurf = ref(props.kommentar ?? '')
 
+// Mitwachsendes Kommentarfeld (ADR-0024, PO-2026-09-27-001, s. Composable-
+// Kommentar): `kommentarFeldRef` wird erst gesetzt, sobald das Feld über
+// „Kommentar hinzufügen" bzw. einen bereits vorhandenen Kommentar im DOM
+// erscheint — der Composable selbst deckt diesen Fall über
+// `watch(feldRef, ..., { immediate: true })` ab.
+const kommentarFeldRef = ref<HTMLTextAreaElement | null>(null)
+const kommentarWrapperRef = ref<HTMLElement | null>(null)
+useMitwachsendesTextfeld(kommentarFeldRef, kommentarEntwurf, kommentarWrapperRef)
+
 watch(
   () => props.kommentar,
   (neu) => {
@@ -229,9 +239,11 @@ function aufKommentarCommit(): void {
     </TextButton>
     <div
       v-else
+      ref="kommentarWrapperRef"
       class="bewertungsachse__kommentar"
     >
       <textarea
+        ref="kommentarFeldRef"
         v-model="kommentarEntwurf"
         class="bewertungsachse__kommentar-feld"
         rows="2"
@@ -471,6 +483,14 @@ function aufKommentarCommit(): void {
   min-height: auto;
 }
 
+/* Mitwachsendes Feld (design-conventions.md "Mehrzeilige Textfelder wachsen
+   mit dem Inhalt", PO-2026-09-27-001): Die Höhe setzt ausschließlich
+   `useMitwachsendesTextfeld.ts` per JavaScript, kein `field-sizing: content`.
+   `resize: none` statt `resize: vertical` -- ein von Hand verkleinertes Feld
+   haette sonst keinen Anlass, seine Hoehe wieder zu korrigieren.
+   `overflow-y: hidden`, weil die Hoehe immer der vollen Zeilenzahl folgt --
+   das Feld braucht dadurch nie eine interne Scrollleiste. Bewusst KEINE
+   `transition` auf `height`/`min-height` (Sprung, keine Zustandsanimation). */
 .bewertungsachse__kommentar-feld {
   width: 100%;
   padding: var(--space-8);
@@ -479,6 +499,8 @@ function aufKommentarCommit(): void {
   background-color: var(--surface);
   color: var(--text);
   font-size: var(--font-size-14);
-  resize: vertical;
+  overflow-y: hidden;
+  overflow-wrap: break-word;
+  resize: none;
 }
 </style>
