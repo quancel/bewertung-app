@@ -185,12 +185,21 @@
   Playwrights Ins-Sicht-Scrollen vor `.click()` verschiebt genau den
   Scroll-Container, den `pruefeScrollVersatzUndFokusBeiOrtswechsel` auf
   „unverändert" prüft (falsch rot). Ein Klick feuert `input` *und* `change`
-  (`pruefeReglerCommitWaehrendZiehens`, falsch grün). Bei Paketen mit
-  Scroll-, Fokus- oder Ereignis-Zusicherung als `constraint` setzen: Die
-  Vorbedingung so herstellen, dass die Treiberaktion die Messgröße nicht
-  berührt, und das am Prüfcode begründen. Das ist kein Workaround für einen
-  fremden Fehler im Sinne des Eintrags vom 2026-09-26.
-  (task_id: PO-2026-09-26-003, ADR-0033)
+  (`pruefeReglerCommitWaehrendZiehens`, falsch grün). Ein `.fill()` auf ein
+  zweites Feld committet das erste per „Feld verlassen", bevor `pagehide`
+  feuert (ADR-0035, „mehrere Entwürfe offen" wäre nie hergestellt worden).
+  Bei Paketen mit Scroll-, Fokus-, Commit- oder Ereignis-Zusicherung als
+  `constraint` setzen: Die Vorbedingung so herstellen, dass die
+  Treiberaktion die Messgröße nicht berührt, und das am Prüfcode begründen.
+  Das ist kein Workaround für einen fremden Fehler im Sinne des Eintrags vom
+  2026-09-26. (task_id: PO-2026-09-26-003, ADR-0033; PO-2026-09-27-004)
+- [2026-09-27] projektweit: Jede neue Rauchtest-Zusicherung zieht einen
+  Absatz im Abschnitt „Rauchtest" der `CLAUDE.md` nach sich, und in -004
+  meldete der Lead ihn als erledigt, obwohl er im Diff fehlte. Bemerkt hat
+  es erst der Orchestrator. Bei Paketen mit neuer Zusicherung deshalb
+  `CLAUDE.md` in `files_to_touch` aufnehmen und die Doku-Ergänzung als
+  `constraint` mit Belegpflicht setzen (Regel: code-conventions.md,
+  „Tests und Verifikation"). (task_id: PO-2026-09-27-004)
 - [2026-09-11] orte/tags/karte: Leerzustände sind je **Filterstufe** zu
   zählen, nicht pauschal einer. Bestand leer · Filter ohne Treffer · gefiltert,
   aber nichts davon darstellbar (Orte ohne Koordinaten) sind drei verschiedene

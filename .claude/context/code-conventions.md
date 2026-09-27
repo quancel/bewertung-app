@@ -7,7 +7,12 @@
 > nicht hierhin.
 
 - **Modus**: `vorgegeben` (Greenfield, ADR-0002)
-- **Zuletzt geprüft**: 2026-09-27, Nachpflege zu PO-2026-09-27-001 (nach
+- **Zuletzt geprüft**: 2026-09-27, Nachpflege zu PO-2026-09-27-004 (nach
+  der Abnahme): Rauchtest-Bauformen für gleichzeitig offene Entwürfe
+  (`setzeEingabenOhneFokus`) und für Felder, deren Existenz selbst der Befund
+  ist (`wertOderLeer`); Doku-Änderungen im Bericht mit Beleg; veraltete
+  Aussage „Neulade-Zusicherung deckt nur den Anlege-Fall" korrigiert. Davor
+  2026-09-27, Nachpflege zu PO-2026-09-27-001 (nach
   der Abnahme): Ein DOM-messender `watch` läuft mit `flush: 'post'`. Davor
   2026-09-27, Einordnen von PO-2026-09-27-003: Dazu
   kamen die Zonen- und Hervorhebungs-Auswertung in `features/orte/lib/`
@@ -548,6 +553,12 @@ src/
   Historie oder eine Wegwerf-Änderung; der Nachweis steht im Bericht. Ein
   Prüfweg, der die Eigenschaft gar nicht erreicht, sieht aus wie ein
   erfülltes Kriterium.
+- **Jede Dokumentations-Änderung steht im Bericht mit Beleg** — Datei plus
+  Zeilenbereich oder Diff-Auszug, nie nur „aktualisiert". Das betrifft vor
+  allem den Abschnitt „Rauchtest" in `CLAUDE.md`, der mit **jeder** neuen
+  Zusicherung einen Absatz bekommt. Maßstab ist `git diff`, nicht die
+  Absicht: Eine Änderung, die dort fehlt, ist nicht gemacht (Anlass:
+  PO-2026-09-27-004, die gemeldete `CLAUDE.md`-Ergänzung fehlte im Diff).
 - **Grün gegen `fake-indexeddb` heißt nicht, dass der Browser schreibt** — es
   bildet den strukturierten Klon in JavaScript nach. Jede Zusicherung „Daten
   überleben ein Neuladen" gehört in den Rauchtest. Für die Klonbarkeit selbst
@@ -591,6 +602,25 @@ src/
   obwohl `AppRahmen.vue` `padding-bottom` reserviert. Und die Prüfumgebung
   meldet sich selbst: Chromium protokolliert jeden abgefangenen `fetch`/`xhr`
   als Konsolenfehler.
+- **Mehrere gleichzeitig offene Entwürfe werden ohne Fokuswechsel
+  hergestellt** (ADR-0035): `locator.fill()`/`.click()` auf ein zweites Feld
+  löst am ersten dessen eigenes „Feld verlassen" aus und committet es, bevor
+  der geprüfte externe Auslöser (Route, `visibilitychange`, `pagehide`)
+  feuert — die Zusicherung prüft dann einen Zustand, den es nicht mehr gibt.
+  Bauform: `setzeEingabenOhneFokus()` in `scripts/smoke.mjs` (`el.value` +
+  synthetisches `input`-Ereignis, `document.activeElement` bleibt). Umgekehrt
+  bleibt `.fill()` richtig, wo „Feld verlassen" **selbst** der geprüfte
+  Auslöser ist. Die synthetische Eingabe überspringt Playwrights
+  Bedienbarkeitsprüfung — dass das Feld sichtbar und bedienbar ist, belegt
+  sie nicht.
+- **Ein Feld, dessen Existenz selbst Teil des geprüften Zustands ist, wird
+  über `locator.count()` gelesen, nicht direkt über `inputValue()`**:
+  Letzteres wartet bei fehlendem Element den vollen Timeout (30s) ab und
+  wirft; außerhalb von `try`/`catch` bricht das den ganzen Lauf ab und kostet
+  den Bericht der übrigen Zusicherungen. Bauform: `wertOderLeer()` in
+  `scripts/smoke.mjs` — fehlt das Feld, ist das der Befund. Jede
+  `pruefe…`-Funktion läuft zusätzlich in `try`/`catch` und meldet ihren
+  Fehler, statt ihn zu werfen.
 - **Die Bildschirmfotos in `.smoke/` gehören zur Verifikation einer
   Darstellungsänderung, nicht zum Beiwerk.** Der Rauchtest prüft **benannte
   Eigenschaften** (Trefferfläche, Greifbarkeit, Verdeckung, Überstand) — die
@@ -607,9 +637,12 @@ src/
   meldet, wird nicht abgeschwächt** — er wird durch das zugehörige Paket
   grün. Fehlt Playwright: überspringen, Exit-Code 0, im Bericht ausdrücklich
   „ungeprüft" sagen.
-- **Die Neulade-Zusicherung deckt heute nur den Anlege-Fall.** Dass spätere
-  **Feldänderungen** ein Neuladen überleben, ist nicht zugesichert; das
-  nächste Paket, das daran arbeitet, erweitert sie.
+- **„Überlebt ein Neuladen" ist nur für bestimmte Felder zugesichert**: den
+  Anlege-Fall, Tags (ADR-0030) sowie Kommentar und Zahlenwert je
+  Bewertungsachse (ADR-0035), jeweils am weiterlebenden Dokument. Für alle
+  übrigen Felder des Ortsdetails ist es **nicht** zugesichert; das nächste
+  Paket, das an einem davon arbeitet, erweitert die Zusicherung. Das echte
+  Entladen mit Fokus im Feld bleibt für jedes Feld nur gemeldet (ADR-0031).
 
 ## Abweichungen und bewusst akzeptierte Stellen
 
