@@ -7,7 +7,9 @@
 > nicht hierhin.
 
 - **Modus**: `vorgegeben` (Greenfield, ADR-0002)
-- **Zuletzt geprüft**: 2026-09-27, Nachpflege zu PO-2026-09-26-002 und
+- **Zuletzt geprüft**: 2026-09-27, Einordnen von PO-2026-09-27-001:
+  mitwachsende mehrzeilige Textfelder als geteiltes Composable (Anwendung
+  von ADR-0024, kein neues ADR). Davor 2026-09-27, Nachpflege zu PO-2026-09-26-002 und
   Einordnen von PO-2026-09-26-003: `CSS_TARGET` als Kompatibilitätsvorgabe
   (ADR-0032 Nachtrag), veraltete Aussage „`base` bleibt `/`" korrigiert
   (`BASE` ist `/bewertung-app/`), Scroll-Versatz gehört dem Baustein
@@ -130,6 +132,18 @@ src/
     `relatedTarget`-Containment fürs Wegtabben, `document`-`pointerdown` für
     Touch/Maus. Ein `@blur` auf dem Input allein zerstört das Tabben in die
     eigene Vorschlagsliste.
+  - **Mehrzeilige Textfelder wachsen über
+    `shared/composables/useMitwachsendesTextfeld.ts`**. Das Composable entsteht
+    mit PO-2026-09-27-001, der zweite Nutzer ist die Anfangsnotiz aus -002. Die
+    Höhe setzt **nur JavaScript**, **kein `field-sizing: content`**, auch
+    nicht zusätzlich: Sonst prüft der Rauchtest in Chromium einen anderen Weg
+    als den, der in WebKit läuft. Ausgelöst wird durch den **Wert und die
+    Breite** des Feldes, nicht durch das `input`-Ereignis: beim Mount, bei
+    jeder Wertänderung (auch von außen), bei Breitenänderung
+    (`ResizeObserver`, nur bei geänderter Breite) und nach dem Laden der
+    Schrift. Die Mindesthöhe kommt allein aus `rows`. Dazu `resize: none`,
+    keine Höhen-Transition und `overflow-wrap: break-word`. Die Messung
+    verschiebt keinen Scroll-Versatz und sucht keinen scrollbaren Vorfahren.
 - **Ein `watch` auf ein abgeleitetes Array feuert bei jeder Neuberechnung**,
   nicht erst bei inhaltlicher Änderung — `computed` + `filter`/`map` liefert
   jedes Mal ein neues Array. Soll eine Wirkung nur bei **Inhalts**änderung
