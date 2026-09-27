@@ -7,7 +7,11 @@
 > nicht hierhin.
 
 - **Modus**: `vorgegeben` (Greenfield, ADR-0002)
-- **Zuletzt geprüft**: 2026-09-27, Einordnen von PO-2026-09-27-002:
+- **Zuletzt geprüft**: 2026-09-27, Einordnen von PO-2026-09-27-003: Dazu
+  kamen die Zonen- und Hervorhebungs-Auswertung in `features/orte/lib/`
+  (ADR-0034), die Tokens `--color-zone-*` und `--shadow-hervorhebung-*`, der
+  CSS-Hook über eine Custom Property statt `:deep()` und mehrere Signale in
+  einer `box-shadow`-Deklaration. Davor 2026-09-27, Einordnen von PO-2026-09-27-002:
   Freitext mit Obergrenze ohne Zeilenumbruch (Gate im Store-Setter, kein
   neues ADR; die Import-Zeile steht unter Vorbehalt einer offenen
   Nutzerfrage). Davor 2026-09-27, Einordnen von PO-2026-09-27-001:
@@ -107,6 +111,9 @@ src/
   eigenen Object Store hat (`medien`). Ableitungen auf Ort-Feldern
   (Gesamtnote, Tag-Prädikat, Sortierung) liegen in `shared/lib/` und liefern
   alles mit, was die Ansicht sonst zweimal formulieren müsste (ADR-0009 P9).
+  Das gilt für Ableitungen mit zwei Nutzern. Eine Darstellungsregel, die
+  **nur die Ortsliste** kennt, liegt in `features/orte/lib/`. Beispiel ist
+  `zonen.ts` (ADR-0034).
 - **`model/*.types.ts` importiert nichts** und enthält nur den Anteil seines
   Contexts; `persistence/schema.ts` setzt daraus `OrtDatensatz` zusammen. Ein
   Import von `persistence/` dorthin dreht die Richtung um und ist ein Fehler.
@@ -161,6 +168,29 @@ src/
   interpolieren), dann als benannte Konstante **mit dem Tokennamen im
   Kommentar** — wer eine Farbe ändert, greppt nach ihrem Namen. Siehe
   „Abweichungen".
+  - **Zonenfarben** (nur Ortsliste): `--color-zone-8`, `--color-zone-8-5`,
+    `--color-zone-9`, `--color-zone-9-5` und `--color-zone-10`. Das Suffix
+    ist der Zonenschlüssel, das Komma wird zum Bindestrich. Die Namen tragen
+    ihre Bedeutung wie `--color-primary-*`, deshalb gibt es keinen Alias in
+    `semantic.css`. Die Zuordnung Zone → Tokenname steht wörtlich und genau
+    einmal in `features/orte/lib/zonen.ts` (ADR-0034 P2).
+  - **Hervorhebungs-Schatten**: `--shadow-hervorhebung-schwach` und
+    `--shadow-hervorhebung-stark`, Farbbasis `--color-neutral-900`, im
+    Kommentar genannt. Das sind **keine** Elevation-Tokens. Die sechs
+    Schatten-Literale unter „Abweichungen" bleiben davon unberührt.
+- **Ein Elternteil passt einen geteilten Baustein über eine dokumentierte
+  Custom Property an, nie über `:deep()`**. Der Baustein liest
+  `var(--<baustein>-<eigenschaft>, <bisherige Vorgabe>)`, der Default bleibt
+  also für alle anderen Nutzer unverändert. Der Elternteil setzt die Property
+  auf seinem eigenen Wrapper, und die Vererbung trägt sie über die
+  Scoped-Grenze. Vorbild: `--intensitaetsbalken-zahl-farbe` (ab
+  PO-2026-09-27-003). Die bestehende `:deep()`-Stelle in
+  `ImportEntscheidenSheet.vue` nicht nebenbei umbauen.
+- **Mehrere unabhängige Signale auf derselben Eigenschaft (`box-shadow`)
+  bekommen je Signal eine lokale Custom Property mit neutralem Fallback**
+  (`0 0 0 0 transparent`). Sie werden in **einer** Deklaration kombiniert, nie
+  über eine zweite Regel, die die erste ersetzt. Vorbild: `.ortszeile`
+  (Auswahlkante + Hervorhebung, ab PO-2026-09-27-003).
 - **Schriften und Icons unter `src/assets/`** — kein Fremd-Host, kein
   Icon-CDN (Offline-Zusage, ADR-0001). Icons je Paket nachziehen: SVG nach
   `assets/icons/<kurzname>.svg` + Wrapper `shared/ui/icons/Icon<Name>.vue`,

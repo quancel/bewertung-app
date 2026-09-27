@@ -6,7 +6,11 @@
 > Halte sie kompakt (Faustregel: < 100 Zeilen). Sie ist ein Register,
 > kein Design-Dokument — Details gehören in ADRs unter `adr/`.
 
-- **Stand**: 2026-09-27 (Einordnen PO-2026-09-27-002: keine neue
+- **Stand**: 2026-09-27 (Einordnen PO-2026-09-27-003: keine neue
+  Context-Grenze, keine neue Beziehung. Die Zonen- und
+  Hervorhebungs-Auswertung der Ortsliste liegt in `features/orte/lib/`, nicht
+  in `shared/lib/`, ADR-0034.)
+  Davor 2026-09-27 (Einordnen PO-2026-09-27-002: keine neue
   Context-Grenze. `orte` bekommt das Stammdatenfeld `anfangsnotiz`, und der
   Bestand geht über den nächsten Migrationsschritt auf die nächste
   `SCHEMA_VERSION`. `datensicherung` reicht das Feld ohne Codeänderung
@@ -111,7 +115,9 @@ vollständiges Sequenzdiagramm.
   Object Store hat. Was die Ortsliste von diesen Feldern zeigt oder auswertet
   (Gesamtnote, Achsenwert, Tag-Filter), liegt als reine Funktion in
   `src/shared/lib/` und als Darstellungsbaustein in `src/shared/ui/` — nicht
-  im besitzenden Feature.
+  im besitzenden Feature. **Ausnahme**: Eine Darstellungsregel, die nur die
+  Ortsliste kennt (Zonen, Hervorhebungs-Schatten), liegt in
+  `features/orte/lib/` (ADR-0034).
 - **`karte` liefert Darstellung, `orte` liefert die Daten** (ADR-0019 ab
   -006): `karte` fasst **keinen** Store an, kennt `persistence/` nicht und
   importiert nichts aus `orte`. `features/orte/views/Ortebereich.vue` bindet

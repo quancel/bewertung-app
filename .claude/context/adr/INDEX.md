@@ -13,7 +13,17 @@
 > Eine Zeile pro ADR. Keine Zusammenfassung des Inhalts — der Titel muss
 > reichen, um zu entscheiden, ob das ADR relevant ist.
 
-**Stand: 2026-09-27 (Einordnen PO-2026-09-26-003)** — dreiunddreißig ADRs.
+**Stand: 2026-09-27 (Einordnen PO-2026-09-27-003)** — vierunddreißig ADRs.
+**0034** legt Zonenzuordnung und Hervorhebungs-Auswertung der Ortsliste als
+reine Funktionen nach `features/orte/lib/` statt nach `shared/lib/`, weil es
+nur einen Nutzer gibt. Das präzisiert ADR-0008 Punkt 6. Die Zone wird am
+ungerundeten Wert bestimmt (ADR-0007 Punkt 6). Dass das mit dem angezeigten
+Wert übereinstimmt, beweist ein erschöpfender Test, gestützt auf die
+Ganzzahligkeit aus ADR-0007 Punkt 7. Kein `superseded by`.
+PO-2026-09-27-001/-002 haben kein ADR bekommen (Anwendung von ADR-0024 bzw.
+bestehender Muster).
+
+Davor **Stand: 2026-09-27 (Einordnen PO-2026-09-26-003)** — dreiunddreißig ADRs.
 **0033** präzisiert ADR-0011 Punkt 1 und 6. Den Scroll-Versatz der
 Detail-Spalte setzt `MasterDetail.vue` selbst zurück, über eine exponierte
 Methode. `Ortebereich.vue` löst den Reset nur aus, und zwar im bestehenden
@@ -174,6 +184,7 @@ PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
 | [0031](0031-schreiben-beim-entladen-der-seite.md) | Schreiben beim Entladen der Seite — gehärteter Schreibweg, aber keine Zusicherung (Präzisierung von ADR-0005 Punkt 2/5; benannte Ausnahme zu ADR-0023 Punkt 2) | orte, tags, bewertungen, app-shell | accepted | 2026-09-26 |
 | [0032](0032-sichtbarkeit-auf-ihren-breitenbereich-begrenzen.md) | Breitenabhängige Sichtbarkeit wird auf ihren Breitenbereich begrenzt, nicht überschrieben (Präzisierung von ADR-0011 Punkt 5 und ADR-0028 Punkt 2) | app-shell, orte | accepted (Punkt 7 bestätigt 2026-09-27; Nachtrag zu Punkt 2: Build-Ziel, 2026-09-27) | 2026-09-27 |
 | [0033](0033-scroll-versatz-gehoert-dem-baustein-der-scrollt.md) | Den Scroll-Versatz einer Master-Detail-Spalte setzt der Baustein zurück, der sie scrollt — die Bereichsansicht löst nur aus (Präzisierung von ADR-0011 Punkt 1/6; zweite Art exponierter Methode neben ADR-0030 Punkt 3) | app-shell, orte | accepted | 2026-09-27 |
+| [0034](0034-zonen-und-hervorhebung-der-ortsliste.md) | Zonen und Hervorhebungen der Ortsliste — reine Funktionen in `features/orte/lib/`, Zone am ungerundeten Wert (Präzisierung von ADR-0008 Punkt 6, Anwendung von ADR-0007 Punkt 6/7) | orte, bewertungen | accepted | 2026-09-27 |
 
 **Status-Werte** wörtlich wie im ADR selbst: `proposed` · `accepted` ·
 `superseded by ADR-NNNN`.
