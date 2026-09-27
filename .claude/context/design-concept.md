@@ -14,7 +14,8 @@
 > und der Verweis auf die Quelle, nicht die ausgeschriebene Werteliste.
 
 - **Herkunft**: `neu entworfen (bestätigt am 2026-09-07)`; Ausnahme
-  „Ortsliste" vom Nutzer entschieden am 2026-09-27 (PO-2026-09-27-003)
+  „Ortsliste" vom Nutzer entschieden am 2026-09-27 (PO-2026-09-27-003),
+  am selben Tag präzisiert: Schatten unabhängig von der Zone
 - **Zuletzt überarbeitet**: 2026-09-27
 - **Quellen**: keine — Repo war zum Zeitpunkt des Entwurfs ohne Anwendungscode
   (kein Token-File, keine Theme-Config, kein Stylesheet). Alles hier ist
@@ -129,10 +130,16 @@ Ausnahme, kein neues Prinzip.
   Trefferzahl), Sheets, andere Listen. Der geteilte Intensitätsbalken bleibt
   außerhalb der Ortsliste eine Tonleiter eines Tons. Jede Ausweitung ist eine
   neue Konzeptänderung, keine Auslegung.
+- **Zwei unabhängige Mechanismen**: Zonenfarbe (nach Gesamtnote/sortierter
+  Achse) und Hervorhebungs-Schatten (nach Einzelwerten von Geschmack bzw.
+  Preis-Leistung) sind nicht gekoppelt und treten je Zeile einzeln oder
+  gemeinsam auf — z. B. Gesamtnote 6 mit Geschmack 10: Schatten, keine
+  Zonenfarbe; Gesamtnote 9,2 ohne Achse ≥ 9: Zonenfarbe, kein Schatten.
 - **Zonen**: fünf Bewertungs-Zonen (8 · 8,5 · 9 · 9,5 · 10). Grenzen und
   maßgeblicher Wert (Gesamtnote/sortierte Achse) legt das Paket fest. Werte
   unterhalb der untersten Zone, die Gruppe „ohne Wert" und fehlende
-  Bewertungen bekommen **weder** Zonenfarbe noch Schatten.
+  Bewertungen bekommen **keine Zonenfarbe** — für den Schatten ist das ohne
+  Belang.
 - **Zonenfarben** — fünf eigene Tokens (Benennung: `architekt`), Werte legt
   der `ux-ui-designer` in diesem Rahmen fest:
   - **Geordnete Skala, keine Ampel**: Helligkeit sinkt von 8 nach 10 streng
@@ -150,15 +157,21 @@ Ausnahme, kein neues Prinzip.
     oder Rahmen die Zone, 3:1. Eine reine Flächentönung ist nur Zusatzsignal.
   - **Nie alleiniger Bedeutungsträger**: Die Zahl bleibt sichtbar. Keine
     Worte, Badges oder Ränge dazu — „keine Bewertungs-Rhetorik" gilt weiter.
-- **Hervorhebungs-Schatten** — zwei Stufen (schwach/stark); welche Zonen sie
-  tragen, legt das Paket fest:
+- **Hervorhebungs-Schatten** — zwei Stufen (schwach/stark), eigenständige
+  Achsen-Indikatoren, keiner Zone zugeordnet. Auslöser ausschließlich
+  Geschmack bzw. Preis-Leistung ≥ 9 (Nutzerentscheidung), unabhängig von
+  Gesamtnote und Zonenfarbe; Zuordnung der Stufen zu den Achsen legt das
+  Paket fest:
   - **Hervorhebung, keine Elevation**: Die Zeile bleibt im Fluss, kein
     Anheben (`transform`, `z-index`) über Nachbarzeilen; beide Stufen
     deutlich schwächer als der Schatten schwebender Elemente.
   - Die Stufen unterscheiden sich sichtbar in Ausdehnung/Deckkraft, nicht
-    nur im Farbton. Schattenfarbe `neutral-900` mit geringer Deckkraft oder
-    der Ton der Zone — nie Warn-, Fehler- oder Akzentfarbe. Radius folgt der
-    Zeile (12px).
+    nur im Farbton. Schattenfarbe `neutral-900` mit geringer Deckkraft —
+    nicht der Zonenton (Schatten tritt auch ohne Zone auf), nie Warn-,
+    Fehler- oder Akzentfarbe. Radius folgt der Zeile (12px).
+  - Der Schatten ist nicht alleiniger Bedeutungsträger: Welche Achse ≥ 9
+    liegt, muss auch ohne Sehen ankommen; wie, legt das Paket fest (keine
+    sichtbaren Badges/Ränge).
 - **Unberührt**: Light-only (Werte als Tokens, nicht als Literale), Motion,
   Fokusring. Zonen färben Wertebereiche, nicht Achsen — die Farbcodierung
   der Achsen bleibt offen.
