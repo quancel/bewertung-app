@@ -6,6 +6,10 @@
 - **task_id**: `PO-2026-09-07-012`
 - **Korrigiert am**: 2026-09-11 — Begründung zu Punkt 4 (siehe Abschnitt
   „Korrektur"); Entscheidung unverändert
+- **Präzisiert durch**: ADR-0032 (2026-09-27): Punkt 5, „an genau einer
+  Stelle", schließt die wörtliche Negation derselben Bedingung in derselben
+  Datei ein. Breitenabhängige Sichtbarkeit wird auf ihren Bereich begrenzt,
+  statt sie zu überschreiben.
 
 ## Kontext
 

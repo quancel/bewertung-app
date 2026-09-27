@@ -7,7 +7,10 @@
 > nicht hierhin.
 
 - **Modus**: `vorgegeben` (Greenfield, ADR-0002)
-- **Zuletzt geprüft**: 2026-09-17, Nachpflege nach der Abnahme von
+- **Zuletzt geprüft**: 2026-09-27, beim Einordnen von PO-2026-09-26-002:
+  breitenabhängige Sichtbarkeit wird begrenzt statt überschrieben
+  (ADR-0032), plus die akzeptierte Abweichung im Chrome von
+  `Ortebereich.vue`. Davor 2026-09-17, Nachpflege nach der Abnahme von
   PO-2026-09-16-001/-002: die Bauform für Trefferflächen an selbst
   gezeichneten Bedienelementen (transparenter `border` + inset `box-shadow`,
   aus zwei Abnahmebefunden), der permanente Rahmen ohne
@@ -219,6 +222,19 @@ src/
   wörtlich derselben Bedingung — sonst gibt es ein Breitenfenster mit beiden
   oder keinem. „Ab `lg` nicht vorhanden" ist `display: none` (nimmt Bild,
   Tabfolge und Accessibility-Baum in einem), nie `visibility`/`opacity`.
+- **Breitenabhängige Sichtbarkeit wird auf ihren Bereich begrenzt, nicht
+  überschrieben** (ADR-0032). Eine Ein- oder Ausblendung, die nur unterhalb
+  `lg` gelten soll, steht in `@media not all and (min-width: 1024px)
+  /* --breakpoint-lg */`. Sie steht also weder ohne Bedingung noch in einem
+  Block, den eine `lg`-Regel wieder aufheben muss. Die wörtliche Negation in
+  derselben Datei gilt als „dieselbe Bedingung" und als „eine Stelle". Nie
+  `max-width: 1023px` (Lücke an der Grenze), nie `(width < 1024px)` (WebKit
+  < 16.4). Zustandsabhängige Regeln im selben Bereich sind **disjunkt**: Im
+  selben Zustand trifft höchstens eine auf ein Element zu. Kein
+  `!important`, kein Selektor nur für Spezifität, kein Verlass auf die
+  Reihenfolge. Vorbild: `shared/ui/MasterDetail.vue` (ab PO-2026-09-26-002).
+  Nicht gemeint sind Layoutwerte (Abstände, Richtung), die mobile-first
+  überschrieben werden.
 - **Schaltet ein Elternteil die Sichtbarkeit eines gemeinsam genutzten
   Bausteins um, bekommt der Baustein einen eigenen Wrapper** — das
   `display: none` liegt auf dem Wrapper, nie auf einer Klasse am
@@ -525,5 +541,12 @@ Befund meldet.
   (Nutzerentscheidung 2026-09-13): `ORTSSUCHE_ZUSTAENDE` kennt keinen
   `treffer`-Zustand, die Ausnahme wird von keinem Testzustand durchlaufen.
   Dokumentiert, bewusst so.
+- **`Ortebereich.vue` schaltet „Zurück", „×" und „Fertig" noch per
+  reihenfolgeabhängigem Override um** (eine Klasse, gleiche Spezifität, der
+  `@media`-Block steht später), nicht nach ADR-0032. Das ist bewusst
+  akzeptiert: Es hängt keine Zustandsklasse daran, und
+  `pruefeAbschlussKombination` deckt die Stelle hart ab. Umgestellt wird,
+  wenn der Chrome-Block dieser Datei aus eigenem Grund angefasst wird. Kein
+  Einzelfall-Aufräumen.
 - Bewusste Abweichung von der Greenfield-Referenz des Plugins (Angular/NgRx,
   Microservices): ADR-0001/0002.

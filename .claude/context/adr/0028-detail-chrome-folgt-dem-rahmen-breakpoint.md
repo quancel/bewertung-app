@@ -4,6 +4,9 @@
 - **Datum**: 2026-09-14
 - **Bounded Context(s)**: `orte`, `app-shell`
 - **task_id**: `PO-2026-09-13-003`
+- **Präzisiert durch**: ADR-0032 (2026-09-27): Punkt 2, „ein `@media`-Block
+  je Datei, wörtlich dieselbe Bedingung", erlaubt daneben den Block mit der
+  wörtlichen Negation `not all and (min-width: 1024px)`.
 
 ## Kontext
 

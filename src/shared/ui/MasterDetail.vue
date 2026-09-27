@@ -9,7 +9,7 @@
  * leitet `detailOffen` ausschließlich aus `route.params` ab (ADR-0011
  * Punkt 4) — dieser Baustein selbst kennt keine Route.
  *
- * Beide Slot-Inhalte bleiben unterhalb `lg` im DOM gemountet (nur per CSS
+ * Beide Slot-Inhalte bleiben in JEDER Breite im DOM gemountet (nur per CSS
  * `display` ausgeblendet, kein `v-if`): ein Wechsel der Fensterbreite bei
  * offenem Detail bleibt dadurch ein reiner CSS-Layoutwechsel (ADR-0011
  * Punkt 5, ADR-0012) — kein Aus-/Einhängen, kein Refetch, kein Sprung der
@@ -23,6 +23,19 @@
  * oberen Fensterrand — Nav-Rail und Bottom-Tabs sind `position: fixed` und
  * nehmen daher keinen Platz im Fluss ein), die Spalten scrollen intern.
  * Unterhalb `lg` scrollt weiterhin das Fenster wie gehabt.
+ *
+ * Sichtbarkeit strukturell auf ihren Breitenbereich begrenzt (Korrektur
+ * PO-2026-09-26-002, ADR-0032): Jede Regel, die eine Spalte in Abhängigkeit
+ * von `detailOffen` ausblendet, gilt NUR unterhalb `lg`
+ * (`@media not all and (min-width: 1024px)`) — sie steht nie unbedingt und
+ * verlässt sich nie darauf, von einer ab-`lg`-Regel per höherer Spezifität
+ * oder späterer Reihenfolge übersticht zu werden. Außerhalb dieses Blocks
+ * setzt keine Regel `display: none` auf eine Spalte; der `@media
+ * (min-width: 1024px)`-Block unten enthält deshalb nur noch Grid-Layout und
+ * Scroll-Container-Eigenschaften, kein `display: block` mehr. Beide
+ * `@media`-Bedingungen stehen als wörtliches Paar (dieselbe Bedingung, ein
+ * Mal negiert) in dieser Datei — das gilt nach ADR-0011 Punkt 5/ADR-0028
+ * Punkt 2 weiterhin als „eine Stelle".
  */
 defineProps<{
   /** Entspricht "ist eine Detailadresse aktiv" — unabhängig davon, ob sie
@@ -51,16 +64,19 @@ defineProps<{
   margin: 0 auto;
 }
 
-.master-detail__detail {
-  display: none;
-}
+/* Unterhalb lg (1024px, siehe --breakpoint-lg): genau eine Spalte sichtbar,
+   abhängig von `detailOffen` (ADR-0032). Beide Regeln stehen NUR hier, nie
+   unbedingt — die Ab-lg-Sichtbarkeit unten muss sich nie gegen sie
+   durchsetzen. Disjunkt (ADR-0032 Punkt 4): je Spalte trifft in einem
+   Zustand höchstens eine der beiden Regeln zu, nie beide gleichzeitig. */
+@media not all and (min-width: 1024px) /* --breakpoint-lg */ {
+  .master-detail--detail-offen .master-detail__liste {
+    display: none;
+  }
 
-.master-detail--detail-offen .master-detail__liste {
-  display: none;
-}
-
-.master-detail--detail-offen .master-detail__detail {
-  display: block;
+  .master-detail:not(.master-detail--detail-offen) .master-detail__detail {
+    display: none;
+  }
 }
 
 /* Ab lg (1024px, siehe --breakpoint-lg): beide Spalten gleichzeitig,
@@ -68,8 +84,11 @@ defineProps<{
    Adresse (ADR-0011). Spaltenbreiten/-abstand als Tokens (ADR-0012):
    Listen-Spalte --listen-spalte-breite (~400px), Abstand --space-24,
    Detail-Spalte nimmt den Rest mit min-width: 0, damit sie schrumpfen darf
-   (ADR-0012 Punkt 4) statt von ihrem Inhalt aufgedrückt zu werden. */
-@media (min-width: 1024px) {
+   (ADR-0012 Punkt 4) statt von ihrem Inhalt aufgedrückt zu werden. Reine
+   Grid-/Scroll-Container-Eigenschaften — keine Sichtbarkeitsregel hier
+   (ADR-0032 Punkt 1): Sichtbarkeit wird nirgends „zurückgeholt", weil sie
+   oben nie unbedingt verloren ging. */
+@media (min-width: 1024px) /* --breakpoint-lg */ {
   .master-detail {
     display: grid;
     grid-template-columns: var(--listen-spalte-breite) minmax(0, 1fr);
@@ -80,7 +99,6 @@ defineProps<{
 
   .master-detail__liste,
   .master-detail__detail {
-    display: block;
     min-width: 0;
     height: 100%;
     overflow-y: auto;

@@ -13,7 +13,20 @@
 > Eine Zeile pro ADR. Keine Zusammenfassung des Inhalts — der Titel muss
 > reichen, um zu entscheiden, ob das ADR relevant ist.
 
-**Stand: 2026-09-26 (Rückläufer)** — einunddreißig ADRs. **0031** ist aus
+**Stand: 2026-09-27** — zweiunddreißig ADRs. **0032** stammt aus dem
+Einordnen von PO-2026-09-26-002 (Listen-Spalte ab `lg` bei offenem Detail
+unsichtbar; Ursache ist ein Spezifitäts-Override in `MasterDetail.vue`).
+Breitenabhängige Sichtbarkeit wird auf ihren Bereich begrenzt, statt sie zu
+überschreiben: Bedingung und wörtliche Negation stehen in derselben Datei,
+und zustandsabhängige Regeln sind disjunkt. 0032 präzisiert ADR-0011 Punkt 5
+und ADR-0028 Punkt 2 („eine Stelle" = Bedingung plus ihre Negation). Kein
+`superseded by`. Punkt 7 (Scroll-Versatz beim Hin- und Rückweg) hat der
+Nutzer am 2026-09-27 bestätigt („nur einfacher Wechsel"): Kriterium 6 von
+PO-2026-09-26-002 gilt für einen einzelnen Breitenwechsel. Den Hin- und
+Rückweg beobachtet und meldet der Lead, zugesichert wird er nicht. Punkt 7
+gilt ohne Vorbehalt.
+
+Davor **Stand: 2026-09-26 (Rückläufer)** — einunddreißig ADRs. **0031** ist aus
 dem Rückläufer des `frontend-lead` zu PO-2026-09-26-001 entstanden: Ein
 Schreibvorgang, der erst beim echten Entladen angestoßen wird (Fokus noch im
 geänderten Feld, dann Neuladen), kommt nicht zuverlässig an. Das ist eine
@@ -127,7 +140,7 @@ PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
 | [0008](0008-feldbesitz-und-ableitungen-ueber-context-grenzen.md) | Feldbesitz und Ableitungen über Context-Grenzen im Ort-Datensatz | orte, bewertungen, tags, medien, datensicherung | accepted | 2026-09-08 |
 | [0009](0009-ansichtszustand-der-ortsliste.md) | Ansichtszustand der Ortsliste gehört dem Context `orte` — und Gerätezustand darf eine Voreinstellung haben | orte, tags, datensicherung | accepted | 2026-09-08 |
 | [0010](0010-app-rahmen-chrome-grenze-und-routenbesitz.md) | App-Rahmen — Grenze der Navigationschrome, Routenbesitz und eine Meldung an zwei Orten | app-shell, orte | accepted | 2026-09-08 |
-| [0011](0011-master-detail-als-geteilter-baustein.md) | Master-Detail als geteilter Baustein — ein Adressraum, eine Bereichsansicht | app-shell, orte, karte | accepted | 2026-09-08 |
+| [0011](0011-master-detail-als-geteilter-baustein.md) | Master-Detail als geteilter Baustein — ein Adressraum, eine Bereichsansicht | app-shell, orte, karte | accepted (Punkt 5 präzisiert durch 0032) | 2026-09-08 |
 | [0012](0012-breitenlogik-am-container-statt-am-viewport.md) | Breitenabhängige Layouts richten sich nach ihrem Container, nicht nach dem Viewport | app-shell, orte, medien, karte, bewertungen, tags | accepted | 2026-09-08 |
 | [0013](0013-fremde-bausteine-in-den-ortsansichten.md) | Fremde Bausteine in den Ortsansichten — Import-Richtung und die Slot-Naht der Werkzeugleiste | orte, bewertungen, tags, medien | accepted | 2026-09-09 |
 | [0014](0014-tag-modell-abgeleitetes-vokabular.md) | Tag-Modell — Feld im Ort-Datensatz, abgeleitetes Vokabular, case-insensitive Identität | tags, orte, datensicherung | accepted | 2026-09-09 |
@@ -144,10 +157,11 @@ PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
 | [0025](0025-zustand-ueber-die-komponentengrenze-im-ortsdetail.md) | Zustand über die Komponentengrenze im Ortsdetail — Ortssuche meldet ihren wirksamen Zustand, die Sichtbarkeit rastet an der Ort-ID ein | orte | accepted (Punkt 3 präzisiert durch 0026) | 2026-09-12 |
 | [0026](0026-lebensdauer-der-sichtbarkeits-kennung.md) | Die Sichtbarkeits-Kennung gilt für die geöffnete Detailinstanz, nicht für die Ort-ID (Präzisierung von ADR-0025 Punkt 3) | orte | accepted | 2026-09-13 |
 | [0027](0027-komponentenverhalten-verifizieren.md) | Komponentenverhalten verifizieren — `@vue/test-utils` + jsdom als datei-lokales Opt-in, sichtbare Bedienelemente im Rauchtest (Erweiterung von ADR-0023 Punkt 4) | bewertungen, orte, app-shell | accepted (Punkt 5 korrigiert 2026-09-15) | 2026-09-14 |
-| [0028](0028-detail-chrome-folgt-dem-rahmen-breakpoint.md) | Chrome der Detailspalte folgt dem Rahmen-Breakpoint per `@media`, nicht der Containerbreite (Präzisierung von ADR-0012 Punkt 3) | orte, app-shell | accepted | 2026-09-14 |
+| [0028](0028-detail-chrome-folgt-dem-rahmen-breakpoint.md) | Chrome der Detailspalte folgt dem Rahmen-Breakpoint per `@media`, nicht der Containerbreite (Präzisierung von ADR-0012 Punkt 3) | orte, app-shell | accepted (Punkt 2 präzisiert durch 0032) | 2026-09-14 |
 | [0029](0029-engine-abhaengige-darstellung-und-der-blinde-fleck.md) | Engine-abhängige **Darstellung** — Chromium bleibt die einzige geprüfte Engine, und was eine Sichtbarkeits-Zusicherung dann tragen muss (Bestätigung und Erweiterung von ADR-0023 Punkt 5) | app-shell, bewertungen | accepted (Punkt 6 nachgetragen 2026-09-17) | 2026-09-16 |
 | [0030](0030-unbestaetigte-eingabe-ueber-die-komponentengrenze.md) | Unbestätigte Eingabe über die Komponentengrenze — die View holt sie über eine exponierte Methode ab, bevor sie persistiert (Erweiterung von ADR-0013 Punkt 3) | tags, orte, bewertungen | accepted | 2026-09-26 |
 | [0031](0031-schreiben-beim-entladen-der-seite.md) | Schreiben beim Entladen der Seite — gehärteter Schreibweg, aber keine Zusicherung (Präzisierung von ADR-0005 Punkt 2/5; benannte Ausnahme zu ADR-0023 Punkt 2) | orte, tags, bewertungen, app-shell | accepted | 2026-09-26 |
+| [0032](0032-sichtbarkeit-auf-ihren-breitenbereich-begrenzen.md) | Breitenabhängige Sichtbarkeit wird auf ihren Breitenbereich begrenzt, nicht überschrieben (Präzisierung von ADR-0011 Punkt 5 und ADR-0028 Punkt 2) | app-shell, orte | accepted (Punkt 7 bestätigt 2026-09-27) | 2026-09-27 |
 
 **Status-Werte** wörtlich wie im ADR selbst: `proposed` · `accepted` ·
 `superseded by ADR-NNNN`.

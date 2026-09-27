@@ -116,6 +116,25 @@
  * als „erhalten"/„verloren" ausgegeben (Warnsystem dafür, ob die Härtung in
  * `orte-repository.ts`, `tx.commit()`, in Chromium überhaupt trägt).
  *
+ * Ab PO-2026-09-26-002 (ADR-0032) kommt eine harte Zusicherung dazu:
+ * `MasterDetail.vue` zeigte die Listen-Spalte bei offener Detailansicht ab
+ * `lg` nicht — eine unbedingte Ausblendregel gewann dort per höherer
+ * Spezifität gegen die schwächere Gegenregel im `@media`-Block, unabhängig
+ * von Reihenfolge und Zustandsklasse. `pruefeMasterDetailSpalten()` läuft
+ * für JEDE Ansicht, auf der die Wurzel `.master-detail` im DOM ist (benannte
+ * Bedingung, keine Ansichtsnamen-Liste): Ab `lg` müssen beide Spalten
+ * gleichzeitig sichtbar, überlappungsfrei und randbündig sein, das Fenster
+ * darf nicht scrollen; unterhalb `lg` bleibt nur die dem `detailOffen`-Zustand
+ * entsprechende Spalte sichtbar. Dafür kommt eine neue Ansicht dazu
+ * (`ortsdetail-unbekannte-id`: eine Detailadresse mit NICHT AUFLÖSENDER ID
+ * bei nicht leerem Bestand — anders als die bestehende `adresse-ohne-ziel`,
+ * die als Sammelroute standalone rendert, ohne `MasterDetail`), und ein
+ * einmaliger Nachweis bei 1280px für den Tag-Filter-Leerzustand bei
+ * ausgewähltem Ort (`pruefeTagFilterLeerBeiAusgewaehltemOrt()`). Die vorher
+ * nötige Umgehung `klickeOrtHinzufuegenTrotzListenSpaltenBug()` entfällt: Die
+ * Listen-Spalte samt ihrem „Ort hinzufügen"-Button ist ab `lg` neben einem
+ * offenen Detail jetzt regulär sichtbar und klickbar.
+ *
  * Aufruf: `npm run smoke` (baut vorher). Bildschirmfotos landen in
  * `.smoke/`, das Verzeichnis ist ignoriert.
  */
@@ -165,6 +184,13 @@ const ANSICHTEN = [
   { name: 'kartenansicht', pfad: '/orte?ansicht=karte' },
   { name: 'datenbereich', pfad: '/daten' },
   { name: 'adresse-ohne-ziel', pfad: '/gibtesnicht' },
+  // PO-2026-09-26-002 (ADR-0032 Punkt 6): deckt die Detailadresse mit
+  // NICHT AUFLÖSENDER ID ab — anders als `adresse-ohne-ziel` oben (die
+  // Sammelroute `/:pfad(.*)*` rendert `AdresseOhneZiel.vue` STANDALONE, ohne
+  // `Ortebereich.vue`/`MasterDetail`). Hier bleibt die Route `ort-detail`,
+  // `Ortebereich.vue` zeigt `unbekannt` INNERHALB der Detail-Spalte, die
+  // Listen-Spalte bleibt daneben sichtbar (Bestand nicht leer).
+  { name: 'ortsdetail-unbekannte-id', pfad: '/orte', vorbereiten: legeOrtAnUndOeffneUnbekannteId },
 ]
 
 /** Photon-Endpunkt, NUR zum Abfangen (Request-Interception) — es wird
@@ -292,7 +318,12 @@ async function warteAufServer() {
 }
 
 async function legeOrtAnUndOeffneIhn(seite, bezeichnung = 'Rauchtest-Ort') {
-  await seite.getByRole('button', { name: /hinzuf|anlegen/i }).first().click()
+  // Exakter Name statt der früheren Regex `/hinzuf|anlegen/i` (PO-2026-09-26-002):
+  // Seit der Korrektur der Master-Detail-Spaltensichtbarkeit (ADR-0032) ist die
+  // Listen-Spalte ab lg neben einem offenen Detail sichtbar, und deren „Ort
+  // hinzufügen"-Button steht damit gleichzeitig mit weiteren Elementen im DOM,
+  // auf die die Regex ebenfalls passen könnte (z. B. „Bild hinzufügen").
+  await seite.getByRole('button', { name: 'Ort hinzufügen', exact: true }).first().click()
   await seite.waitForTimeout(300)
   // `#ort-anlegen-bezeichnung` statt eines allgemeinen
   // `input[type="text"]:visible`-Locators: Ist bereits ein anderer Ort
@@ -314,6 +345,15 @@ async function legeOrtAnUndOeffneIhnMitKoordinatenReveal(seite) {
   await legeOrtAnUndOeffneIhn(seite)
   await seite.getByRole('button', { name: 'Koordinaten von Hand eintragen' }).click()
   await seite.waitForTimeout(300)
+}
+
+/** PO-2026-09-26-002 (ADR-0032 Punkt 6): legt zuerst einen echten Ort an,
+ *  damit der Bestand beim Öffnen der unbekannten ID nicht leer ist (die
+ *  Listen-Spalte zeigt dadurch tatsächlichen Inhalt statt nur ihres Kopfes),
+ *  öffnet danach eine garantiert nicht existierende Detailadresse. */
+async function legeOrtAnUndOeffneUnbekannteId(seite) {
+  await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Unbekannte-Detailadresse')
+  await seite.goto(BASIS + '/orte/rauchtest-existiert-nicht', { waitUntil: 'networkidle' })
 }
 
 /** Zusicherung 4: Was über CSS geladen wird, ist aufgelöst. Ein `.icon`
@@ -680,6 +720,154 @@ async function pruefeAbschlussKombination(seite, breite, befunde) {
   }
 }
 
+/**
+ * Zusicherung ab PO-2026-09-26-002 (ADR-0032 Punkt 6, Korrektur der
+ * Master-Detail-Spaltensichtbarkeit): läuft aus `pruefeAnsichtenBeiBreite`
+ * für JEDE Ansicht, auf der die Wurzel `.master-detail` im DOM ist (benannte
+ * Bedingung, keine Liste von Ansichtsnamen) — formuliert als EIGENSCHAFT
+ * (ADR-0023 Punkt 7). Die Erwartung ergibt sich ausschließlich aus der
+ * Breite und aus `detailOffen` (gelesen über die Zustandsklasse
+ * `.master-detail--detail-offen`, ADR-0011 Punkt 4: die einzige Quelle der
+ * Auswahl) — nie aus dem Detailinhalt.
+ *
+ * `1024` wörtlich, mit demselben `--breakpoint-lg`-Kommentar wie im
+ * `@media`-Block der Komponente selbst (ADR-0012 Punkt 5, ADR-0028, jetzt
+ * ADR-0032 Punkt 2/3).
+ *
+ * Ab lg: beide Spalten gerendert (`display` ≠ `none`, Breite/Höhe > 0);
+ * rechte Kante Liste ≤ linke Kante Detail (keine Überlappung); rechte Kante
+ * Detail reicht bis zur rechten Kante der Wurzel (Toleranz ≤ 1px); das
+ * Fenster selbst scrollt nicht. Auf einer Detailadresse zusätzlich: Button
+ * „Ort hinzufügen" sichtbar, eine ggf. vorhandene Zeile mit
+ * `aria-current="true"` bleibt sichtbar (design-conventions.md
+ * „Auswahl-Hervorhebung").
+ *
+ * Unterhalb lg: auf einer Detailadresse ist die Listen-Spalte `display:
+ * none`, die Detail-Spalte sichtbar; sonst umgekehrt.
+ */
+async function pruefeMasterDetailSpalten(seite, breite, kontext, befunde) {
+  const ergebnis = await seite.evaluate(() => {
+    const wurzel = document.querySelector('.master-detail')
+    if (!wurzel) return null
+    function box(el) {
+      if (!el) return { sichtbar: false, kasten: null }
+      const stil = getComputedStyle(el)
+      const kasten = el.getBoundingClientRect()
+      return {
+        sichtbar: stil.display !== 'none' && kasten.width > 0 && kasten.height > 0,
+        kasten: { top: kasten.top, left: kasten.left, right: kasten.right, bottom: kasten.bottom },
+      }
+    }
+    return {
+      detailOffen: wurzel.classList.contains('master-detail--detail-offen'),
+      liste: box(wurzel.querySelector('.master-detail__liste')),
+      detail: box(wurzel.querySelector('.master-detail__detail')),
+      wurzelRight: wurzel.getBoundingClientRect().right,
+      scrollHeight: document.documentElement.scrollHeight,
+      innerHeight: window.innerHeight,
+    }
+  })
+  // Keine Master-Detail-Wurzel auf dieser Ansicht — nichts zu prüfen
+  // (benannte Bedingung, s. Aufrufer, kein Fall in dieser Funktion selbst).
+  if (!ergebnis) return
+
+  const abLg = breite.width >= 1024 /* --breakpoint-lg */
+  if (abLg) {
+    if (!ergebnis.liste.sichtbar) befunde.push(`${kontext}: Listen-Spalte ist ab lg nicht sichtbar (Master-Detail)`)
+    if (!ergebnis.detail.sichtbar) befunde.push(`${kontext}: Detail-Spalte ist ab lg nicht sichtbar (Master-Detail)`)
+    if (ergebnis.liste.sichtbar && ergebnis.detail.sichtbar) {
+      if (ergebnis.liste.kasten.right > ergebnis.detail.kasten.left + 1) {
+        befunde.push(
+          `${kontext}: Listen-Spalte (rechte Kante ${Math.round(ergebnis.liste.kasten.right)}px) überlappt die Detail-Spalte (linke Kante ${Math.round(ergebnis.detail.kasten.left)}px)`,
+        )
+      }
+      if (Math.abs(ergebnis.detail.kasten.right - ergebnis.wurzelRight) > 1) {
+        befunde.push(
+          `${kontext}: Detail-Spalte reicht nicht bis zur rechten Kante der Wurzel (Detail: ${Math.round(ergebnis.detail.kasten.right)}px, Wurzel: ${Math.round(ergebnis.wurzelRight)}px)`,
+        )
+      }
+    }
+    if (ergebnis.scrollHeight > ergebnis.innerHeight + 1) {
+      befunde.push(`${kontext}: Fenster scrollt ab lg (Dokument ${ergebnis.scrollHeight}px, Ansichtsfenster ${ergebnis.innerHeight}px)`)
+    }
+    if (ergebnis.detailOffen) {
+      const hinzufuegen = seite.getByRole('button', { name: 'Ort hinzufügen', exact: true })
+      if ((await hinzufuegen.count()) === 0 || !(await hinzufuegen.first().isVisible())) {
+        befunde.push(`${kontext}: Button "Ort hinzufügen" ist ab lg bei offener Detailansicht nicht sichtbar`)
+      }
+      const ausgewaehlteZeile = seite.locator('[aria-current="true"]')
+      if ((await ausgewaehlteZeile.count()) > 0 && !(await ausgewaehlteZeile.first().isVisible())) {
+        befunde.push(`${kontext}: Zeile mit aria-current="true" ist ab lg bei offener Detailansicht nicht sichtbar`)
+      }
+    }
+  } else if (ergebnis.detailOffen) {
+    if (ergebnis.liste.sichtbar) befunde.push(`${kontext}: Listen-Spalte ist unterhalb lg bei offener Detailansicht sichtbar`)
+    if (!ergebnis.detail.sichtbar) befunde.push(`${kontext}: Detail-Spalte ist unterhalb lg bei offener Detailansicht nicht sichtbar`)
+  } else {
+    if (!ergebnis.liste.sichtbar) befunde.push(`${kontext}: Listen-Spalte ist unterhalb lg ohne offene Detailansicht nicht sichtbar`)
+    if (ergebnis.detail.sichtbar) befunde.push(`${kontext}: Detail-Spalte ist unterhalb lg ohne offene Detailansicht sichtbar`)
+  }
+}
+
+/**
+ * Nachweis für den Tag-Filter-Leerzustand bei ausgewähltem Ort
+ * (PO-2026-09-26-002, Kriterium 1 — laut Handoff optional als eigene
+ * ANSICHTEN-Ansicht, hier als einmaliger Lauf bei 1280px mit Bildschirmfoto):
+ * Ort B bleibt offen (Master-Detail bleibt zweispaltig), während der aktive
+ * UND-Filter zweier sich ausschließender Tags null Treffer liefert — die
+ * Listen-Spalte zeigt `.ortebereich__keine-treffer` statt der `<ul>`. Der
+ * Klick auf „Ort hinzufügen" trifft direkt über `locator.click()`, während A
+ * noch offen ist — vor der Korrektur nur über den inzwischen entfernten
+ * Workaround möglich (siehe `pruefeTagBleibtBeimOrtswechselAmRichtigenOrt`).
+ */
+async function pruefeTagFilterLeerBeiAusgewaehltemOrt(seite, befunde) {
+  const breite = { name: 'desktop-1280', width: 1280 }
+  // Try/catch um die gesamte Funktion, aus demselben Grund wie bei
+  // `pruefeTagBleibtBeimOrtswechselAmRichtigenOrt`: ein Abbruch soll als
+  // Befund im gesammelten Bericht erscheinen, nicht den ganzen Lauf beenden.
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Tagfilter-A')
+    await seite.locator('.tag-eingabe__feld').fill('rauchtest-tagfilter-a')
+    await seite.keyboard.press('Enter')
+    await seite.waitForTimeout(300)
+
+    await seite.getByRole('button', { name: 'Ort hinzufügen', exact: true }).click()
+    await seite.waitForTimeout(300)
+    await seite.locator('#ort-anlegen-bezeichnung').fill('Rauchtest-Tagfilter-B')
+    await seite.keyboard.press('Enter')
+    await seite.waitForTimeout(700)
+
+    await seite.locator('.tag-eingabe__feld').fill('rauchtest-tagfilter-b')
+    await seite.keyboard.press('Enter')
+    await seite.waitForTimeout(300)
+
+    await seite.locator('.tag-filterleiste__segment', { hasText: 'UND' }).click()
+    await seite.locator('.tag-filterleiste__pill', { hasText: 'rauchtest-tagfilter-a' }).click()
+    await seite.locator('.tag-filterleiste__pill', { hasText: 'rauchtest-tagfilter-b' }).click()
+    await seite.waitForTimeout(300)
+
+    await pruefeMasterDetailSpalten(seite, breite, `${breite.name}/ortsdetail-tagfilter-leer`, befunde)
+
+    const keineTrefferSichtbar = await seite
+      .locator('.ortebereich__keine-treffer')
+      .isVisible()
+      .catch(() => false)
+    if (!keineTrefferSichtbar) {
+      befunde.push(
+        'ortsdetail-tagfilter-leer: Leerzustand ".ortebereich__keine-treffer" nicht sichtbar, obwohl der UND-Filter beider Tags 0 Treffer liefert',
+      )
+    }
+
+    await seite.screenshot({ path: `${FOTOS}/${breite.name}-ortsdetail-tagfilter-leer.png` })
+    console.log(
+      `  ${breite.name}/ortsdetail-tagfilter-leer — geprüft (Master-Detail bleibt zweispaltig bei Tag-Filter-Leerzustand), Bildschirmfoto in ${FOTOS}/${breite.name}-ortsdetail-tagfilter-leer.png`,
+    )
+  } catch (fehler) {
+    befunde.push(`ortsdetail-tagfilter-leer: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  }
+}
+
 /** Öffnet jede Ansicht bei einer Breite und prüft die Zusicherungen 1-5
  *  (Zusicherung 2 — Laufzeitfehler — hängt an Listenern auf `seite`, die
  *  der Aufrufer vor dem Aufruf registriert). */
@@ -701,6 +889,12 @@ async function pruefeAnsichtenBeiBreite(seite, breite, befunde) {
     }
     for (const eintrag of await seite.evaluate(pruefeUeberlauf)) {
       befunde.push(`${breite.name}/${ansicht.name}: ${eintrag}`)
+    }
+    // PO-2026-09-26-002 (ADR-0032 Punkt 6): läuft auf JEDER Ansicht, deren
+    // Wurzel `.master-detail` im DOM ist — benannte Bedingung, keine Liste
+    // von Ansichtsnamen.
+    if ((await seite.locator('.master-detail').count()) > 0) {
+      await pruefeMasterDetailSpalten(seite, breite, `${breite.name}/${ansicht.name}`, befunde)
     }
     // PO-2026-09-13-002: nur auf der Ansicht, die Regler zeigt — kein neuer
     // Sonderpfad, läuft über dieselbe BREITEN-Liste wie alles andere hier.
@@ -987,84 +1181,75 @@ async function pruefeTagFokussiertesFeldBeimEchtenReload(seite, gemeldeteGrenzen
 }
 
 /**
- * NICHT Teil von PO-2026-09-26-001, hier nur umgangen: `MasterDetail.vue`
- * zeigt die Listen-Spalte bei offener Detailansicht AUCH ab `lg` nicht — ein
- * CSS-Spezifitätsfehler, unabhängig vom eigenen Kommentar der Komponente
- * ("beide Spalten gleichzeitig sichtbar, unabhängig vom Flag detailOffen"):
- * `.master-detail--detail-offen .master-detail__liste { display: none }"
- * steht UNCONDITIONAL (nicht in der `@media(min-width:1024px)`-Regel) und
- * ist mit zwei Klassen spezifischer als `.master-detail__liste { display:
- * block }` innerhalb dieser Media-Regel — die Verstecken-Regel gewinnt daher
- * IMMER, sobald `detailOffen` wahr ist, auch ab `lg`. Befund im Bericht,
- * NICHT hier behoben (fremder, eigenständiger Baustein, außerhalb dieses
- * Pakets). Der „Ort hinzufügen"-Button existiert trotzdem im DOM und sein
- * Handler funktioniert unverändert — nur `locator.click()` verweigert (auch
- * mit `force`) die Interaktion mit einem `display: none`-Element, deshalb
- * hier ein direkt dispatchtes Klick-Event statt `locator.click()`.
- */
-async function klickeOrtHinzufuegenTrotzListenSpaltenBug(seite) {
-  await seite.evaluate(() => {
-    document
-      .querySelector('.ortebereich__kopf .primaer-button')
-      ?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
-  })
-}
-
-/**
  * Fall (c): Ortswechsel ab `lg` ausschließlich über den BROWSERVERLAUF
  * (`goBack`/`goForward`), NIE über einen Klick — ein Klick löste bereits
  * selbst einen `focusout` auf dem Feldbereich aus und ließe die eigentliche
  * Zusicherung (Route-Guard-Orchestrierung, ADR-0030 Punkt 4/6) unbeobachtet.
  * Die Historie wird ausschließlich VORWÄRTS aufgebaut (`/orte` -> A -> B
- * über „Ort hinzufügen", aufgerufen während A noch geöffnet ist —
- * `klickeOrtHinzufuegenTrotzListenSpaltenBug()` s.o.): `pushState` kappt
- * jede vorwärts liegende Stufe, sobald zwischendurch zurücknavigiert wurde,
- * A und B wären über `goBack`/`goForward` sonst nicht beide erreichbar.
+ * über „Ort hinzufügen", aufgerufen während A noch geöffnet ist): `pushState`
+ * kappt jede vorwärts liegende Stufe, sobald zwischendurch zurücknavigiert
+ * wurde, A und B wären über `goBack`/`goForward` sonst nicht beide
+ * erreichbar. Der Klick auf „Ort hinzufügen" trifft seit PO-2026-09-26-002
+ * (ADR-0032) direkt über `locator.click()` — die Listen-Spalte samt ihrem
+ * Kopf ist ab lg neben dem offenen Detail A jetzt regulär sichtbar, der
+ * frühere Umweg über ein dispatchtes Klick-Event (`display: none` verweigerte
+ * `locator.click()`) ist damit entfallen.
  */
 async function pruefeTagBleibtBeimOrtswechselAmRichtigenOrt(seite, befunde) {
   const markerAB = 'rauchtest-verlauf-a-b'
   const markerOrte = 'rauchtest-verlauf-a-orte'
   const tagFeld = seite.locator('.tag-eingabe__feld')
 
-  await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
-  await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Verlauf-A') // Historie: [/orte, A]
-  await klickeOrtHinzufuegenTrotzListenSpaltenBug(seite)
-  await seite.waitForTimeout(300)
-  await seite.locator('#ort-anlegen-bezeichnung').fill('Rauchtest-Verlauf-B')
-  await seite.keyboard.press('Enter')
-  await seite.waitForTimeout(700) // Historie: [/orte, A, B]
+  // Try/catch um die gesamte Funktion (PO-2026-09-26-002): Der Klick auf
+  // „Ort hinzufügen" setzt seit der Korrektur voraus, dass die Listen-Spalte
+  // ab lg tatsächlich sichtbar ist (kein Workaround mehr, s. Kommentar oben).
+  // Schlägt das fehl, soll das als BEFUND im gesammelten Bericht erscheinen
+  // (`pruefeMasterDetailSpalten` hat den eigentlichen Befund an dieser
+  // Stelle bereits erfasst) statt den gesamten Lauf mit einer unbehandelten
+  // Ausnahme abzubrechen und den Bericht der übrigen Zusicherungen zu kosten.
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Verlauf-A') // Historie: [/orte, A]
+    await seite.getByRole('button', { name: 'Ort hinzufügen', exact: true }).click()
+    await seite.waitForTimeout(300)
+    await seite.locator('#ort-anlegen-bezeichnung').fill('Rauchtest-Verlauf-B')
+    await seite.keyboard.press('Enter')
+    await seite.waitForTimeout(700) // Historie: [/orte, A, B]
 
-  await seite.goBack({ waitUntil: 'networkidle' }) // zurück zu A, rein über den Verlauf
-  await seite.waitForTimeout(300)
-  await tagFeld.fill(markerAB) // fokussiert, NICHT verlassen
+    await seite.goBack({ waitUntil: 'networkidle' }) // zurück zu A, rein über den Verlauf
+    await seite.waitForTimeout(300)
+    await tagFeld.fill(markerAB) // fokussiert, NICHT verlassen
 
-  await seite.goForward({ waitUntil: 'networkidle' }) // A -> B, ausschließlich über den Verlauf
-  await seite.waitForTimeout(300)
-  const feldBWert = await tagFeld.inputValue()
-  if (feldBWert !== '') {
-    befunde.push(`tag-ortswechsel: Feld von Ort B ist nach A→B nicht leer ("${feldBWert}")`)
-  }
-  if ((await seite.locator('.tag-eingabe__pill', { hasText: markerAB }).count()) > 0) {
-    befunde.push(`tag-ortswechsel: Ort B trägt fälschlich die Pille "${markerAB}" von Ort A`)
-  }
+    await seite.goForward({ waitUntil: 'networkidle' }) // A -> B, ausschließlich über den Verlauf
+    await seite.waitForTimeout(300)
+    const feldBWert = await tagFeld.inputValue()
+    if (feldBWert !== '') {
+      befunde.push(`tag-ortswechsel: Feld von Ort B ist nach A→B nicht leer ("${feldBWert}")`)
+    }
+    if ((await seite.locator('.tag-eingabe__pill', { hasText: markerAB }).count()) > 0) {
+      befunde.push(`tag-ortswechsel: Ort B trägt fälschlich die Pille "${markerAB}" von Ort A`)
+    }
 
-  await seite.goBack({ waitUntil: 'networkidle' }) // zurück zu A, Verifikation
-  await seite.waitForTimeout(300)
-  if ((await seite.locator('.tag-eingabe__pill', { hasText: markerAB }).count()) === 0) {
-    befunde.push(`tag-ortswechsel: Ort A trägt die Pille "${markerAB}" nach dem Wechsel zu B nicht (Commit im Route-Guard fehlgeschlagen)`)
-  }
+    await seite.goBack({ waitUntil: 'networkidle' }) // zurück zu A, Verifikation
+    await seite.waitForTimeout(300)
+    if ((await seite.locator('.tag-eingabe__pill', { hasText: markerAB }).count()) === 0) {
+      befunde.push(`tag-ortswechsel: Ort A trägt die Pille "${markerAB}" nach dem Wechsel zu B nicht (Commit im Route-Guard fehlgeschlagen)`)
+    }
 
-  // Zweiter Teil ("dazu A→/orte per goBack"): `/orte` und `/orte/:ortId`
-  // sind dieselbe Komponente (Ortebereich.vue) — auch dieser Wechsel ist ein
-  // `onBeforeRouteUpdate`, kein Leave (siehe Modul-Kommentar dort).
-  await tagFeld.fill(markerOrte) // fokussiert, NICHT verlassen
-  await seite.goBack({ waitUntil: 'networkidle' }) // A -> /orte
-  await seite.waitForTimeout(300)
+    // Zweiter Teil ("dazu A→/orte per goBack"): `/orte` und `/orte/:ortId`
+    // sind dieselbe Komponente (Ortebereich.vue) — auch dieser Wechsel ist ein
+    // `onBeforeRouteUpdate`, kein Leave (siehe Modul-Kommentar dort).
+    await tagFeld.fill(markerOrte) // fokussiert, NICHT verlassen
+    await seite.goBack({ waitUntil: 'networkidle' }) // A -> /orte
+    await seite.waitForTimeout(300)
 
-  await seite.goForward({ waitUntil: 'networkidle' }) // zurück zu A, rein zur Verifikation
-  await seite.waitForTimeout(300)
-  if ((await seite.locator('.tag-eingabe__pill', { hasText: markerOrte }).count()) === 0) {
-    befunde.push(`tag-ortswechsel: Ort A trägt die Pille "${markerOrte}" nach dem Wechsel zu /orte (goBack) nicht`)
+    await seite.goForward({ waitUntil: 'networkidle' }) // zurück zu A, rein zur Verifikation
+    await seite.waitForTimeout(300)
+    if ((await seite.locator('.tag-eingabe__pill', { hasText: markerOrte }).count()) === 0) {
+      befunde.push(`tag-ortswechsel: Ort A trägt die Pille "${markerOrte}" nach dem Wechsel zu /orte (goBack) nicht`)
+    }
+  } catch (fehler) {
+    befunde.push(`tag-ortswechsel: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
   }
 }
 
@@ -1153,6 +1338,12 @@ async function main() {
     // Zusicherungen ab PO-2026-09-26-001 (ADR-0030), s.o. — nur bei 1280px
     // (Fall c braucht die gleichzeitig sichtbare Listen-Spalte ab `lg`).
     await pruefeTagUeberlebtNeuladen(browser, befunde, gemeldeteGrenzen)
+
+    // Nachweis ab PO-2026-09-26-002 (Kriterium 1, s.o.) — nur bei 1280px,
+    // läuft einmal auf einer frischen Seite.
+    const tagfilterSeite = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+    await pruefeTagFilterLeerBeiAusgewaehltemOrt(tagfilterSeite, befunde)
+    await tagfilterSeite.close()
   } finally {
     await browser?.close()
     beendeVorschau(server)
@@ -1184,6 +1375,10 @@ async function main() {
   console.log('und bleibt filterbar (PO-2026-09-26-001, ADR-0030). Das Verhalten beim ECHTEN')
   console.log('Entladen mit Fokus im Feld ist eine benannte, nicht zusicherbare Grenze')
   console.log('(ADR-0031) — siehe „Gemeldet" oben.')
+  console.log('Master-Detail zeigt ab lg auf jeder betroffenen Ansicht beide Spalten')
+  console.log('gleichzeitig, überlappungsfrei und randbündig, ohne Fenster-Scroll —')
+  console.log('unterhalb lg weiterhin nur die dem Zustand entsprechende Spalte')
+  console.log('(PO-2026-09-26-002, ADR-0032).')
   // ADR-0029 Punkt 4: ein ERFOLGREICHER Lauf weist die Grenze selbst aus,
   // nicht nur der Fehlerfall (Playwright-Skip oben) und nicht nur der Kopf
   // dieser Datei. Als Eigenschaft formuliert, nicht als Funktions-/

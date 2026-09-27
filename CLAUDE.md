@@ -276,6 +276,25 @@ Punkt 2) — Messlauf des `frontend-lead` (5× mit, 5× ohne diese Härtung):
 Chromium in dieser Umgebung, **keine Zusicherung** — deshalb bleibt (b2)
 gemeldet statt hart.
 
+Ab PO-2026-09-26-002 (ADR-0032) kommt eine weitere harte Zusicherung dazu:
+`MasterDetail.vue` zeigte die Listen-Spalte bei offener Detailansicht ab
+`lg` nicht — eine unbedingte Ausblendregel gewann per höherer Spezifität
+gegen die schwächere Gegenregel im `@media`-Block, unabhängig von
+Reihenfolge und Zustandsklasse. `pruefeMasterDetailSpalten()` läuft für
+**jede** Ansicht, auf der die Wurzel `.master-detail` im DOM ist (benannte
+Bedingung, keine Ansichtsnamen-Liste): Ab `lg` müssen beide Spalten
+gleichzeitig sichtbar, überlappungsfrei und randbündig sein und das Fenster
+darf nicht scrollen; unterhalb `lg` bleibt nur die dem `detailOffen`-Zustand
+entsprechende Spalte sichtbar. Dafür deckt eine neue Ansicht
+(`ortsdetail-unbekannte-id`) die Detailadresse mit nicht auflösender ID bei
+nicht leerem Bestand ab — anders als die bestehende `adresse-ohne-ziel`, die
+als Sammelroute standalone rendert, ohne `MasterDetail` — und ein einmaliger
+Nachweis bei 1280px deckt den Tag-Filter-Leerzustand bei ausgewähltem Ort ab
+(`pruefeTagFilterLeerBeiAusgewaehltemOrt()`). Die vorher nötige Umgehung
+`klickeOrtHinzufuegenTrotzListenSpaltenBug()` ist entfallen: Die
+Listen-Spalte samt ihrem „Ort hinzufügen"-Button ist ab `lg` neben einem
+offenen Detail jetzt regulär sichtbar und klickbar.
+
 **Der Lead führt ihn aus, bevor er ein Paket als erledigt meldet** — nicht
 statt der Unit-Tests, sondern zusätzlich. Typecheck, Lint und Vitest
 prüfen, ob Code zusammenpasst; der Rauchtest prüft, ob das Ergebnis
