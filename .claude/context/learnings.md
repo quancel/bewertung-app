@@ -164,7 +164,8 @@
   Spezifität) unbemerkt, und der Test von -001 baute sogar einen Umweg um
   sie. Ein Workaround im Prüfcode für einen fremden Fehler ist ein Befund
   und kein Testdetail: Er wird gemeldet, und das Fix-Paket entfernt ihn.
-  (task_id: PO-2026-09-26-001)
+  Der Anlassfall ist mit ADR-0032 (`pruefeMasterDetailSpalten`) geschlossen,
+  der Mechanismus nicht. (task_id: PO-2026-09-26-001)
 - [2026-09-27] app-shell/projektweit: Eine Syntax-Vorgabe, die eine
   ungeprüfte Engine schützt (keine Media-Query-Bereichssyntax wegen WebKit
   < 16.4), entscheidet sich im **Build-Ergebnis** und nicht im Quelltext. Der
@@ -174,6 +175,17 @@
   (`build.cssTarget`) in `files_to_touch` aufnehmen und den Nachweis am
   `dist/`-Stand als `constraint` setzen. (task_id: PO-2026-09-26-002,
   ADR-0032 Nachtrag)
+- [2026-09-27] projektweit: Misst eine Zusicherung einen Zustand, den die
+  **Treiberaktion selbst verändert**, erzeugt das Werkzeug den Effekt mit.
+  Playwrights Ins-Sicht-Scrollen vor `.click()` verschiebt genau den
+  Scroll-Container, den `pruefeScrollVersatzUndFokusBeiOrtswechsel` auf
+  „unverändert" prüft (falsch rot). Ein Klick feuert `input` *und* `change`
+  (`pruefeReglerCommitWaehrendZiehens`, falsch grün). Bei Paketen mit
+  Scroll-, Fokus- oder Ereignis-Zusicherung als `constraint` setzen: Die
+  Vorbedingung so herstellen, dass die Treiberaktion die Messgröße nicht
+  berührt, und das am Prüfcode begründen. Das ist kein Workaround für einen
+  fremden Fehler im Sinne des Eintrags vom 2026-09-26.
+  (task_id: PO-2026-09-26-003, ADR-0033)
 - [2026-09-11] orte/tags/karte: Leerzustände sind je **Filterstufe** zu
   zählen, nicht pauschal einer. Bestand leer · Filter ohne Treffer · gefiltert,
   aber nichts davon darstellbar (Orte ohne Koordinaten) sind drei verschiedene
