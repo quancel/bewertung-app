@@ -35,6 +35,18 @@
   --color-neutral-700: #3c4340;
   --color-neutral-900: #1a1f1d;
 
+  /* Farbe — Zonen der Ortsliste (ADR-0034, design-concept.md „Ausnahme
+     Ortsliste: Zonenfarben und Hervorhebungs-Schatten"). Kühle Skala
+     Teal→Indigo, Helligkeit sinkt streng monoton — NICHT von --color-primary-*
+     oder --color-neutral-900 abgeleitet, eigene Wertreihe. Einziger Nutzer:
+     `Ortszeile.vue`/`ZonenLegende.vue` (`features/orte/lib/zonen.ts`), kein
+     Alias in semantic.css (design-concept.md-Ausnahme gilt nur dort). */
+  --color-zone-8: #29707a;
+  --color-zone-8-5: #20546f;
+  --color-zone-9: #1a3b61;
+  --color-zone-9-5: #142552;
+  --color-zone-10: #101342;
+
   /* Typografie */
   --font-family-sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI',
     Roboto, sans-serif;
@@ -74,6 +86,14 @@
   /* Fokusring-Geometrie (Farbe kommt aus semantic.css) */
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
+
+  /* Hervorhebungs-Schatten der Ortsliste (ADR-0034, design-concept.md
+     „Ausnahme Ortsliste"): Basis --color-neutral-900 (`rgb(26 31 29 / …)`),
+     KEINE Elevation-Tokens — anders als eine Sheet-/Card-Elevation drücken
+     sie eine fachliche Auszeichnung aus, nicht eine Ebene im Raum. Einziger
+     Nutzer: `Ortszeile.vue`/`ZonenLegende.vue`. */
+  --shadow-hervorhebung-schwach: 0 1px 4px 0 rgb(26 31 29 / 8%);
+  --shadow-hervorhebung-stark: 0 3px 10px 1px rgb(26 31 29 / 16%);
 
   /* Motion */
   --duration-120: 120ms;

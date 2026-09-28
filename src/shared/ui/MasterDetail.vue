@@ -24,6 +24,29 @@
  * nehmen daher keinen Platz im Fluss ein), die Spalten scrollen intern.
  * Unterhalb `lg` scrollt weiterhin das Fenster wie gehabt.
  *
+ * Nachtrag ADR-0011 P6 (2026-09-28, Rückläufer PO-2026-09-27-003): Ab `lg`
+ * ist jede Spalte ein ABGESCHLOSSENER Scroll-Bereich — weder ihr eigener
+ * Inhalt noch ein darin absolut positioniertes Element darf die Spalte oder
+ * das Dokument verlängern. Drei Deklarationen im `@media (min-width:
+ * 1024px)`-Block darunter setzen das um: (1) Wurzel `grid-template-rows:
+ * minmax(0, 1fr)` — Gegenstück zur Spaltenspur `minmax(0, 1fr)`, macht die
+ * Zeile exakt die feste Höhe statt implizit `auto`; (2) Spalten `min-height:
+ * 0` — Gegenstück zu `min-width: 0` (ADR-0012 Punkt 4); (3) Spalten
+ * `position: relative` — macht den Scroll-Container zum Containing Block
+ * seiner absolut positionierten Nachfahren (kein `z-index`, kein neuer
+ * Stapelkontext). Befund, der zur Korrektur führte: `.ortszeile__sr-
+ * hervorhebung` (ADR-0034 Punkt 5) ist `position: absolute` ohne
+ * positionierten Vorfahren; ohne (3) ist ihr Containing Block der initiale
+ * Containing Block (Dokument) statt der Listen-Spalte, ihre statische
+ * Position tief in der Liste verlängerte dadurch NICHT die Spalte (beide
+ * Spalten blieben ≤ Viewporthöhe, s. ADR), sondern das Dokument selbst —
+ * das Fenster scrollte, obwohl beide Spalten intern hätten scrollen sollen.
+ * Per Diagnose bestätigt (Befundlage B, nicht A): (3) allein behebt den
+ * gemessenen roten Fall vollständig, (1) und (2) allein je nicht — sie
+ * bleiben trotzdem stehen, weil jede eine eigene, sonst mögliche Art
+ * abschließt, auf die eine Spalte das Dokument verlängern könnte (s.
+ * ADR-0011, Abschnitt „Nachtrag zu Punkt 6").
+ *
  * Sichtbarkeit strukturell auf ihren Breitenbereich begrenzt (Korrektur
  * PO-2026-09-26-002, ADR-0032): Jede Regel, die eine Spalte in Abhängigkeit
  * von `detailOffen` ausblendet, gilt NUR unterhalb `lg`
@@ -112,14 +135,41 @@ defineExpose({ setzeDetailVersatzZurueck })
    Adresse (ADR-0011). Spaltenbreiten/-abstand als Tokens (ADR-0012):
    Listen-Spalte --listen-spalte-breite (~400px), Abstand --space-24,
    Detail-Spalte nimmt den Rest mit min-width: 0, damit sie schrumpfen darf
-   (ADR-0012 Punkt 4) statt von ihrem Inhalt aufgedrückt zu werden. Reine
+   (ADR-0012 Punkt 4) statt von ihrem Inhalt aufgedrückt zu werden — UND
+   min-height: 0, damit die feste Höhe (s. u.) trägt statt vom impliziten
+   `min-height: auto` eines Grid-Items unterlaufen zu werden. Reine
    Grid-/Scroll-Container-Eigenschaften — keine Sichtbarkeitsregel hier
    (ADR-0032 Punkt 1): Sichtbarkeit wird nirgends „zurückgeholt", weil sie
-   oben nie unbedingt verloren ging. */
+   oben nie unbedingt verloren ging.
+
+   Drei Deklarationen zu ADR-0011, Nachtrag zu Punkt 6 (2026-09-28): Jede
+   Spalte ist ein ABGESCHLOSSENER Scroll-Bereich, weder ihr Inhalt noch ein
+   darin absolut positioniertes Element darf sie oder das Dokument
+   verlängern.
+     1. `grid-template-rows: minmax(0, 1fr)` an der Wurzel — Gegenstück zur
+        Spaltenspur `minmax(0, 1fr)`, damit die Zeile exakt die feste Höhe
+        ist und nicht implizit `auto`. Fehlerfall ohne das: eine Spalte
+        höher als `innerHeight` streckt die Grid-Zeile, das Fenster
+        scrollt statt der Spalte (Befundlage A).
+     2. `min-height: 0` an den Spalten (s. o., mit `min-width: 0`
+        zusammengefasst) — Gegenstück zu `min-width: 0`.
+     3. `position: relative` an den Spalten — macht den Scroll-Container
+        zum Containing Block seiner absolut positionierten Nachfahren
+        (kein `z-index`, kein neuer Stapelkontext). Fehlerfall ohne das:
+        ein Nachfahre wie `.ortszeile__sr-hervorhebung` (`position:
+        absolute` ohne positionierten Vorfahren, ADR-0034 Punkt 5) hat als
+        Containing Block den initialen Containing Block (Dokument) statt
+        der Spalte — seine statische Position tief in der Liste verlängert
+        dadurch das Dokument, nicht die Spalte (Befundlage B, der hier
+        tatsächlich aufgetretene Fall, per Diagnose bestätigt).
+   Alle drei bleiben stehen, auch wenn im konkreten Fall nur (3) trägt —
+   jede schließt eine eigene Art ab, auf die eine Spalte das Dokument
+   verlängern kann. */
 @media (min-width: 1024px) /* --breakpoint-lg */ {
   .master-detail {
     display: grid;
     grid-template-columns: var(--listen-spalte-breite) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     align-items: start;
     gap: var(--space-24);
     height: 100vh;
@@ -128,6 +178,8 @@ defineExpose({ setzeDetailVersatzZurueck })
   .master-detail__liste,
   .master-detail__detail {
     min-width: 0;
+    min-height: 0;
+    position: relative;
     height: 100%;
     overflow-y: auto;
   }

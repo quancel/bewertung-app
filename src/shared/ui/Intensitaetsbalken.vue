@@ -84,7 +84,12 @@ const fuellfarbe = computed(() => {
 
 .intensitaetsbalken__zahl {
   font-size: var(--font-size-14);
-  color: var(--text);
+  /* Optionaler CSS-Hook (ADR-0034, design-conventions.md „Ortsliste:
+     Zonenfarben und Hervorhebungs-Schatten"): Default unverändert überall
+     außer dort, wo `Ortszeile.vue` die Custom Property lokal auf ihrem
+     Wert-Slot setzt — kein sichtbarer Unterschied in Ortsdetail oder einem
+     künftigen dritten Nutzer dieser Komponente. */
+  color: var(--intensitaetsbalken-zahl-farbe, var(--text));
 }
 
 .intensitaetsbalken__platzhalter {

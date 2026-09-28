@@ -224,6 +224,61 @@
  * nichts. GEMELDET, nicht hart (analog Fall b2 oben, dieselbe strukturelle
  * Grenze ADR-0031): ein ECHTES `seite.reload()` mit Fokus im Anfangsnotiz-Feld.
  *
+ * Ab PO-2026-09-27-003 (ADR-0034, Zonenfarben + Hervorhebungs-Schatten der
+ * Ortsliste, plus Design-Antwort-Roundtrip zur Kopfzeile) kommen zwei neue
+ * Ansichten und zwei neue harte Zusicherungen dazu:
+ *
+ *   - `ortsliste-zonen` (`bereiteOrtslisteZonenVor()`): alle fünf Zonen, ein
+ *     Wert unter der untersten Zonengrenze, die Gruppe „ohne Wert", alle
+ *     vier Hervorhebungs-Kombinationen (keine/schwach/stark/beide) und eine
+ *     Zonenzeile mit deutlich längerer Bezeichnung als sonst üblich.
+ *   - `ortsliste-legende` (`oeffneZonenLegende()`): das offene
+ *     Legenden-Sheet. Dafür bekommt `pruefeVerdeckung()` eine neue, benannte
+ *     Ausnahme: Elemente HINTER einem offenen modalen Dialog
+ *     (`aria-modal="true"`, strukturell für jedes `Sheet.vue`) sind kein
+ *     Befund — der Backdrop deckt den ganzen Bildschirm ab, ohne den Rest
+ *     der Seite `aria-hidden` zu setzen, jedes dahinterliegende
+ *     Bedienelement träfe sonst fälschlich als „verdeckt".
+ *   - HART, nur bei 1280px (`pruefeAusgewaehlteZeileSchattenUndName()`, läuft
+ *     auf `ortsliste-zonen` weiter): Die ausgewählte Zeile trägt in JEDER
+ *     Hervorhebungs-Kombination weiterhin den inset-3px-Auswahlkante-Layer im
+ *     BERECHNETEN `box-shadow` (design-conventions.md „Kombination mit der
+ *     Auswahlkante" — zwei `box-shadow`-Regeln würden sich sonst ersetzen
+ *     statt ergänzen), und die Accessible Name jeder Zeile (Rolle `link`)
+ *     enthält den erwarteten Screenreader-Text der Hervorhebung.
+ *   - HART, auf JEDER Ansicht/Breite (`pruefeButtonTextUmbruch()`, Empfehlung
+ *     der Design-Antwort, hier umgesetzt statt nur gemeldet): Sichtbarer
+ *     Button-Text bricht innerhalb seines Buttons nie um — der Fehler, der
+ *     zur Korrektur der Kopfzeile führte (Button brach bei 320px auf zwei
+ *     Zeilen um, statt dass die Kopfzeile selbst zweizeilig wurde — kein
+ *     horizontaler Überlauf, deshalb vom bisherigen Rauchtest nicht
+ *     gefangen), jetzt als Eigenschaft geprüft, nicht nur an dieser einen
+ *     Stelle. `.ortebereich__kopf` wird dafür selbst zum `@container`
+ *     (ADR-0012, analog `.werkzeugleiste`): unterhalb 360px Containerbreite
+ *     (320px/390px Viewport fallen beide darunter) zeigt die Kopfzeile mit
+ *     `ZonenLegende` zwei Zeilen — Zeile 1 unverändert `<h1>` + Legende,
+ *     Zeile 2 ausschließlich „Ort hinzufügen", rechtsbündig UND kompakt
+ *     (CSS-Grid statt eines erzwungenen Flex-Umbruchs, s.
+ *     `Ortebereich.vue`s Style-Kommentar zur Begründung).
+ *
+ * Rückläufer zu PO-2026-09-27-003 (ADR-0011, Nachtrag zu Punkt 6,
+ * 2026-09-28) kommt eine weitere harte Zusicherung dazu, deterministisch statt
+ * vom zufällig angesammelten Bestand eines Laufs abhängig (der ursprüngliche
+ * Befund traf zufällig erst `ortsliste-legende`, weil dort zum ersten Mal
+ * genug hohe Zeilen im Bestand lagen — s. `.master-detail__liste`/
+ * `.master-detail__detail` in `MasterDetail.vue`). `pruefeSpaltenAbgeschlossenerScrollBereich()`
+ * legt dafür einen EIGENEN Bestand an (genug Füll-Orte, damit der
+ * Listen-Inhalt die Spalte überragt, plus ein alphabetisch später Ort mit
+ * Geschmack ≥ 9 — erzeugt den Screenreader-Hinweis
+ * `.ortszeile__sr-hervorhebung` tief in der Liste) und prüft für JEDE Breite
+ * aus `BREITEN` mit `width >= 1024` und BEIDE `detailOffen`-Zustände: Weder
+ * das Fenster noch eine der beiden Spalten selbst wird höher als das
+ * Ansichtsfenster. Die Vorbedingung ist Teil der Zusicherung (Listen-Inhalt
+ * höher als die Spalte UND ein absolut positioniertes Element im
+ * Spalteninhalt unterhalb der sichtbaren Spaltenhöhe) — ohne sie wäre „das
+ * Fenster scrollt nicht" kein Beleg für eine wirksame Abschottung, sondern
+ * nur dafür, dass nie genug Inhalt vorlag.
+ *
  * Aufruf: `npm run smoke` (baut vorher). Bildschirmfotos landen in
  * `.smoke/`, das Verzeichnis ist ignoriert.
  */
@@ -296,6 +351,15 @@ const ANSICHTEN = [
   // `pruefeUeberlauf()` deckt „nichts ragt aus dem Bildschirm" bereits
   // generisch ab.
   { name: 'ortsliste-lange-anfangsnotiz', pfad: '/orte', vorbereiten: legeOrtAnUndZeigeIhnInDerListeMitLangerAnfangsnotiz },
+  // PO-2026-09-27-003 (ADR-0034): alle fünf Zonen, ein Wert unter 8, die
+  // Gruppe „ohne Wert", alle vier Hervorhebungs-Kombinationen und eine
+  // Zonenzeile mit langer Bezeichnung — s. `bereiteOrtslisteZonenVor`.
+  { name: 'ortsliste-zonen', pfad: '/orte', vorbereiten: bereiteOrtslisteZonenVor },
+  // PO-2026-09-27-003, Kriterium „Legende": das offene Legenden-Sheet selbst
+  // — deckt zusätzlich `pruefeVerdeckung()`s neue Ausnahme für Elemente
+  // hinter einem offenen modalen Dialog ab (der Rest der Seite liegt unter
+  // dem `.sheet-backdrop` und wäre sonst fälschlich „verdeckt").
+  { name: 'ortsliste-legende', pfad: '/orte', vorbereiten: oeffneZonenLegende },
 ]
 
 /** Photon-Endpunkt, NUR zum Abfangen (Request-Interception) — es wird
@@ -541,6 +605,103 @@ async function legeOrtAnUndZeigeIhnInDerListeMitLangerAnfangsnotiz(seite) {
   await seite.waitForTimeout(300)
 }
 
+/** Setzt alle vier Bewertungsachsen des GERADE GEÖFFNETEN Orts (Reihenfolge
+ *  im DOM: Ambiente, Zeit, Geschmack, Preis-Leistung, `Ortebereich.vue`) auf
+ *  die übergebenen Werte — committet jede Achse einzeln über Tab (verlässt
+ *  das Feld, löst `@blur`/den Commit aus, wie `legeOrtAnUndOeffneIhnMitLangenKommentaren`). */
+async function setzeAlleAchsenwerte(seite, werte) {
+  const achsen = await seite.locator('.bewertungsachse').all()
+  for (let i = 0; i < achsen.length; i += 1) {
+    await achsen[i].locator('input[type="number"]').fill(String(werte[i]))
+    await seite.keyboard.press('Tab')
+    await seite.waitForTimeout(100)
+  }
+}
+
+/**
+ * PO-2026-09-27-003 (ADR-0034), Nachweis für die Zonenfarben +
+ * Hervorhebungs-Schatten der Ortsliste: legt für jede der fünf Zonen einen
+ * Ort mit passender Gesamtnote an. Die Zonengrenzen 8,5/9,5 liegen zwischen
+ * den elf ganzzahligen Achsenwerten (ADR-0007 Punkt 7, ein einzelner Regler
+ * kann keine 8,5 einstellen) — erreicht wird das über den UNGEWICHTETEN
+ * Mittelwert zweier unterschiedlicher Achsenwerte (`shared/lib/gesamtnote.ts`),
+ * nicht über einen einzelnen Achsenwert. Dazu ein Ort ganz ohne Bewertung
+ * (Gruppe „ohne Wert") und ein Ort mit einem Wert unter der untersten
+ * Zonengrenze (kein Rahmen, keine Farbe). Von den vier Hervorhebungs-
+ * Zuständen ergeben sich „keine" (Zone 8), „stark" (Zone 8,5: Geschmack 8,
+ * Preis-Leistung 9) und „beide" (Zone 9/9,5/10: beide Achsen ≥ 9) bereits
+ * aus den Zonen-Orten selbst — „schwach" (Geschmack ≥ 9, Preis-Leistung < 9)
+ * bekommt einen eigenen, zonenlosen Ort. Eine der Zonen-Bezeichnungen ist
+ * bewusst deutlich länger als üblich (Kriterium „eine Zonenzeile mit langer
+ * Bezeichnung").
+ *
+ * Sortiert am Ende auf „Gesamtnote" um (`Werkzeugleiste.vue`s Sortier-Sheet):
+ * Ohne ein Kriterium mit echtem Wertevergleich (Gesamtnote oder Einzelachse)
+ * zeigt keine Zeile ihren Wert-Slot und damit auch keine Zonenfarbe
+ * (`Ortszeile.vue`, `achsenWert`/`gesamtnote`-Zweige), und die Gruppe „ohne
+ * Wert" bliebe leer (`shared/lib/sortierung.ts`).
+ */
+async function bereiteOrtslisteZonenVor(seite) {
+  const zonenOrte = [
+    { bezeichnung: 'Rauchtest-Zone-8', achsen: [8, 8, 8, 8] },
+    { bezeichnung: 'Rauchtest-Zone-8-5', achsen: [8, 9, 8, 9] },
+    {
+      bezeichnung: 'Rauchtest-Zone-9-Mit-Einer-Deutlich-Laengeren-Bezeichnung-Als-Sonst-In-Dieser-Liste-Ueblich',
+      achsen: [9, 9, 9, 9],
+    },
+    { bezeichnung: 'Rauchtest-Zone-9-5', achsen: [9, 10, 9, 10] },
+    { bezeichnung: 'Rauchtest-Zone-10', achsen: [10, 10, 10, 10] },
+    { bezeichnung: 'Rauchtest-Zone-Schwach', achsen: [5, 5, 9, 5] },
+    { bezeichnung: 'Rauchtest-Zone-Unter-8', achsen: [7, 7, 7, 7] },
+  ]
+
+  for (const ort of zonenOrte) {
+    await legeOrtAnUndOeffneIhn(seite, ort.bezeichnung)
+    await setzeAlleAchsenwerte(seite, ort.achsen)
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await seite.waitForTimeout(200)
+  }
+
+  // Gruppe „ohne Wert": ein Ort ganz ohne Bewertung.
+  await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Zone-Ohne-Wert')
+  await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+  await seite.waitForTimeout(200)
+
+  await seite.locator('.werkzeugleiste__chip').click()
+  await seite.waitForTimeout(200)
+  await seite.locator('.sortier-sheet__eintrag', { hasText: 'Gesamtnote' }).click()
+  await seite.waitForTimeout(300)
+}
+
+/**
+ * PO-2026-09-27-003, Kriterium „Legende": öffnet das Zonenlegende-Sheet über
+ * den Icon-only-Button in der Kopfzeile — kein echter Ortsbestand nötig, die
+ * Legende erklärt sich unabhängig davon.
+ *
+ * Setzt zuerst die Sortierung auf „Bezeichnung" zurück: `bereiteOrtslisteZonenVor`
+ * (läuft als `vorbereiten` der VORHERGEHENDEN Ansicht in derselben
+ * Seitensitzung) hinterlässt „Gesamtnote" als PERSISTIERTE Einstellung
+ * (`orte.store.ts`, `schreibeEinstellung`) — ohne Reset bliebe sie für den
+ * Rest des Laufs aktiv und verschöbe in `pruefeOrtssucheZustaende()` (läuft
+ * auf DERSELBEN Seite weiter) die am höchsten bewertete Zonen-Zeile an den
+ * Listenanfang, direkt unter die sticky Werkzeugleiste — ein Fehlbefund
+ * (keine echte Verdeckung), nachgewiesen gegen den Stand ohne diesen Reset:
+ * `desktop-1280/ortsdetail (Ortssuche: …)` meldete dort fälschlich eine
+ * verdeckte `.ortszeile--hervorhebung-beide`. Der Zonen-Bestand samt „ohne
+ * Wert"-Gruppe ist zu diesem Zeitpunkt bereits im Bildschirmfoto von
+ * `ortsliste-zonen` festgehalten — die Legende selbst braucht keine
+ * bestimmte Sortierung.
+ */
+async function oeffneZonenLegende(seite) {
+  await seite.locator('.werkzeugleiste__chip').click()
+  await seite.waitForTimeout(200)
+  await seite.locator('.sortier-sheet__eintrag', { hasText: 'Bezeichnung' }).click()
+  await seite.waitForTimeout(200)
+
+  await seite.locator('.zonen-legende__knopf').click()
+  await seite.waitForTimeout(300)
+}
+
 /** Zusicherung 4: Was über CSS geladen wird, ist aufgelöst. Ein `.icon`
  *  mit `mask-image: none` und gesetzter Hintergrundfarbe ist ein farbiger
  *  Kasten — im DOM vorhanden, im Test „sichtbar", für den Nutzer kaputt. */
@@ -644,6 +805,24 @@ function pruefeVerdeckung() {
     return false
   }
 
+  /** Elemente HINTER einem offenen modalen Dialog (PO-2026-09-27-003,
+   *  `ZonenLegende.vue`s Sheet, aber strukturell für jedes `Sheet.vue`):
+   *  Der Backdrop (`.sheet-backdrop`, `position: fixed; inset: 0`) deckt den
+   *  gesamten Bildschirm ab, ohne den Rest der Seite `aria-hidden` zu
+   *  setzen — jedes dahinterliegende Bedienelement träfe sonst fälschlich
+   *  als „verdeckt vom Backdrop". Geprüft wird die ARIA-Eigenschaft
+   *  (`aria-modal="true"`), nicht ein Klassenname: `oben` selbst liegt
+   *  entweder INNERHALB des Dialogs (Treffer im sichtbaren Panel-Bereich)
+   *  oder ist ein VORFAHRE des Dialogs (der Backdrop trifft für jeden Punkt
+   *  außerhalb des Panels). Ein Element, das ein anderes Element INNERHALB
+   *  desselben Dialogs verdeckt, bleibt dadurch bewusst ungeprüft — kein
+   *  Fall in dieser App (die vorhandenen Sheets zeigen nur statische Inhalte
+   *  + einen Schließen-Button ohne eigene Überlagerungsgefahr). */
+  function istHinterOffenemModalenDialog(element) {
+    if (element.closest('[aria-modal="true"]')) return true
+    return element.querySelector('[aria-modal="true"]') != null
+  }
+
   const verdeckt = []
   const auswahl = 'button, input, select, textarea, a[href], [role="button"], [tabindex]:not([tabindex="-1"])'
   for (const el of document.querySelectorAll(auswahl)) {
@@ -697,6 +876,7 @@ function pruefeVerdeckung() {
       if (oben === el || el.contains(oben) || oben.contains(el)) continue
       if (istOffeneAuswahlliste(oben)) continue
       if (stil.position !== 'fixed' && istFixierteChrome(oben)) continue
+      if (!el.closest('[aria-modal="true"]') && istHinterOffenemModalenDialog(oben)) continue
       verdeckt.push(`${bezeichner(el)} verdeckt von ${bezeichner(oben)}`)
       break
     }
@@ -787,6 +967,50 @@ function pruefeMehrzeiligeTextfelder() {
     }
     if (kasten.right > innerWidth + 1) {
       befunde.push(`${bezeichner(feld)}: ragt ${Math.round(kasten.right - innerWidth)}px über den rechten Bildschirmrand hinaus`)
+    }
+  }
+  return befunde
+}
+
+/**
+ * Empfehlung der Design-Antwort (Roundtrip PO-2026-09-27-003, design-
+ * conventions.md „Legende" -> „Korrektur" -> „Ausdrücklich verworfen:
+ * Icon-only-Variante"): kein Muss, hier trotzdem umgesetzt, weil sie exakt
+ * den vom Nutzer gemeldeten Fehler als EIGENSCHAFT abbildet (der „Ort
+ * hinzufügen"-Button brach bei 320px intern auf zwei Zeilen um, statt dass
+ * der Umbruch die Kopfzeile traf — kein horizontaler Überlauf, deshalb vom
+ * bisherigen Rauchtest nicht gefangen) statt nur an dieser einen Stelle:
+ * Sichtbarer Button-Text bricht innerhalb SEINES Buttons nie um — benannte
+ * Bedingung (jeder Button mit direktem Text-Kindknoten), keine Klassen-
+ * oder Ansichtsliste, damit ein künftiges viertes Kopfzeilen-Element (oder
+ * jeder andere Button der App) denselben Fehler nicht wieder unbemerkt
+ * einschleust. Geprüft über `Range.getClientRects()` auf dem Textknoten:
+ * mehr als ein Rect heißt, der Text belegt mehr als eine Zeile.
+ */
+function pruefeButtonTextUmbruch() {
+  function bezeichner(el) {
+    if (el.id) return '#' + el.id
+    const klasse = typeof el.className === 'string' ? el.className : el.getAttribute('class') || ''
+    return el.tagName.toLowerCase() + (klasse ? '.' + klasse.trim().replace(/\s+/g, '.') : '')
+  }
+
+  const befunde = []
+  for (const button of document.querySelectorAll('button')) {
+    const stil = getComputedStyle(button)
+    if (stil.visibility === 'hidden' || stil.display === 'none') continue
+    const kasten = button.getBoundingClientRect()
+    if (kasten.width === 0 || kasten.height === 0) continue
+
+    for (const kind of button.childNodes) {
+      if (kind.nodeType !== Node.TEXT_NODE) continue
+      const text = kind.textContent.trim()
+      if (!text) continue
+      const bereich = document.createRange()
+      bereich.selectNodeContents(kind)
+      const zeilen = bereich.getClientRects().length
+      if (zeilen > 1) {
+        befunde.push(`${bezeichner(button)}: Text "${text}" bricht intern auf ${zeilen} Zeilen um`)
+      }
     }
   }
   return befunde
@@ -1096,6 +1320,236 @@ async function pruefeTagFilterLeerBeiAusgewaehltemOrt(seite, befunde) {
   }
 }
 
+/** Escaped die regex-relevanten Zeichen eines Strings — nur für den
+ *  Namensvergleich unten, kein allgemeines Hilfsmittel. */
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * Neue harte Zusicherung (Nachpflege PO-2026-09-27-003, design-conventions.md
+ * „Kombination mit der Auswahlkante"): Die ausgewählte Zeile behält ihre
+ * 3px-Auswahlkante (`inset 3px 0 0 ...`) im BERECHNETEN `box-shadow`, in
+ * JEDER Hervorhebungs-Kombination — zwei `box-shadow`-Regeln auf demselben
+ * Element würden sich sonst ERSETZEN statt ergänzen (CSS kennt pro Element
+ * nur einen wirksamen `box-shadow`-Wert), genau das Risiko, das die
+ * Custom-Property-Kombination aus `Ortszeile.vue` vermeiden soll. Zusätzlich:
+ * Die Accessible Name jeder geprüften Zeile (Rolle `link`, über Playwrights
+ * eigene Accname-Berechnung in `getByRole`, nicht über rohen `textContent`)
+ * enthält den erwarteten Screenreader-Text der Hervorhebung.
+ *
+ * Läuft NUR bei 1280px (Handoff-Vorgabe) auf der bereits von
+ * `bereiteOrtslisteZonenVor` angelegten `ortsliste-zonen`-Ansicht weiter —
+ * kein zweiter Datensatz.
+ */
+async function pruefeAusgewaehlteZeileSchattenUndName(seite, befunde) {
+  const faelle = [
+    { bezeichnung: 'Rauchtest-Zone-8', hervorhebungstext: null },
+    { bezeichnung: 'Rauchtest-Zone-8-5', hervorhebungstext: 'Preis-Leistung 9,0' },
+    {
+      bezeichnung: 'Rauchtest-Zone-9-Mit-Einer-Deutlich-Laengeren-Bezeichnung-Als-Sonst-In-Dieser-Liste-Ueblich',
+      hervorhebungstext: 'Geschmack 9,0, Preis-Leistung 9,0',
+    },
+    { bezeichnung: 'Rauchtest-Zone-Schwach', hervorhebungstext: 'Geschmack 9,0' },
+  ]
+
+  // Grenze nach der Bezeichnung erzwingen (Leerraum oder Textende): sonst
+  // matcht z. B. „Rauchtest-Zone-8" als Teilstring auch die Zeile
+  // „Rauchtest-Zone-8-5" — beide Bezeichnungen teilen ein Präfix.
+  for (const fall of faelle) {
+    const zeile = seite.getByRole('link', { name: new RegExp(`${escapeRegExp(fall.bezeichnung)}(\\s|$)`) })
+    if ((await zeile.count()) === 0) {
+      befunde.push(`ortsliste-zonen (${fall.bezeichnung}): Zeile nicht gefunden`)
+      continue
+    }
+    await zeile.first().click()
+    await seite.waitForTimeout(300)
+
+    const ausgewaehlt = seite.locator('.ortszeile--ausgewaehlt')
+    if ((await ausgewaehlt.count()) === 0) {
+      befunde.push(`ortsliste-zonen (${fall.bezeichnung}): keine Zeile trägt nach dem Klick ".ortszeile--ausgewaehlt"`)
+      continue
+    }
+    const schatten = await ausgewaehlt.first().evaluate((el) => getComputedStyle(el).boxShadow)
+    if (!/inset/.test(schatten) || !/\b3px\b/.test(schatten)) {
+      befunde.push(
+        `ortsliste-zonen (${fall.bezeichnung}): ausgewählte Zeile hat keinen inset-3px-Layer im berechneten box-shadow ("${schatten}")`,
+      )
+    }
+
+    if (fall.hervorhebungstext) {
+      const namensregex = new RegExp(`${escapeRegExp(fall.bezeichnung)}(\\s|$)[\\s\\S]*${escapeRegExp(fall.hervorhebungstext)}`)
+      const zeileMitName = seite.getByRole('link', { name: namensregex })
+      if ((await zeileMitName.count()) === 0) {
+        befunde.push(
+          `ortsliste-zonen (${fall.bezeichnung}): Accessible Name (Rolle link) enthält nicht "${fall.hervorhebungstext}"`,
+        )
+      }
+    }
+  }
+  await seite.screenshot({ path: `${FOTOS}/desktop-1280-ortsliste-zonen-ausgewaehlt.png` })
+  console.log('  ortsliste-zonen/ausgewaehlte-zeile — Auswahlkante + Accessible Name je Hervorhebungs-Kombination geprüft')
+}
+
+/**
+ * Nachtrag ADR-0011 P6 (2026-09-28, Rückläufer PO-2026-09-27-003): Ab lg ist
+ * jede Master-Detail-Spalte ein ABGESCHLOSSENER Scroll-Bereich — deterministisch
+ * geprüft, statt vom zufällig angesammelten Bestand eines Laufs abzuhängen
+ * (der ursprüngliche Befund traf zufällig erst `ortsliste-legende`, weil erst
+ * dort genug hohe Zeilen im Bestand lagen).
+ *
+ * Läuft für JEDE Breite aus `BREITEN` mit `width >= 1024` und für BEIDE
+ * `detailOffen`-Zustände (Aufrufer filtert `BREITEN`, s. `main()`): Weder
+ * `document.documentElement.scrollHeight` noch eine der beiden Spalten selbst
+ * darf `innerHeight` (+1px Toleranz) übersteigen — das Fenster darf ab lg
+ * grundsätzlich nicht scrollen (ADR-0011 Punkt 6).
+ *
+ * Vorbedingung ist TEIL der Zusicherung (analog ADR-0033 Punkt 7): Ohne
+ * (1) Listen-Spalten-INHALT höher als die Spalte selbst UND (2) mindestens
+ * ein absolut positioniertes Element im Spalteninhalt unterhalb der
+ * sichtbaren Spaltenhöhe wäre "scrollt nicht" kein Beleg für eine wirksame
+ * Abschottung, sondern nur dafür, dass nie genug Inhalt vorlag. Beide werden
+ * hier selbst hergestellt, als benannte Bedingung (kein Bezug auf eine
+ * bestimmte Klasse/Datei): genügend Füll-Orte, damit die Liste die Spalte
+ * überragt, plus ein alphabetisch SPÄTER Ort mit Geschmack ≥ 9 bei der
+ * Sortier-VOREINSTELLUNG „Bezeichnung" (ORTE_SORTIERUNG_VOREINSTELLUNG,
+ * `features/orte/model/ansicht.ts`) — das erzeugt einen Screenreader-Hinweis
+ * (`bestimmeHervorhebung`), der irgendein absolut positioniertes Element im
+ * Spalteninhalt weit unten in der Liste plaziert. Kein Sortierwechsel nötig:
+ * die Voreinstellung genügt, damit diese Funktion keine gespeicherte
+ * Einstellung verändert zurücklässt.
+ *
+ * Läuft auf einer FRISCHEN Seite mit eigenem Bestand (wie
+ * `pruefeScrollVersatzUndFokusBeiOrtswechsel`) — die Treiberaktion (Orte
+ * anlegen, Detail öffnen) berührt die Messgröße selbst nicht: Weder das
+ * Anlegen noch ein Klick auf eine Zeile setzt `scrollTop`/`scrollHeight`
+ * händisch.
+ *
+ * Try/catch um die gesamte Funktion (wie
+ * `pruefeTagFilterLeerBeiAusgewaehltemOrt`): ein Abbruch erscheint als
+ * Befund im gesammelten Bericht, statt den ganzen Lauf zu beenden.
+ */
+async function pruefeSpaltenAbgeschlossenerScrollBereich(seite, breite, befunde) {
+  const kontext = `${breite.name}/spalten-abgeschlossener-scroll-bereich`
+
+  async function messeSpalten() {
+    return seite.evaluate(() => {
+      function box(el) {
+        if (!el) return null
+        const rect = el.getBoundingClientRect()
+        return { top: rect.top, bottom: rect.bottom, height: rect.height, clientHeight: el.clientHeight, scrollHeight: el.scrollHeight }
+      }
+      const liste = document.querySelector('.master-detail__liste')
+      const detail = document.querySelector('.master-detail__detail')
+
+      // Vorbedingung (2): mindestens ein absolut positioniertes Element IM
+      // INHALT einer Spalte, dessen untere Kante unterhalb der sichtbaren
+      // Spaltenhöhe liegt.
+      let absolutUnterhalbSpalte = false
+      for (const spalte of [liste, detail]) {
+        if (!spalte) continue
+        const spalteRect = spalte.getBoundingClientRect()
+        for (const el of spalte.querySelectorAll('*')) {
+          if (getComputedStyle(el).position !== 'absolute') continue
+          if (el.getBoundingClientRect().bottom > spalteRect.bottom + 1) {
+            absolutUnterhalbSpalte = true
+            break
+          }
+        }
+        if (absolutUnterhalbSpalte) break
+      }
+
+      return {
+        liste: box(liste),
+        detail: box(detail),
+        innerHeight: window.innerHeight,
+        documentScrollHeight: document.documentElement.scrollHeight,
+        absolutUnterhalbSpalte,
+      }
+    })
+  }
+
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    // Füll-Orte: alphabetisch VOR dem Randfall-Ort, genug für Inhalt > Spalte.
+    for (let i = 0; i < 16; i += 1) {
+      await legeOrtAnUndOeffneIhn(seite, `Rauchtest-Scroll-Aaa-Fueller-${String(i).padStart(2, '0')}`)
+    }
+    // Alphabetisch SPÄTER Ort mit Geschmack ≥ 9 — erzeugt den
+    // Screenreader-Hinweis (`.ortszeile__sr-hervorhebung`) tief in der Liste.
+    await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Scroll-Zzz-Randfall')
+    await setzeAlleAchsenwerte(seite, [5, 5, 9, 5])
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await seite.waitForTimeout(300)
+
+    // --- Zustand 1: detailOffen = false ---------------------------------
+    const zustandGeschlossen = await messeSpalten()
+    pruefeSpaltenMesswerte(zustandGeschlossen, `${kontext} (Detail geschlossen)`, befunde)
+
+    // --- Zustand 2: detailOffen = true -----------------------------------
+    // Geöffnet wird NICHT der Randfall-Ort selbst, sondern der ERSTE
+    // Füll-Ort (oben in der alphabetisch sortierten Liste): `Ortebereich.vue`
+    // scrollt die ausgewählte Zeile beim Öffnen absichtlich in Sicht
+    // (`scrolleZeileInSicht`, ADR-0033 Punkt 4/7) — für eine bereits
+    // sichtbare Zeile ist das ein No-op, für den Randfall-Ort selbst hätte es
+    // ihn samt seinem Hervorhebungs-Hinweis sichtbar gemacht und damit genau
+    // die Vorbedingung (Element unterhalb der sichtbaren Spaltenhöhe)
+    // zunichtegemacht, die diese Funktion prüfen soll. Direkt per `goto` auf
+    // die Detailadresse statt `.click()`: Ein Klick ließe Playwright das Ziel
+    // zusätzlich selbst ins Sichtfeld scrollen, bevor überhaupt gemessen wird.
+    const zielHref = await seite
+      .locator('.ortszeile', { hasText: 'Rauchtest-Scroll-Aaa-Fueller-00' })
+      .getAttribute('href')
+    if (!zielHref) {
+      befunde.push(`${kontext} (Detail offen): Zeile "Rauchtest-Scroll-Aaa-Fueller-00" nicht gefunden — Href fehlt`)
+    } else {
+      // `zielHref` trägt bereits den vollen Pfad INKLUSIVE `BASE_PATH`
+      // (RouterLink rendert unter `createWebHistory(import.meta.env.BASE_URL)`
+      // absolut, ADR-0001) — anders als die relativen `ANSICHTEN[].pfad` oben
+      // NICHT mit `BASIS` verketten, sonst verdoppelt sich der Unterpfad.
+      await seite.goto(`http://localhost:${PORT}${zielHref}`, { waitUntil: 'networkidle' })
+      await seite.waitForTimeout(400)
+      const zustandOffen = await messeSpalten()
+      pruefeSpaltenMesswerte(zustandOffen, `${kontext} (Detail offen)`, befunde)
+    }
+
+    await seite.screenshot({ path: `${FOTOS}/${breite.name}-spalten-abgeschlossener-scroll-bereich.png` })
+    console.log(`  ${kontext} — geprüft (beide detailOffen-Zustände)`)
+  } catch (fehler) {
+    befunde.push(`${kontext}: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  }
+}
+
+/** Wertet einen Messwert-Satz aus `pruefeSpaltenAbgeschlossenerScrollBereich`
+ *  aus — getrennt, damit beide Zustände (offen/geschlossen) dieselbe Prüfung
+ *  durchlaufen. Vorbedingung zuerst (s. Funktionskommentar oben): ohne sie
+ *  ist ein grünes Ergebnis kein Beleg. */
+function pruefeSpaltenMesswerte(messwerte, kontext, befunde) {
+  if (!messwerte.liste) {
+    befunde.push(`${kontext}: Vorbedingung nicht prüfbar — Listen-Spalte nicht gefunden`)
+    return
+  }
+  const inhaltHoeherAlsSpalte = messwerte.liste.scrollHeight > messwerte.liste.clientHeight + 1
+  if (!inhaltHoeherAlsSpalte) {
+    befunde.push(
+      `${kontext}: Vorbedingung nicht erreicht — Inhalt der Listen-Spalte (${messwerte.liste.scrollHeight}px) ist nicht höher als die Spalte selbst (${messwerte.liste.clientHeight}px)`,
+    )
+  }
+  if (!messwerte.absolutUnterhalbSpalte) {
+    befunde.push(`${kontext}: Vorbedingung nicht erreicht — kein absolut positioniertes Element im Spalteninhalt unterhalb der sichtbaren Spaltenhöhe gefunden`)
+  }
+  if (!inhaltHoeherAlsSpalte || !messwerte.absolutUnterhalbSpalte) return
+
+  if (messwerte.documentScrollHeight > messwerte.innerHeight + 1) {
+    befunde.push(`${kontext}: Fenster scrollt ab lg (Dokument ${messwerte.documentScrollHeight}px, Ansichtsfenster ${messwerte.innerHeight}px)`)
+  }
+  for (const [name, box] of [['Listen-Spalte', messwerte.liste], ['Detail-Spalte', messwerte.detail]]) {
+    if (box && box.height > messwerte.innerHeight + 1) {
+      befunde.push(`${kontext}: ${name} ist höher (${box.height}px) als das Ansichtsfenster (${messwerte.innerHeight}px)`)
+    }
+  }
+}
+
 /** Öffnet jede Ansicht bei einer Breite und prüft die Zusicherungen 1-5
  *  (Zusicherung 2 — Laufzeitfehler — hängt an Listenern auf `seite`, die
  *  der Aufrufer vor dem Aufruf registriert). */
@@ -1123,6 +1577,12 @@ async function pruefeAnsichtenBeiBreite(seite, breite, befunde) {
     for (const eintrag of await seite.evaluate(pruefeMehrzeiligeTextfelder)) {
       befunde.push(`${breite.name}/${ansicht.name}: ${eintrag}`)
     }
+    // Design-Antwort Roundtrip PO-2026-09-27-003 (Empfehlung, hier
+    // umgesetzt): läuft auf JEDER Ansicht/Breite — benannte Bedingung
+    // „jeder Button mit direktem Text-Kindknoten", keine Ansichtsliste.
+    for (const eintrag of await seite.evaluate(pruefeButtonTextUmbruch)) {
+      befunde.push(`${breite.name}/${ansicht.name}: ${eintrag}`)
+    }
     // PO-2026-09-26-002 (ADR-0032 Punkt 6): läuft auf JEDER Ansicht, deren
     // Wurzel `.master-detail` im DOM ist — benannte Bedingung, keine Liste
     // von Ansichtsnamen.
@@ -1137,6 +1597,12 @@ async function pruefeAnsichtenBeiBreite(seite, breite, befunde) {
       // PO-2026-09-13-003: ebenfalls kein neuer Sonderpfad, läuft über
       // dieselbe bereits geöffnete Ortsdetail-Seite und dieselbe BREITEN-Liste.
       await pruefeAbschlussKombination(seite, breite, befunde)
+    }
+    // PO-2026-09-27-003 (ADR-0034), nur bei 1280px (Handoff-Vorgabe): läuft
+    // über denselben, bereits von `bereiteOrtslisteZonenVor` angelegten
+    // Datensatz weiter, kein zweiter Durchlauf.
+    if (ansicht.name === 'ortsliste-zonen' && breite.width === 1280) {
+      await pruefeAusgewaehlteZeileSchattenUndName(seite, befunde)
     }
 
     await seite.screenshot({ path: `${FOTOS}/${breite.name}-${ansicht.name}.png` })
@@ -2573,6 +3039,16 @@ async function main() {
       await versatzSeite.close()
     }
 
+    // Zusicherung ADR-0011, Nachtrag zu Punkt 6 (2026-09-28,
+    // PO-2026-09-27-003): jede Spalte ist ab lg ein abgeschlossener
+    // Scroll-Bereich — für JEDE Breite aus BREITEN mit width >= 1024, eigener
+    // Bestand statt Vermischung mit den übrigen Läufen (s. Funktionskommentar).
+    for (const breite of BREITEN.filter((b) => b.width >= 1024) /* --breakpoint-lg */) {
+      const spaltenSeite = await browser.newPage({ viewport: { width: breite.width, height: breite.height } })
+      await pruefeSpaltenAbgeschlossenerScrollBereich(spaltenSeite, breite, befunde)
+      await spaltenSeite.close()
+    }
+
     // Zusicherung ab PO-2026-09-27-001 (design-conventions.md „Mehrzeilige
     // Textfelder wachsen mit dem Inhalt"), Weg (2) — nur bei 1280px (ab lg
     // gleichzeitig sichtbare Listen-Spalte, s. Funktionskommentar). Weg (1)
@@ -2655,6 +3131,12 @@ async function main() {
   console.log('Verhalten beim ECHTEN Entladen mit Fokus im Anfangsnotiz-Feld ist dieselbe')
   console.log('benannte, nicht zusicherbare Grenze wie bei Tags/Bewertungsachse (ADR-0031) —')
   console.log('siehe „Gemeldet" oben.')
+  console.log('Die ausgewählte Zeile behält ihre Auswahlkante im berechneten box-shadow in')
+  console.log('jeder Zonen-/Hervorhebungs-Kombination, ihre Accessible Name enthält den')
+  console.log('erwarteten Screenreader-Text (PO-2026-09-27-003, ADR-0034). Kein sichtbarer')
+  console.log('Button-Text bricht innerhalb seines Buttons um, auf jeder Ansicht/Breite —')
+  console.log('die Kopfzeile mit Zonen-Legende zeigt dafür ab 360px Containerbreite wieder')
+  console.log('eine Zeile, darunter zwei (Design-Antwort-Roundtrip PO-2026-09-27-003).')
   // ADR-0029 Punkt 4: ein ERFOLGREICHER Lauf weist die Grenze selbst aus,
   // nicht nur der Fehlerfall (Playwright-Skip oben) und nicht nur der Kopf
   // dieser Datei. Als Eigenschaft formuliert, nicht als Funktions-/

@@ -389,6 +389,86 @@ Wie bei den Tags bleibt das Verhalten beim ECHTEN Entladen mit Fokus im
 Kommentarfeld eine benannte, nicht zusicherbare Grenze (ADR-0031) und wird
 nur gemeldet.
 
+Ab PO-2026-09-27-003 (ADR-0034, Zonenfarben + Hervorhebungs-Schatten der
+Ortsliste, plus ein Design-Antwort-Roundtrip zur Kopfzeile) kommen zwei neue
+Ansichten und zwei neue harte Zusicherungen dazu. `ortsliste-zonen`
+(`bereiteOrtslisteZonenVor()`) legt alle fünf Zonen, einen Wert unter der
+untersten Zonengrenze, die Gruppe „ohne Wert" und alle vier
+Hervorhebungs-Kombinationen (keine/schwach/stark/beide) an, dazu eine
+Zonenzeile mit deutlich längerer Bezeichnung als sonst üblich.
+`ortsliste-legende` (`oeffneZonenLegende()`) zeigt das offene Legenden-Sheet
+— dafür bekommt `pruefeVerdeckung()` eine neue, benannte Ausnahme: Elemente
+HINTER einem offenen modalen Dialog (`aria-modal="true"`, strukturell für
+jedes `Sheet.vue`) sind kein Befund, weil dessen Backdrop den ganzen
+Bildschirm abdeckt, ohne den Rest der Seite `aria-hidden` zu setzen. Bei
+1280px prüft `pruefeAusgewaehlteZeileSchattenUndName()` zusätzlich hart: Die
+ausgewählte Zeile trägt in JEDER Hervorhebungs-Kombination weiterhin den
+inset-3px-Auswahlkante-Layer im berechneten `box-shadow`
+(design-conventions.md „Kombination mit der Auswahlkante" — zwei
+`box-shadow`-Regeln würden sich sonst ersetzen statt ergänzen), und die
+Accessible Name jeder Zeile (Rolle `link`) enthält den erwarteten
+Screenreader-Text. Eine weitere harte Zusicherung läuft auf JEDER
+Ansicht/Breite mit (`pruefeButtonTextUmbruch()`, Empfehlung der
+Design-Antwort, hier umgesetzt statt nur gemeldet): Sichtbarer Button-Text
+bricht innerhalb seines Buttons nie um — der ursprünglich gemeldete Fehler
+(„Ort hinzufügen" brach bei 320px intern auf zwei Zeilen um, statt dass die
+Kopfzeile selbst zweizeilig wurde, kein horizontaler Überlauf, deshalb vom
+bisherigen Rauchtest nicht gefangen), jetzt als Eigenschaft geprüft.
+`.ortebereich__liste-spalte` wird dafür zum `@container` (ADR-0012, analog
+`.werkzeugleiste`) — unterhalb 360px Containerbreite (320px/390px Viewport
+fallen beide darunter) zeigt die Kopfzeile mit `ZonenLegende` zwei Zeilen:
+Zeile 1 unverändert `<h1>` + Legende, Zeile 2 ausschließlich „Ort
+hinzufügen", rechtsbündig UND kompakt über ein CSS-Grid-Template statt eines
+erzwungenen Flex-Umbruchs (`Ortebereich.vue`s Style-Kommentar begründet, warum
+ein `flex-basis: 100%` direkt auf dem Button ihn selbst gestreckt hätte).
+
+**Zwischen PO-2026-09-27-003 und der Korrektur an `MasterDetail.vue` (ADR-0011,
+Nachtrag zu Punkt 6, 2026-09-28) war `npm run smoke` bewusst rot** —
+`pruefeMasterDetailSpalten()` meldete bei `desktop-1280/ortsliste-legende`
+„Fenster scrollt ab lg" (Dokument 1074px, Ansichtsfenster 900px). Die zuerst
+gemeldete Ursache (impliziter `min-height: auto` eines Grid-Items gewinnt
+gegen die feste Höhe) erwies sich als **unbestätigt**: Beide Spalten sind
+bereits Scroll-Container, ihre automatische Mindestgröße ist nach CSS Grid
+§6.6 schon 0, und die per Diagnose gemessenen Werte belegten das auch —
+beide Spalten blieben exakt bei `innerHeight` (900px), keine von beiden war
+höher als der Viewport. Tatsächliche Ursache: `.ortszeile__sr-hervorhebung`
+(neu in PO-2026-09-27-003, ADR-0034 Punkt 5) ist `position: absolute` ohne
+positionierten Vorfahren — ihr Containing Block war deshalb der initiale
+Containing Block (das Dokument), nicht die Listen-Spalte. Die Spalte
+schnitt sie nicht ab, und ihre statische Position tief in der Liste
+verlängerte das **Dokument**, nicht die Spalte. Sichtbar wurde das erst, wenn
+über die Lebensdauer eines Rauchtest-Laufs genug hohe Zeilen im DOM standen
+UND eine davon eine Hervorhebung trug — `ortsliste-legende` war davon als
+erste Ansicht betroffen, weil zu diesem Zeitpunkt bereits alle Orte aus den
+vorangegangenen Ansichten dieses Laufs plus die neuen Zonen-Orte im Bestand
+lagen. Der Fund war unabhängig vom Zonenfeature selbst.
+
+**Korrektur** (`MasterDetail.vue`, `@media (min-width: 1024px)`-Block): drei
+Deklarationen, alle drei bleiben stehen, auch wenn nur eine trägt — jede
+schließt eine eigene Art ab, auf die eine Spalte das Dokument verlängern
+kann. (1) Wurzel `grid-template-rows: minmax(0, 1fr)` — Gegenstück zur
+Spaltenspur, macht die Zeile exakt die feste Höhe statt implizit `auto`. (2)
+Spalten `min-height: 0` — Gegenstück zu `min-width: 0`. (3) Spalten
+`position: relative` — macht den Scroll-Container zum Containing Block
+seiner absolut positionierten Nachfahren (kein `z-index`, kein neuer
+Stapelkontext). Per Differenzlauf (Inline-Stil, ohne Rebuild, gegen den
+roten Stand) belegt: (3) allein behebt den gemessenen Fall vollständig
+(Dokument 1074px → 900px), (1) und (2) allein je nicht (Dokument bleibt bei
+1074px) — Befundlage B, nicht A.
+
+Eine neue harte Zusicherung deckt das jetzt deterministisch ab, statt vom
+zufällig angesammelten Bestand eines Laufs abzuhängen:
+`pruefeSpaltenAbgeschlossenerScrollBereich()` legt einen eigenen Bestand an
+(genug Füll-Orte, damit der Listen-Inhalt die Spalte überragt, plus ein
+alphabetisch später Ort mit Geschmack ≥ 9 — erzeugt den Screenreader-Hinweis
+tief in der Liste) und prüft für jede Breite aus `BREITEN` mit `width >=
+1024` und beide `detailOffen`-Zustände: Weder das Fenster noch eine der
+beiden Spalten selbst wird höher als das Ansichtsfenster. Die Vorbedingung
+ist Teil der Zusicherung (Listen-Inhalt höher als die Spalte UND ein absolut
+positioniertes Element im Spalteninhalt unterhalb der sichtbaren
+Spaltenhöhe) — ohne sie wäre „scrollt nicht" kein Beleg für eine wirksame
+Abschottung, sondern nur dafür, dass nie genug Inhalt vorlag.
+
 **Der Lead führt ihn aus, bevor er ein Paket als erledigt meldet** — nicht
 statt der Unit-Tests, sondern zusätzlich. Typecheck, Lint und Vitest
 prüfen, ob Code zusammenpasst; der Rauchtest prüft, ob das Ergebnis

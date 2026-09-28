@@ -129,6 +129,7 @@ import OrtLoeschenDialog from '../components/OrtLoeschenDialog.vue'
 import Ortssuche from '../components/Ortssuche.vue'
 import Ortszeile from '../components/Ortszeile.vue'
 import Werkzeugleiste from '../components/Werkzeugleiste.vue'
+import ZonenLegende from '../components/ZonenLegende.vue'
 import TagFilterleiste from '../../tags/components/TagFilterleiste.vue'
 import TagEingabe from '../../tags/components/TagEingabe.vue'
 import Bilderbereich from '../../medien/components/Bilderbereich.vue'
@@ -717,12 +718,14 @@ async function aufLoeschenBestaetigt(): Promise<void> {
       class="ortebereich__liste-spalte"
       tabindex="-1"
     >
-      <div class="ortebereich__kopf">
+      <div class="ortebereich__kopf ortebereich__kopf--mit-legende">
         <h1 class="ortebereich__kopf-titel">
           Orte
         </h1>
+        <ZonenLegende />
         <PrimaerButton
           type="button"
+          class="ortebereich__kopf-hinzufuegen"
           @click="sheetOffen = true"
         >
           <IconPlus :size="20" />
@@ -849,12 +852,14 @@ async function aufLoeschenBestaetigt(): Promise<void> {
     >
       <template #liste>
         <div class="ortebereich__liste-spalte">
-          <div class="ortebereich__kopf">
+          <div class="ortebereich__kopf ortebereich__kopf--mit-legende">
             <h1 class="ortebereich__kopf-titel">
               Orte
             </h1>
+            <ZonenLegende />
             <PrimaerButton
               type="button"
+              class="ortebereich__kopf-hinzufuegen"
               @click="sheetOffen = true"
             >
               <IconPlus :size="20" />
@@ -1270,6 +1275,26 @@ async function aufLoeschenBestaetigt(): Promise<void> {
 
 .ortebereich__liste-spalte {
   padding: var(--space-16);
+  /* Eigener Container statt Fensterbreite (ADR-0012, analog `.werkzeugleiste`
+     in Werkzeugleiste.vue): Die ~368px schmale Listen-Spalte ab `lg` ist
+     schmaler als jeder Media-Query-Breakpoint der App — nur die tatsächliche
+     Breite DIESES Bereichs entscheidet, ob die Kopfzeile zweizeilig werden
+     muss (Design-Antwort Roundtrip PO-2026-09-27-003, design-conventions.md
+     „Ortsliste: Zonenfarben und Hervorhebungs-Schatten" -> „Legende" ->
+     „Korrektur"). Bewusst HIER statt auf `.ortebereich__kopf` selbst: Ein
+     Element kann nicht der Query-Container für eine `@container`-Bedingung
+     sein, die auf DASSELBE Element angewendet wird (Spezifikation — der
+     nächste ANZUWENDENDE Container ist immer ein VORFAHRE, nie das Element
+     selbst) — `container-type` auf `.ortebereich__kopf` hätte die
+     `@container`-Regel unten deshalb nie greifen lassen (gegen diesen
+     Vor-Korrektur-Stand nachgewiesen: `pruefeButtonTextUmbruch()` blieb rot,
+     der Button brach bei 320px weiterhin intern um, keine Zweizeiligkeit).
+     `.ortebereich__liste-spalte` ist der nächste, bereits vorhandene
+     Vorfahre von `.ortebereich__kopf` in beiden betroffenen Zweigen
+     (Master-Detail-Liste und Null-Treffer-Zustand) — kein neuer Wrapper
+     nötig. Ihr Content-Box-Inhalt (Breite abzüglich dieses `padding`)
+     entspricht genau den 288px/358px aus der Design-Antwort. */
+  container-type: inline-size;
 }
 
 /* Kartenansicht (PO-2026-09-07-006, ADR-0019 Punkt 5): volle
@@ -1314,6 +1339,43 @@ async function aufLoeschenBestaetigt(): Promise<void> {
 .ortebereich__kopf-titel {
   font-size: var(--font-size-24);
   font-weight: var(--font-weight-semibold);
+}
+
+/* Zweizeiliges Layout unterhalb 360px Containerbreite (bindend, ADR-0012 —
+   @container statt @media): bei 320px Viewport bleiben nur 288px
+   Inhaltsbreite, bei 390px sind es 358px — beide bewusst mit im Fallback
+   (design-conventions.md, Korrektur 2026-09-28), um nicht auf einer knappen
+   Kante zu stehen, die beim nächsten Font-Update erneut reißen könnte. Nur
+   die beiden Kopfzeilen MIT ZonenLegende (`--mit-legende`) sind betroffen —
+   der Kartenansicht-Kopf hat keine Legende und bleibt unberührt (eigenes,
+   unmodifiziertes `.ortebereich__kopf` ohne diesen Modifier).
+
+   CSS-Grid statt eines erzwungenen Flex-Umbruchs: Ein `flex-basis: 100%`
+   DIREKT auf dem Button (wie im ursprünglichen technischen Vorschlag der
+   Design-Antwort, dort ausdrücklich "kein Zwang") hätte den Button SELBST
+   auf die volle Zeilenbreite gestreckt — bei nur einem Element auf der
+   Zeile bleibt keine freie Breite übrig, gegen die `justify-content:
+   flex-end`/`margin-inline-start: auto` noch etwas verschieben könnten. Das
+   widerspräche der bindenden Vorgabe „nicht auf volle Breite gestreckt —
+   behält seine kompakte Form". Ein `grid-template-columns`-Raster erzwingt
+   die zweite Zeile dagegen über die Spaltendefinition selbst, unabhängig
+   von der tatsächlichen Textbreite, und `justify-self: end` hält den Button
+   dabei bei seiner eigenen (kompakten) Breite. `<h1>` und der
+   Legende-Button bekommen dafür KEINE eigene Platzierung: Ohne
+   Positionsangabe rutschen sie in der DOM-Reihenfolge automatisch in die
+   ersten beiden freien Zellen von Zeile 1 (Grid-Auto-Placement) — Tab-/
+   Vorlesereihenfolge bleibt dadurch unverändert `<h1>` -> Legende -> „Ort
+   hinzufügen", kein DOM-/Reihenfolgewechsel. */
+@container (max-width: 359px) {
+  .ortebereich__kopf--mit-legende {
+    display: grid;
+    grid-template-columns: 1fr auto;
+  }
+
+  .ortebereich__kopf-hinzufuegen {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
 }
 
 .ortebereich__liste {
