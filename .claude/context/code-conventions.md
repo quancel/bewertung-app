@@ -7,7 +7,11 @@
 > nicht hierhin.
 
 - **Modus**: `vorgegeben` (Greenfield, ADR-0002)
-- **Zuletzt geprüft**: 2026-09-28, Rückläufer PO-2026-09-27-003: Ein
+- **Zuletzt geprüft**: 2026-09-28, Nachpflege zu PO-2026-09-27-003 (nach
+  der Abnahme): `container-type` sitzt auf einem Vorfahren. Das `clip`-Muster
+  bleibt lokal, es gibt kein globales Utility. Rauchtest-Ansichten
+  hinterlassen keine verstellten Einstellungen. Davor 2026-09-28, Rückläufer
+  PO-2026-09-27-003: Ein
   Scroll-Container im Grid/Flex ist ein abgeschlossener Scroll-Bereich (Spur,
   `min-height: 0` als Paar zu `min-width: 0`, `position: relative`; ADR-0011
   Nachtrag P6). Davor 2026-09-28, Nachpflege zu PO-2026-09-27-002 (nach
@@ -288,6 +292,14 @@ src/
   eigener Block mit `container-type: inline-size`, `@container (min-width: …)`.
   Kein `container-name` als Contract zwischen Contexts. `@media` bleibt für
   den Rahmen selbst und Nicht-Breiten-Abfragen (`prefers-reduced-motion`).
+  **`container-type` sitzt auf einem Vorfahren** der Elemente, deren Regeln
+  im `@container`-Block stehen, nie auf dem umgeschalteten Element selbst:
+  Die Abfrage sucht den nächsten Container unter den **Vorfahren**, auf sich
+  selbst greift sie nie, und das ohne Fehlermeldung. Zuerst einen vorhandenen
+  Vorfahren nehmen, erst dann einen Wrapper einziehen. Vorbild:
+  `.ortebereich__liste-spalte` ist Container für `.ortebereich__kopf`
+  (`Ortebereich.vue`, ab PO-2026-09-27-003). Nicht so: `container-type`
+  direkt auf `.ortebereich__kopf`, das blieb wirkungslos.
 - **Welche der beiden Abfragen, entscheidet die Frage, nicht der Ort im Baum**
   (ADR-0028): „welches Navigationsmuster ist aktiv" (ein-/zweispaltig,
   Bottom-Tabs/Nav-Rail, Chrome das an „ist die Liste daneben sichtbar" hängt)
@@ -341,7 +353,21 @@ src/
     `z-index`. Sonst entkommt ein absolut positionierter Nachfahre ohne
     eigenen positionierten Vorfahren (typisch: Screenreader-Text mit
     `clip`-Muster) dem Abschneiden und verlängert das Dokument.
-  Vorbild ist `shared/ui/MasterDetail.vue` (ab PO-2026-09-27-003).
+  Vorbild ist `shared/ui/MasterDetail.vue` (ab PO-2026-09-27-003). Im
+  Anlassfall trug **allein** `position: relative`, das hat der Differenzlauf
+  gezeigt. Die beiden anderen Teile sind trotzdem **nicht** überflüssig: Jeder
+  schließt eine eigene Art ab, auf die eine Spalte das Dokument verlängern
+  kann. Nicht als „wirkungslos" entfernen.
+- **Visuell versteckter Text nutzt das `clip`-Muster lokal im scoped Style**
+  (`position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0`),
+  wörtlich und vollständig. Klassenname `<block>__sr-<zweck>`, Vorbild
+  `.ortszeile__sr-hervorhebung`. Es gibt **kein globales Utility**, weil ein
+  solches den Anlassfall nicht verhindert hätte: Das Risiko liegt nicht in
+  der Klasse, sondern im **Containing Block**. Abgesichert wird deshalb der
+  Scroll-Container (Regel oben), nicht jede Kopie. Wer das Muster in einen
+  scrollenden Bereich setzt, prüft, ob der Scroll-Container oder ein
+  Vorfahre dazwischen positioniert ist.
 - **Den Versatz eines Scroll-Containers setzt der Baustein zurück, dem der
   Container gehört** (ADR-0033). Bei `MasterDetail.vue` geschieht das über
   `defineExpose({ setzeDetailVersatzZurueck })`: synchron, nur
@@ -615,6 +641,18 @@ src/
   in `scripts/smoke.mjs` eintragen — sonst prüft sie niemand. Ausnahmen von
   einer Zusicherung stehen als **benannte Bedingung** (Bauform), nie als
   Liste von IDs oder Klassennamen.
+- **Die Ansichten aus `ANSICHTEN` teilen sich Seite, Bestand und persistierte
+  Einstellungen** (Sortierung, Filter). Das gilt über die gesamte Laufzeit.
+  Eine Vorbereitung, die eine Einstellung verstellt, stellt sie wieder
+  zurück, bevor die nächste Ansicht läuft. Sonst verfälscht sie eine fremde,
+  spätere Zusicherung. Anlass: Nach `bereiteOrtslisteZonenVor()` blieb
+  „Gesamtnote" gespeichert, und die Verdeckungsprüfung der Ortssuche meldete
+  dadurch eine falsche Verdeckung. Bestehende Stelle: Der Reset steht beim
+  Nachfolger `oeffneZonenLegende()`. Wer die Reihenfolge in `ANSICHTEN`
+  ändert, zieht ihn mit. Braucht eine Zusicherung einen bestimmten Bestand als
+  **Vorbedingung**, läuft sie auf einer frischen Seite und legt ihn selbst an.
+  Der zufällig angesammelte Bestand eines Laufs zählt nicht als Vorbedingung.
+  Vorbild: `pruefeSpaltenAbgeschlossenerScrollBereich()`.
 - **Wer eine Zusicherung auf eine neue Dimension ausweitet, grenzt zuerst die
   falschen Befunde ab** — generisch, nicht am Einzelfall: Prüfpunkte jenseits
   der Viewport-**Höhe** sind normales Scrollen; eine fixierte Bottom-Tab-Leiste
@@ -705,5 +743,8 @@ Befund meldet.
   `pruefeAbschlussKombination` deckt die Stelle hart ab. Umgestellt wird,
   wenn der Chrome-Block dieser Datei aus eigenem Grund angefasst wird. Kein
   Einzelfall-Aufräumen.
+- **`.datenbereich__datei-input`** (`Datenbereich.vue`) nutzt das `clip`-Muster
+  für ein Datei-Input und nicht für Screenreader-Text. Deshalb heißt es nicht
+  `__sr-…`. Nicht umbenennen.
 - Bewusste Abweichung von der Greenfield-Referenz des Plugins (Angular/NgRx,
   Microservices): ADR-0001/0002.

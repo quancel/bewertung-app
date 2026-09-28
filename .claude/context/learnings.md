@@ -205,10 +205,20 @@
   gewinnt bei genug Inhalt" widersprach dem Lauf, aus dem sie stammte:
   `ortsliste-zonen` war mit demselben Bestand grün. Vor dem Festlegen einer
   Korrektur deshalb den Unterschied zwischen grünen und roten Fällen im
-  selben Lauf lesen. Genauso gilt: Eine Negativ-Zusicherung („Fenster scrollt
-  nicht") ist zufällig grün, solange niemand ihre Vorbedingung herstellt. Das
-  gehört als `constraint` ins Paket. (task_id: PO-2026-09-27-003, ADR-0011
-  Nachtrag P6)
+  selben Lauf lesen. Danach die Kandidaten **einzeln** gegen den roten Stand
+  prüfen (Differenzlauf): Von drei Deklarationen trug nur eine. Ein
+  Korrekturpaket verlangt diesen Nachweis als `constraint`. Genauso gilt:
+  Eine Negativ-Zusicherung („Fenster scrollt nicht") ist zufällig grün,
+  solange niemand ihre Vorbedingung herstellt. Auch das gehört als
+  `constraint` ins Paket. (task_id: PO-2026-09-27-003, ADR-0011 Nachtrag P6)
+- [2026-09-28] projektweit: Die Abnahme von -003 lief in einer Cloud-Session
+  ohne die ursprünglichen `acceptance_criteria`. Dort schreibt `.claude/runs/`
+  nicht, und der Aufruf enthielt kein Handoff-Objekt. Geprüft wurde deshalb
+  gegen abgeleitete Dokumente (design-*, ADR). Ein Kriterium, das es in keine
+  dieser Dateien geschafft hat, fällt so unbemerkt heraus. Der Abnahme gehört
+  das ursprüngliche Handoff-Objekt **wörtlich** mitgegeben. Beim Einordnen
+  `acceptance_criteria` deshalb vollständig im Handoff lassen, nie nur auf ein
+  ADR verweisen. (task_id: PO-2026-09-27-003)
 - [2026-09-11] orte/tags/karte: Leerzustände sind je **Filterstufe** zu
   zählen, nicht pauschal einer. Bestand leer · Filter ohne Treffer · gefiltert,
   aber nichts davon darstellbar (Orte ohne Koordinaten) sind drei verschiedene
