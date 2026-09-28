@@ -11,14 +11,15 @@ import type { Bewertungen } from '../features/bewertungen/model/bewertungen.type
 import type { Tags } from '../features/tags/model/tags.types'
 import type { Bild } from '../features/medien/model/medien.types'
 
-export const SCHEMA_VERSION = 4
+export const SCHEMA_VERSION = 5
 
 /**
  * Der kanonische, zusammengesetzte Ort-Datensatz. Ab v2 (PO-2026-09-07-002,
  * ADR-0007/ADR-0008) um `bewertungen` erweitert, ab v3 (PO-2026-09-07-004,
- * ADR-0014) um `tags`. **Kein Bildfeld** (ADR-0016 Punkt 1): Bilder liegen
- * im eigenen Object Store `bilder`, zugeordnet über `ortId` im Bild-
- * Datensatz, nicht über eine Liste hier.
+ * ADR-0014) um `tags`. `anfangsnotiz` (ab v5, PO-2026-09-27-002) steht bereits
+ * in `OrtStammdaten` (features/orte/model/orte.types.ts). **Kein Bildfeld**
+ * (ADR-0016 Punkt 1): Bilder liegen im eigenen Object Store `bilder`,
+ * zugeordnet über `ortId` im Bild-Datensatz, nicht über eine Liste hier.
  */
 export type OrtDatensatz = OrtStammdaten & {
   bewertungen: Bewertungen

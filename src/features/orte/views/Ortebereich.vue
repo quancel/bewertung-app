@@ -123,6 +123,7 @@ import IconPapierkorb from '../../../shared/ui/icons/IconPapierkorb.vue'
 import Bewertungsachse from '../../bewertungen/components/Bewertungsachse.vue'
 import { berechneGesamtnote, formatiereGesamtnote, zaehleAusgefuellteAchsen } from '../../../shared/lib/gesamtnote'
 import { useAutosaveBeimVerlassen } from '../composables/useAutosaveBeimVerlassen'
+import AnfangsnotizFeld from '../components/AnfangsnotizFeld.vue'
 import OrtAnlegenSheet from '../components/OrtAnlegenSheet.vue'
 import OrtLoeschenDialog from '../components/OrtLoeschenDialog.vue'
 import Ortssuche from '../components/Ortssuche.vue'
@@ -576,6 +577,17 @@ function aufBezeichnungEingabe(event: Event): void {
 }
 
 /**
+ * Anfangsnotiz (PO-2026-09-27-002): KEIN lokaler Entwurf — jede Eingabe geht
+ * sofort über das Gate im Store (`aktualisiereAnfangsnotiz`, normalisiert
+ * dort), dasselbe Muster wie `aufBezeichnungEingabe`/`aufAdresseEingabe`
+ * oben. `AnfangsnotizFeld.vue` emittiert bei jedem `input`, `persistiereJetzt`
+ * läuft bei `verlassen` (`blur`), wie bei Bezeichnung/Adresse.
+ */
+function aufAnfangsnotizEingabe(text: string): void {
+  if (ortId.value) store.aktualisiereAnfangsnotiz(ortId.value, text)
+}
+
+/**
  * Übernahme eines Ortssuche-Treffers (ADR-0020 Punkt 6, „ÜBERNAHME"):
  * schreibt über dasselbe öffentliche API wie jede andere Feldänderung
  * (`aktualisiereFeld` + `persistiereOrt`, ADR-0005) — vollständiger
@@ -980,6 +992,20 @@ async function aufLoeschenBestaetigt(): Promise<void> {
               @input="aufBezeichnungEingabe"
               @blur="persistiereJetzt"
             >
+          </div>
+
+          <!-- Anfangsnotiz (PO-2026-09-27-002): direkt nach Bezeichnung und
+               vor der Ortssuche (Architekt-Vorgabe). Kein `:key="ortId"`
+               nötig — die Komponente hält keinen lokalen Entwurf, ein
+               Ortswechsel zeigt über die reaktive `:wert`-Prop automatisch
+               den neuen Stand. -->
+          <div class="ortsdetail__feld">
+            <label for="ortsdetail-anfangsnotiz">Anfangsnotiz</label>
+            <AnfangsnotizFeld
+              :wert="ort.anfangsnotiz"
+              @eingabe="aufAnfangsnotizEingabe"
+              @verlassen="persistiereJetzt"
+            />
           </div>
 
           <!-- `:key="ortId"` (ADR-0025 Punkt 5): Ortswechsel verwirft

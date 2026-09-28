@@ -77,6 +77,7 @@ describe('fuehreImportAus', () => {
           adresse: 'Musterstraße 1',
           breite: 52.52,
           laenge: 13.405,
+          anfangsnotiz: 'a'.repeat(100),
           geaendertAm: '2026-09-08T10:00:00.000Z',
           bewertungen: {
             ambiente: { wert: 8, kommentar: 'Gemütlich' },
@@ -85,6 +86,22 @@ describe('fuehreImportAus', () => {
             preisLeistung: { wert: 6, kommentar: null },
           },
           tags: ['Frühstück'],
+        },
+        {
+          id: 'ort-b',
+          bezeichnung: 'Nur ein Name',
+          adresse: null,
+          breite: null,
+          laenge: null,
+          anfangsnotiz: null,
+          geaendertAm: '2026-09-08T09:00:00.000Z',
+          bewertungen: {
+            ambiente: { wert: null, kommentar: null },
+            zeit: { wert: null, kommentar: null },
+            geschmack: { wert: null, kommentar: null },
+            preisLeistung: { wert: null, kommentar: null },
+          },
+          tags: [],
         },
       ],
       bilder: [
@@ -110,12 +127,18 @@ describe('fuehreImportAus', () => {
     await raeumeStoresAuf()
 
     const importErgebnis = await fuehreImportAus(exportBlob, 'ersetzen')
-    expect(importErgebnis).toEqual({ status: 'importiert', uebernommeneOrteAnzahl: 1 })
+    expect(importErgebnis).toEqual({ status: 'importiert', uebernommeneOrteAnzahl: 2 })
 
     const nachher = await ladeVollstaendigenBestand()
     expect(nachher.status).toBe('geladen')
     if (nachher.status !== 'geladen') return
     expect(nachher.bestand.orte).toEqual(gelesen.bestand.orte)
+    // Nutzerentscheidung Option A (PO-2026-09-27-002): der Import übernimmt
+    // die Anfangsnotiz UNVERÄNDERT, wie sie in der Datei steht — eine
+    // 100-Zeichen-Notiz und ein Ort ohne Notiz kommen beide unverändert
+    // zurück, keine Normalisierung beim Import.
+    expect(nachher.bestand.orte.find((ort) => ort.id === 'ort-a')?.anfangsnotiz).toBe('a'.repeat(100))
+    expect(nachher.bestand.orte.find((ort) => ort.id === 'ort-b')?.anfangsnotiz).toBeNull()
     expect(nachher.bestand.bilder).toHaveLength(1)
     expect(nachher.bestand.bilder[0]?.id).toBe('bild-a1')
     const bytesNachher = new Uint8Array(await nachher.bestand.bilder[0]!.blob.arrayBuffer())
@@ -180,6 +203,11 @@ describe('fuehreImportAus', () => {
     if (gelesen.status !== 'geladen') return
     expect(gelesen.bestand.bilder).toHaveLength(1)
     expect(gelesen.bestand.bilder[0]?.id).toBe(v4Bestand.bilder[0]?.id)
+    // (a) v4-Container-Import → jeder Ort bekommt anfangsnotiz: null
+    // (PO-2026-09-27-002, kein Feld dieser Version kannte es noch).
+    for (const ort of gelesen.bestand.orte) {
+      expect(ort.anfangsnotiz).toBeNull()
+    }
   })
 
   it('lehnt einen Container mit zu neuer schemaVersion ab, ohne den Bestand zu verändern — eigener Ausgang neben "beschaedigt"', async () => {
@@ -192,6 +220,7 @@ describe('fuehreImportAus', () => {
           adresse: null,
           breite: null,
           laenge: null,
+          anfangsnotiz: null,
           geaendertAm: '2026-09-08T10:00:00.000Z',
           bewertungen: {
             ambiente: { wert: null, kommentar: null },
@@ -231,6 +260,7 @@ describe('fuehreImportAus', () => {
           adresse: null,
           breite: null,
           laenge: null,
+          anfangsnotiz: null,
           geaendertAm: '2026-09-08T10:00:00.000Z',
           bewertungen: {
             ambiente: { wert: null, kommentar: null },

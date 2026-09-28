@@ -22,6 +22,15 @@ export interface OrtStammdaten {
   adresse: string | null
   breite: number | null
   laenge: number | null
+  /**
+   * Freier Kurztext ohne Zeilenumbruch, höchstens
+   * `ANFANGSNOTIZ_MAX_ZEICHEN` (100) UTF-16-Codeeinheiten
+   * (`features/orte/lib/anfangsnotiz.ts`, PO-2026-09-27-002). Leer ist
+   * ausdrücklich `null`, nie `""` (ADR-0007-Muster). Ersetzt die Adresse als
+   * Sekundärzeile der Ortsliste, sobald gesetzt (design-conventions.md
+   * „Ortszeile: Sekundärzeile (Adresse/Anfangsnotiz)").
+   */
+  anfangsnotiz: string | null
   /** ISO-8601, bei jeder inhaltlichen Änderung neu gesetzt. */
   geaendertAm: string
 }

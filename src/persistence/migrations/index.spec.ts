@@ -6,6 +6,7 @@ import v1Bestand from './__fixtures__/v1-bestand.json'
 import v2Bestand from './__fixtures__/v2-bestand.json'
 import v3Bestand from './__fixtures__/v3-bestand.json'
 import v4Bestand from './__fixtures__/v4-bestand.json'
+import v5Bestand from './__fixtures__/v5-bestand.json'
 
 /** Behelf nur für diesen Test: dekodiert den Base64-Platzhalter aus dem
  * Fixture in einen echten `Blob`, BEVOR der Bestand durch die Kette läuft
@@ -28,7 +29,7 @@ interface OrtV2 {
 
 describe('wendeMigrationsketteAn', () => {
   it('liefert den Bestand unverändert (Identität) bei gleicher Version', () => {
-    const rohBestand: RohBestand = v4Bestand as RohBestand
+    const rohBestand: RohBestand = v5Bestand as RohBestand
 
     const ergebnis = wendeMigrationsketteAn(rohBestand)
 
@@ -36,11 +37,11 @@ describe('wendeMigrationsketteAn', () => {
   })
 
   it('lässt einen Bild-Blob beim Kettenlauf unverändert — Identität rührt auch den Binärinhalt nicht an (ADR-0016 Punkt 5)', () => {
-    const bilderMitEchtemBlob = (v4Bestand.bilder as Array<Record<string, unknown>>).map((bild) => ({
+    const bilderMitEchtemBlob = (v5Bestand.bilder as Array<Record<string, unknown>>).map((bild) => ({
       ...bild,
       blob: base64ZuBlob(bild.blob as string, bild.mimeTyp as string),
     }))
-    const rohBestand: RohBestand = { ...v4Bestand, bilder: bilderMitEchtemBlob } as unknown as RohBestand
+    const rohBestand: RohBestand = { ...v5Bestand, bilder: bilderMitEchtemBlob } as unknown as RohBestand
 
     const ergebnis = wendeMigrationsketteAn(rohBestand)
 
@@ -74,6 +75,20 @@ describe('wendeMigrationsketteAn', () => {
     if (ergebnis.status !== 'ok') return
     expect(ergebnis.bestand.schemaVersion).toBe(SCHEMA_VERSION)
     expect(ergebnis.bestand.bilder).toEqual([])
+  })
+
+  it('migriert einen v4-Bestand (PO-2026-09-07-005) auf die aktuelle Version und ergänzt anfangsnotiz: null bei jedem Ort', () => {
+    const rohBestand: RohBestand = v4Bestand as RohBestand
+
+    const ergebnis = wendeMigrationsketteAn(rohBestand)
+
+    expect(ergebnis.status).toBe('ok')
+    if (ergebnis.status !== 'ok') return
+    expect(ergebnis.bestand.schemaVersion).toBe(SCHEMA_VERSION)
+    const orte = ergebnis.bestand.orte as Array<{ anfangsnotiz: unknown }>
+    for (const ort of orte) {
+      expect(ort.anfangsnotiz).toBeNull()
+    }
   })
 
   it('lehnt eine unbekannte, neuere Version ab und lässt den Bestand unangetastet', () => {
@@ -125,8 +140,12 @@ describe('wendeMigrationsketteAn', () => {
     expect((v3Bestand as RohBestand).schemaVersion).toBe(3)
   })
 
-  it('das v4-Fixture trägt die aktuelle SCHEMA_VERSION', () => {
+  it('das v4-Fixture bleibt bei Version 4 — Historie, nicht die aktuelle Version', () => {
     expect((v4Bestand as RohBestand).schemaVersion).toBe(4)
-    expect(SCHEMA_VERSION).toBe(4)
+  })
+
+  it('das v5-Fixture trägt die aktuelle SCHEMA_VERSION', () => {
+    expect((v5Bestand as RohBestand).schemaVersion).toBe(5)
+    expect(SCHEMA_VERSION).toBe(5)
   })
 })

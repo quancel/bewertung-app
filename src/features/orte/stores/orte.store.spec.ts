@@ -469,4 +469,96 @@ describe('useOrteStore', () => {
       expect(store.orteGefiltert).toHaveLength(2)
     })
   })
+
+  describe('Anfangsnotiz (PO-2026-09-27-002, code-conventions.md „Freitext mit Zeichenobergrenze")', () => {
+    it('legt einen neuen Ort mit anfangsnotiz: null an', async () => {
+      const store = useOrteStore()
+
+      const neuerOrt = await store.legeOrtAn('Ausgangsname')
+
+      expect(neuerOrt.anfangsnotiz).toBeNull()
+    })
+
+    it('aktualisiereAnfangsnotiz normalisiert (Zeilenumbrüche zu einem Leerzeichen) und ändert nur den Arbeitsspeicher, kein Schreibvorgang', async () => {
+      const store = useOrteStore()
+      const ort = await store.legeOrtAn('Ausgangsname')
+      speichereOrtMock.mockClear()
+
+      store.aktualisiereAnfangsnotiz(ort.id, 'Zeile1\nZeile2')
+
+      expect(store.ortNachId(ort.id)?.anfangsnotiz).toBe('Zeile1 Zeile2')
+      expect(speichereOrtMock).not.toHaveBeenCalled()
+    })
+
+    it('aktualisiereAnfangsnotiz setzt bei leerem/reinem Leerraum-Text null', async () => {
+      const store = useOrteStore()
+      const ort = await store.legeOrtAn('Ausgangsname')
+      store.aktualisiereAnfangsnotiz(ort.id, 'Text')
+
+      store.aktualisiereAnfangsnotiz(ort.id, '   ')
+
+      expect(store.ortNachId(ort.id)?.anfangsnotiz).toBeNull()
+    })
+
+    it('aktualisiereAnfangsnotiz kürzt auf 100 Zeichen', async () => {
+      const store = useOrteStore()
+      const ort = await store.legeOrtAn('Ausgangsname')
+
+      store.aktualisiereAnfangsnotiz(ort.id, 'a'.repeat(150))
+
+      expect(store.ortNachId(ort.id)?.anfangsnotiz).toHaveLength(100)
+    })
+
+    // code-conventions.md „Die Naht Store → Repository wird nicht vollständig
+    // wegmockt": Diese Datei mockt `persistence/orte-repository` für die
+    // übrigen Tests oben vollständig (Isolation der Store-Logik) — dieser EINE
+    // Test bindet stattdessen an das ECHTE Repository (gegen `fake-indexeddb`,
+    // kein Mock), damit der volle Weg Setter → `persistiereOrt` →
+    // `ladeAlleOrte` mit dem Wert geprüft ist, den der Store im Betrieb
+    // tatsächlich übergibt (ADR-0031 Punkt 2: `sichereKopie` + `tx.commit()`
+    // greifen nur am echten Repository, nicht am Mock). `vi.resetModules()` +
+    // `vi.doUnmock` laden Store und Repository für GENAU diesen Test frisch,
+    // ohne den oben statisch importierten (gemockten) `useOrteStore` in den
+    // übrigen Tests dieser Datei zu beeinflussen — die dortige Bindung wurde
+    // bereits beim Laden der Datei aufgelöst und bleibt unverändert bestehen.
+    it('Setter → persistiereOrt → ladeAlleOrte gegen das ECHTE orte-repository: mehrzeiliger Rohtext kommt normalisiert und unverändert zurück', async () => {
+      vi.resetModules()
+      vi.doUnmock('../../../persistence/orte-repository')
+
+      try {
+        const { createPinia: erzeugePinia, setActivePinia: setzeAktivePinia } = await import('pinia')
+        const { oeffneDatenbank, _resetFuerTests: resetDb } = await import('../../../persistence/db')
+        const { ladeAlleOrte: ladeAlleOrteEcht } = await import('../../../persistence/orte-repository')
+
+        resetDb()
+        const geoeffnet = await oeffneDatenbank()
+        if (geoeffnet.status !== 'geoeffnet') throw new Error('Datenbank hätte offen sein müssen')
+        await geoeffnet.db.clear('meta')
+        await geoeffnet.db.clear('orte')
+        await geoeffnet.db.clear('einstellungen')
+        await geoeffnet.db.clear('bilder')
+
+        setzeAktivePinia(erzeugePinia())
+        const { useOrteStore: useOrteStoreEcht } = await import('./orte.store')
+        const store = useOrteStoreEcht()
+        const ort = await store.legeOrtAn('Ausgangsname')
+
+        store.aktualisiereAnfangsnotiz(ort.id, 'Zeile1\nZeile2  ')
+        await store.persistiereOrt(ort.id)
+
+        const ladeErgebnis = await ladeAlleOrteEcht()
+        expect(ladeErgebnis.status).toBe('geladen')
+        if (ladeErgebnis.status !== 'geladen') return
+        expect(ladeErgebnis.orte.find((eintrag) => eintrag.id === ort.id)?.anfangsnotiz).toBe('Zeile1 Zeile2  ')
+
+        resetDb()
+      } finally {
+        vi.doMock('../../../persistence/orte-repository', () => ({
+          ladeAlleOrte: ladeAlleOrteMock,
+          speichereOrt: speichereOrtMock,
+          loescheOrt: loescheOrtMock,
+        }))
+      }
+    })
+  })
 })

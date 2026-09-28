@@ -192,6 +192,38 @@
  * dokumentierte, strukturelle Grenze (ADR-0031) gilt für jedes Feld im
  * Ortsdetail.
  *
+ * Ab PO-2026-09-27-002 (die Anfangsnotiz, ein neues 100-Zeichen-Kurztextfeld
+ * ohne Zeilenumbruch, design-conventions.md „Kurztextfeld mit
+ * Zeichenobergrenze") kommen fünf weitere Zusicherungen dazu, davon vier
+ * HART (`pruefeAnfangsnotizUeberlebtNeuladen()`, nur bei 1280px): (1) Die
+ * Anfangsnotiz übersteht ein Neuladen nach jedem der vier Auslöser aus
+ * ADR-0005 Punkt 5 — Feld verlassen, `/orte/:a`→`/orte` (Schließen),
+ * `/orte/:a`→`/orte/:b` (Klick auf eine andere Zeile), `visibilitychange`→
+ * `hidden` und `pagehide` am WEITERLEBENDEN Dokument (dort zusätzlich HART
+ * geprüft: der ERSTE `put()` trägt die Notiz bereits). Anders als bei
+ * Tags/Bewertungsachse (ADR-0030/ADR-0035) braucht das KEINE
+ * `uebernimmOffeneEingabe`-Orchestrierung: Die Anfangsnotiz hat keinen
+ * lokalen Entwurf, jede Eingabe geht sofort über den Store-Setter in den
+ * Arbeitsspeicher, und `persistiereOrt` schreibt bei jedem der vier Auslöser
+ * ohnehin den vollständigen Datensatz — die Notiz reist "kostenlos" mit. (2)
+ * Ab lg landet unbestätigter Text beim Wechsel A→B AUSSCHLIESSLICH über den
+ * Browserverlauf (`goBack`/`goForward`, nie Klick) bei A, das Feld zeigt
+ * danach B — ohne eigenen `:key` an `AnfangsnotizFeld`, weil die rein aus
+ * `ort.anfangsnotiz` gespeiste `:wert`-Prop nach dem Wechsel automatisch den
+ * neuen Wert zeigt. (3) Eine 100-Zeichen-Notiz (auch als leerzeichenloses
+ * Wort) ist im Feld selbst bei 320px vollständig sichtbar — läuft über die
+ * bereits generische `pruefeMehrzeiligeTextfelder()`-Zusicherung aus
+ * PO-2026-09-27-001 mit, die neue Ansicht `ortsdetail-lange-anfangsnotiz`
+ * liefert dafür nur die Daten. (4) Dieselbe Notiz steht in der Ortsliste bei
+ * 320/390/1280px vollständig da, ohne Kürzung, während `pruefeUeberlauf()`
+ * läuft — die neue Ansicht `ortsliste-lange-anfangsnotiz` liefert wieder nur
+ * die Daten, `Ortszeile.vue`s neue `overflow-wrap: anywhere`-Regel trägt den
+ * Rest. (5) Die Verdeckungsprüfung im Ortsdetail läuft zusätzlich mit
+ * FOKUSSIERTEM Anfangsnotiz-Feld und sichtbarem Zähler
+ * ("{aktuell}/100") — der Zähler steht im normalen Textfluss, verdeckt also
+ * nichts. GEMELDET, nicht hart (analog Fall b2 oben, dieselbe strukturelle
+ * Grenze ADR-0031): ein ECHTES `seite.reload()` mit Fokus im Anfangsnotiz-Feld.
+ *
  * Aufruf: `npm run smoke` (baut vorher). Bildschirmfotos landen in
  * `.smoke/`, das Verzeichnis ist ignoriert.
  */
@@ -254,6 +286,16 @@ const ANSICHTEN = [
   // einer frischen Seitenlebensdauer ohne weitere Eingabe (Treiberaktion und
   // Messgröße getrennt, s. `legeOrtAnUndOeffneIhnMitLangenKommentaren`).
   { name: 'ortsdetail-langer-kommentar', pfad: '/orte', vorbereiten: legeOrtAnUndOeffneIhnMitLangenKommentaren },
+  // PO-2026-09-27-002, Kriterium 3: 100-Zeichen-Anfangsnotiz (leerzeichenloses
+  // Wort) im Feld selbst — Detail bleibt offen, `pruefeMehrzeiligeTextfelder()`
+  // deckt das bereits generisch ab (benannte Bedingung „jedes sichtbare
+  // <textarea>"), diese Ansicht liefert nur die Daten dafür.
+  { name: 'ortsdetail-lange-anfangsnotiz', pfad: '/orte', vorbereiten: legeOrtAnUndOeffneIhnMitLangerAnfangsnotiz },
+  // PO-2026-09-27-002, Kriterium 4: dieselbe lange Anfangsnotiz, aber in der
+  // LISTENZEILE (Detail wieder geschlossen) — bei jeder Breite sichtbar,
+  // `pruefeUeberlauf()` deckt „nichts ragt aus dem Bildschirm" bereits
+  // generisch ab.
+  { name: 'ortsliste-lange-anfangsnotiz', pfad: '/orte', vorbereiten: legeOrtAnUndZeigeIhnInDerListeMitLangerAnfangsnotiz },
 ]
 
 /** Photon-Endpunkt, NUR zum Abfangen (Request-Interception) — es wird
@@ -457,6 +499,46 @@ async function legeOrtAnUndOeffneIhnMitLangenKommentaren(seite) {
 
   await seite.reload({ waitUntil: 'networkidle' })
   await seite.waitForTimeout(500)
+}
+
+/** Ein 100-Zeichen-„Wort" ohne Leerzeichen für die Anfangsnotiz
+ *  (PO-2026-09-27-002) — bewusst LÄNGER als die Zeichenobergrenze (100), damit
+ *  dieselbe Aktion gleichzeitig die Kürzung UND den leerzeichenlosen
+ *  Umbruch-Fall abdeckt: `normalisiereAnfangsnotiz()` kürzt sie beim Tippen
+ *  auf genau 100 Zeichen. */
+const LANGE_ANFANGSNOTIZ_OHNE_LEERZEICHEN =
+  'RauchtestAnfangsnotizOhneLeerzeichenDieDeutlichLaengerAlsEinhundertZeichenIstUndAufGenauEinhundertZeichenGekuerztWerdenMussOhneEinSurrogatpaarZuZerschneidenXYZ'
+
+/**
+ * PO-2026-09-27-002, Weg (1) — Mount OHNE Tippen (analog
+ * `legeOrtAnUndOeffneIhnMitLangenKommentaren`): legt einen Ort mit einer
+ * 100-Zeichen-Anfangsnotiz (leerzeichenloses Wort) an, committet sie regulär
+ * (Tab verlässt das Feld) und lädt danach NEU — die eigentliche Messung
+ * (Aufrufer, `pruefeMehrzeiligeTextfelder()`) findet erst NACH diesem
+ * Neuladen statt.
+ */
+async function legeOrtAnUndOeffneIhnMitLangerAnfangsnotiz(seite) {
+  await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Lange-Anfangsnotiz')
+  await seite.locator('#ortsdetail-anfangsnotiz').fill(LANGE_ANFANGSNOTIZ_OHNE_LEERZEICHEN)
+  await seite.keyboard.press('Tab') // verlässt das Feld, löst @blur/persistiereJetzt aus
+  await seite.waitForTimeout(300)
+
+  await seite.reload({ waitUntil: 'networkidle' })
+  await seite.waitForTimeout(500)
+}
+
+/**
+ * PO-2026-09-27-002, Kriterium „In der Ortsliste steht eine 100-Zeichen-Notiz
+ * … vollständig da": dieselbe lange Anfangsnotiz wie oben, aber die
+ * Detailansicht wird danach wieder GESCHLOSSEN (`/orte`), damit auch
+ * UNTERHALB `lg` (wo eine offene Detailansicht die Listen-Spalte verdeckt)
+ * die Listenzeile selbst sichtbar ist und `pruefeUeberlauf()`/
+ * `pruefeVerdeckung()` sie erfassen.
+ */
+async function legeOrtAnUndZeigeIhnInDerListeMitLangerAnfangsnotiz(seite) {
+  await legeOrtAnUndOeffneIhnMitLangerAnfangsnotiz(seite)
+  await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+  await seite.waitForTimeout(300)
 }
 
 /** Zusicherung 4: Was über CSS geladen wird, ist aufgelöst. Ein `.icon`
@@ -1073,6 +1155,22 @@ async function pruefeAnsichtenBeiBreite(seite, breite, befunde) {
 async function pruefeOrtssucheZustaende(seite, breite, befunde) {
   await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
   await legeOrtAnUndOeffneIhn(seite)
+
+  // PO-2026-09-27-002, Kriterium 5: Die Verdeckungsprüfung läuft zusätzlich
+  // mit FOKUSSIERTEM Anfangsnotiz-Feld und damit sichtbarem Zähler
+  // ("{aktuell}/100" unterhalb des Feldes) — der Zähler steht im normalen
+  // Fluss (design-conventions.md), verdeckt also weder sich selbst noch die
+  // nachfolgende Ortssuche. Läuft VOR den Ortssuche-Zuständen unten (die ihr
+  // eigenes Feld fokussieren und die Anfangsnotiz damit zwangsläufig wieder
+  // verlassen würden).
+  await seite.locator('#ortsdetail-anfangsnotiz').fill('Rauchtest-Zaehler-Sichtbar')
+  if ((await seite.locator('.anfangsnotiz-feld__zaehler').count()) === 0) {
+    befunde.push(`${breite.name}/ortsdetail (Anfangsnotiz fokussiert): Zähler ist bei fokussiertem Feld nicht sichtbar`)
+  }
+  for (const eintrag of await seite.evaluate(pruefeVerdeckung)) {
+    befunde.push(`${breite.name}/ortsdetail (Anfangsnotiz fokussiert, Zähler sichtbar): ${eintrag}`)
+  }
+  await seite.screenshot({ path: `${FOTOS}/${breite.name}-ortsdetail-anfangsnotiz-fokussiert.png` })
 
   for (const zustand of ORTSSUCHE_ZUSTAENDE) {
     await zustand.einrichten(seite)
@@ -1802,6 +1900,279 @@ async function pruefeBewertungsachseFokussiertesFeldBeimEchtenReload(seite, geme
 }
 
 /**
+ * Zusicherungen ab PO-2026-09-27-002 (design-conventions.md „Kurztextfeld mit
+ * Zeichenobergrenze"): Die Anfangsnotiz hat KEINEN lokalen Entwurf — jede
+ * Eingabe geht sofort über den Store-Setter (`aktualisiereAnfangsnotiz`) in
+ * den Arbeitsspeicher, genau wie Bezeichnung/Adresse. Anders als bei
+ * Tags/Bewertungsachse (ADR-0030/ADR-0035) braucht es deshalb KEINEN
+ * `uebernimmOffeneEingabe`-Weg: Der Store hält den normalisierten Text
+ * bereits, sobald getippt wird, und `persistiereOrt` (ausgelöst von JEDEM der
+ * vier Auslöser aus ADR-0005 Punkt 5) schreibt ohnehin den VOLLSTÄNDIGEN
+ * aktuellen Datensatz — die Anfangsnotiz reist also "kostenlos" mit jedem der
+ * vier Auslöser mit, auch wenn keiner davon speziell für sie geschrieben
+ * wurde. Genau DAS prüfen die folgenden Funktionen: unbestätigter (nicht per
+ * `blur` committeter) Text übersteht Feld-verlassen, beide Routenwechsel,
+ * `visibilitychange`→`hidden` und `pagehide` am weiterlebenden Dokument.
+ */
+async function pruefeAnfangsnotizUeberlebtNeuladen(browser, befunde, gemeldeteGrenzen) {
+  const seite = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+  await seite.addInitScript(() => {
+    window.__putAufzeichnungAnfangsnotiz = []
+    const originalPut = IDBObjectStore.prototype.put
+    IDBObjectStore.prototype.put = function (value, key) {
+      if (this.name === 'orte') {
+        window.__putAufzeichnungAnfangsnotiz.push(JSON.parse(JSON.stringify(value)))
+      }
+      return originalPut.call(this, value, key)
+    }
+  })
+  await pruefeAnfangsnotizFeldVerlassenUeberlebtNeuladen(seite, befunde)
+  await pruefeAnfangsnotizSchliessenUeberlebtNeuladen(seite, befunde)
+  await pruefeAnfangsnotizOrtswechselPerKlickUeberlebtNeuladen(seite, befunde)
+  await pruefeAnfangsnotizSichtbarkeitswechselUeberlebtNeuladen(seite, befunde)
+  await pruefeAnfangsnotizPagehideAmLebendenDokument(seite, befunde)
+  await pruefeAnfangsnotizFokussiertesFeldBeimEchtenReload(seite, gemeldeteGrenzen)
+  await pruefeAnfangsnotizOrtswechselUeberBrowserverlauf(seite, befunde)
+  await seite.close()
+}
+
+/** Auslöser „Feld verlassen": Tab statt Blur-Auslöser verlässt das Feld. */
+async function pruefeAnfangsnotizFeldVerlassenUeberlebtNeuladen(seite, befunde) {
+  const marker = 'rauchtest-anfangsnotiz-tab'
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Anfangsnotiz-Tab')
+    await seite.locator('#ortsdetail-anfangsnotiz').fill(marker)
+    await seite.keyboard.press('Tab')
+    await seite.waitForTimeout(300)
+
+    await seite.reload({ waitUntil: 'networkidle' })
+    await seite.waitForTimeout(400)
+    if ((await seite.locator('#ortsdetail-anfangsnotiz').inputValue()) !== marker) {
+      befunde.push(`anfangsnotiz-feld-verlassen: Anfangsnotiz "${marker}" fehlt nach dem Neuladen (Feld verlassen)`)
+    }
+  } catch (fehler) {
+    befunde.push(`anfangsnotiz-feld-verlassen: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  }
+}
+
+/**
+ * Auslöser „Route verlassen", Teil 1: `/orte/:a` → `/orte` über
+ * „Detailansicht schließen" (`onBeforeRouteUpdate`, kein Leave, s.
+ * Modul-Kommentar `Ortebereich.vue`). Text bleibt FOKUSSIERT, NICHT per
+ * `blur` committet, bevor geschlossen wird.
+ */
+async function pruefeAnfangsnotizSchliessenUeberlebtNeuladen(seite, befunde) {
+  const marker = 'rauchtest-anfangsnotiz-schliessen'
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Anfangsnotiz-Schliessen')
+    await seite.locator('#ortsdetail-anfangsnotiz').fill(marker) // fokussiert, NICHT verlassen
+    await seite.locator('[aria-label="Detailansicht schließen"]').click() // /orte/:a -> /orte
+    await seite.waitForTimeout(300)
+
+    await seite.reload({ waitUntil: 'networkidle' })
+    await seite.waitForTimeout(400)
+    await seite.locator('.ortszeile', { hasText: 'Rauchtest-Anfangsnotiz-Schliessen' }).click()
+    await seite.waitForTimeout(300)
+    if ((await seite.locator('#ortsdetail-anfangsnotiz').inputValue()) !== marker) {
+      befunde.push(`anfangsnotiz-schliessen: Anfangsnotiz "${marker}" fehlt nach /orte/:a→/orte (Schließen) und Neuladen`)
+    }
+  } catch (fehler) {
+    befunde.push(`anfangsnotiz-schliessen: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  }
+}
+
+/**
+ * Auslöser „Route verlassen", Teil 2: `/orte/:a` → `/orte/:b` per KLICK auf
+ * eine andere Listenzeile (ebenfalls ein `onBeforeRouteUpdate`). Text bleibt
+ * an A FOKUSSIERT, NICHT committet, bevor zu B gewechselt wird.
+ */
+async function pruefeAnfangsnotizOrtswechselPerKlickUeberlebtNeuladen(seite, befunde) {
+  const marker = 'rauchtest-anfangsnotiz-a-b'
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Anfangsnotiz-A')
+    await seite.locator('#ortsdetail-anfangsnotiz').fill(marker) // fokussiert, NICHT verlassen
+
+    await seite.getByRole('button', { name: 'Ort hinzufügen', exact: true }).first().click()
+    await seite.waitForTimeout(300)
+    await seite.locator('#ort-anlegen-bezeichnung').fill('Rauchtest-Anfangsnotiz-B')
+    await seite.keyboard.press('Enter') // /orte/:a -> /orte/:b
+    await seite.waitForTimeout(700)
+
+    await seite.reload({ waitUntil: 'networkidle' })
+    await seite.waitForTimeout(400)
+    await seite.locator('.ortszeile', { hasText: 'Rauchtest-Anfangsnotiz-A' }).click()
+    await seite.waitForTimeout(300)
+    if ((await seite.locator('#ortsdetail-anfangsnotiz').inputValue()) !== marker) {
+      befunde.push(`anfangsnotiz-ortswechsel-klick: Anfangsnotiz "${marker}" von Ort A fehlt nach /orte/:a→/orte/:b und Neuladen`)
+    }
+  } catch (fehler) {
+    befunde.push(`anfangsnotiz-ortswechsel-klick: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  }
+}
+
+/** Auslöser `visibilitychange` → `hidden`, simuliert über eine
+ *  Eigenschafts-Überschreibung (kein echter Tab-/Fensterwechsel im
+ *  Testrunner möglich). Text bleibt fokussiert, nicht committet. */
+async function pruefeAnfangsnotizSichtbarkeitswechselUeberlebtNeuladen(seite, befunde) {
+  const marker = 'rauchtest-anfangsnotiz-hidden'
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Anfangsnotiz-Hidden')
+    await seite.locator('#ortsdetail-anfangsnotiz').fill(marker) // fokussiert, NICHT verlassen
+
+    await seite.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' })
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    await seite.waitForTimeout(300)
+
+    await seite.reload({ waitUntil: 'networkidle' })
+    await seite.waitForTimeout(400)
+    if ((await seite.locator('#ortsdetail-anfangsnotiz').inputValue()) !== marker) {
+      befunde.push(`anfangsnotiz-hidden: Anfangsnotiz "${marker}" fehlt nach visibilitychange→hidden und Neuladen`)
+    }
+  } catch (fehler) {
+    befunde.push(`anfangsnotiz-hidden: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  }
+}
+
+/**
+ * Auslöser `pagehide` AM WEITERLEBENDEN DOKUMENT (kein echtes Entladen) —
+ * HART, analog `pruefeTagPagehideAmLebendenDokument`/
+ * `pruefeBewertungsachsePagehideAmLebendenDokument`: Der ERSTE `put()` auf dem
+ * Object Store „orte" nach diesem `pagehide` muss die Anfangsnotiz bereits
+ * tragen.
+ */
+async function pruefeAnfangsnotizPagehideAmLebendenDokument(seite, befunde) {
+  const marker = 'rauchtest-anfangsnotiz-pagehide'
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Anfangsnotiz-Pagehide')
+    await seite.locator('#ortsdetail-anfangsnotiz').fill(marker) // fokussiert, NICHT verlassen
+
+    await seite.evaluate(() => {
+      window.__putAufzeichnungAnfangsnotiz.length = 0
+    })
+    await seite.evaluate(() => window.dispatchEvent(new Event('pagehide'))) // Dokument lebt weiter
+    await seite.waitForTimeout(300)
+
+    const aufzeichnung = await seite.evaluate(() => window.__putAufzeichnungAnfangsnotiz)
+    if (aufzeichnung.length === 0) {
+      befunde.push('anfangsnotiz-pagehide-lebend: pagehide (am weiterlebenden Dokument) hat keinen put() ausgelöst')
+    } else if (aufzeichnung[0]?.anfangsnotiz !== marker) {
+      befunde.push(
+        `anfangsnotiz-pagehide-lebend: der ERSTE put() trägt die Anfangsnotiz "${marker}" nicht (war: ${JSON.stringify(aufzeichnung[0]?.anfangsnotiz)})`,
+      )
+    }
+
+    await seite.reload({ waitUntil: 'networkidle' })
+    await seite.waitForTimeout(400)
+    if ((await seite.locator('#ortsdetail-anfangsnotiz').inputValue()) !== marker) {
+      befunde.push(`anfangsnotiz-pagehide-lebend: Anfangsnotiz "${marker}" fehlt nach dem Neuladen`)
+    }
+  } catch (fehler) {
+    befunde.push(`anfangsnotiz-pagehide-lebend: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  }
+}
+
+/**
+ * GEMELDET, OHNE Einfluss auf `process.exitCode` (analog
+ * `pruefeTagFokussiertesFeldBeimEchtenReload`/
+ * `pruefeBewertungsachseFokussiertesFeldBeimEchtenReload`, ADR-0031 Punkt
+ * 5/6): Text im FOKUSSIERTEN Feld, ein ECHTES `seite.reload()` löst das
+ * entladungsbedingte `pagehide` aus. Dieselbe, bereits für Tags/
+ * Bewertungsachse dokumentierte strukturelle Grenze (ADR-0031) gilt für JEDES
+ * Feld im Ortsdetail, auch die Anfangsnotiz — kein Kriterium verlangt, dass
+ * das zusicherbar wäre.
+ */
+async function pruefeAnfangsnotizFokussiertesFeldBeimEchtenReload(seite, gemeldeteGrenzen) {
+  const marker = 'rauchtest-anfangsnotiz-fokus'
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Anfangsnotiz-Fokus')
+    await seite.locator('#ortsdetail-anfangsnotiz').fill(marker) // Fokus bleibt im Feld
+    await seite.waitForTimeout(200)
+
+    await seite.reload({ waitUntil: 'networkidle' })
+    await seite.waitForTimeout(400)
+    const erhalten = (await seite.locator('#ortsdetail-anfangsnotiz').inputValue()) === marker
+    gemeldeteGrenzen.push(
+      `anfangsnotiz-fokussiertes-feld-echter-reload (ADR-0031, benannte Grenze, kein Kriterium): Anfangsnotiz "${marker}" ist nach dem echten Neuladen ${erhalten ? 'ERHALTEN geblieben' : 'VERLOREN gegangen'}.`,
+    )
+  } catch (fehler) {
+    gemeldeteGrenzen.push(`anfangsnotiz-fokussiertes-feld-echter-reload: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  }
+}
+
+/**
+ * Kriterium 2 (Handoff PO-2026-09-27-002): Ab `lg` ausschließlich über den
+ * Browserverlauf (`goBack`/`goForward`, nie Klick) landet unbestätigter Text
+ * bei A, NICHT im Feld von B — analog
+ * `pruefeTagBleibtBeimOrtswechselAmRichtigenOrt`/
+ * `pruefeBewertungsachseOrtswechselUeberBrowserverlauf`. Die Anfangsnotiz hat
+ * zwar keinen lokalen Entwurf (anders als Tags/Bewertungsachse), aber genau
+ * deshalb ist die Struktur hier einfacher: Ohne eigenen `:key` an
+ * `AnfangsnotizFeld` zeigt die rein aus `ort.anfangsnotiz` gespeiste
+ * `:wert`-Prop nach dem Wechsel automatisch den Wert des NEUEN Ortes — ein
+ * Rot-Nachweis gegen einen (hypothetischen) lokalen Zwischenzustand in der
+ * Komponente würde hier tatsächlich fälschlich den Text von A bei B zeigen.
+ */
+async function pruefeAnfangsnotizOrtswechselUeberBrowserverlauf(seite, befunde) {
+  const markerAB = 'rauchtest-anfangsnotiz-verlauf-a-b'
+  const markerA2 = 'rauchtest-anfangsnotiz-verlauf-a-zweite-eingabe'
+
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Anfangsnotiz-Verlauf-A') // Historie: [/orte, A]
+
+    await seite.getByRole('button', { name: 'Ort hinzufügen', exact: true }).click()
+    await seite.waitForTimeout(300)
+    await seite.locator('#ort-anlegen-bezeichnung').fill('Rauchtest-Anfangsnotiz-Verlauf-B')
+    await seite.keyboard.press('Enter')
+    await seite.waitForTimeout(700) // Historie: [/orte, A, B]
+
+    await seite.goBack({ waitUntil: 'networkidle' }) // zurück zu A, rein über den Verlauf
+    await seite.waitForTimeout(300)
+    await seite.locator('#ortsdetail-anfangsnotiz').fill(markerAB) // fokussiert, NICHT verlassen
+
+    await seite.goForward({ waitUntil: 'networkidle' }) // A -> B, ausschließlich über den Verlauf
+    await seite.waitForTimeout(300)
+    const feldBWert = await seite.locator('#ortsdetail-anfangsnotiz').inputValue()
+    if (feldBWert !== '') {
+      befunde.push(`anfangsnotiz-ortswechsel-verlauf: Feld von Ort B ist nach A→B nicht leer, zeigt fälschlich "${feldBWert}"`)
+    }
+
+    await seite.goBack({ waitUntil: 'networkidle' }) // zurück zu A, Verifikation
+    await seite.waitForTimeout(300)
+    const feldAWert = await seite.locator('#ortsdetail-anfangsnotiz').inputValue()
+    if (feldAWert !== markerAB) {
+      befunde.push(
+        `anfangsnotiz-ortswechsel-verlauf: Ort A trägt den Entwurf "${markerAB}" nach dem Wechsel zu B nicht (Commit im Route-Guard fehlgeschlagen, war: "${feldAWert}")`,
+      )
+    }
+
+    // Zweiter Teil ("dazu A→/orte per goBack"): `/orte` und `/orte/:ortId`
+    // sind dieselbe Komponente — auch dieser Wechsel ist ein
+    // `onBeforeRouteUpdate`, kein Leave.
+    await seite.locator('#ortsdetail-anfangsnotiz').fill(markerA2) // fokussiert, NICHT verlassen
+    await seite.goBack({ waitUntil: 'networkidle' }) // A -> /orte
+    await seite.waitForTimeout(300)
+
+    await seite.goForward({ waitUntil: 'networkidle' }) // zurück zu A, rein zur Verifikation
+    await seite.waitForTimeout(300)
+    const feldANeu = await seite.locator('#ortsdetail-anfangsnotiz').inputValue()
+    if (feldANeu !== markerA2) {
+      befunde.push(`anfangsnotiz-ortswechsel-verlauf: Ort A trägt den Entwurf "${markerA2}" nach dem Wechsel zu /orte (goBack) nicht (war: "${feldANeu}")`)
+    }
+  } catch (fehler) {
+    befunde.push(`anfangsnotiz-ortswechsel-verlauf: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  }
+}
+
+/**
  * Zusicherung ab PO-2026-09-26-003 (ADR-0033, Korrektur zu ADR-0011 Punkt 6):
  * Ab lg beginnt die Detail-Spalte bei A→B von oben (Versatz 0), unabhängig
  * vom Scroll-Stand bei A, und der Fokus liegt danach auf "Detailansicht
@@ -2219,6 +2590,11 @@ async function main() {
     // Zusicherungen ab PO-2026-09-27-004 (ADR-0035), s.o. — nur bei 1280px
     // (Fall c/d brauchen die gleichzeitig sichtbare Listen-Spalte ab `lg`).
     await pruefeBewertungsachseUeberlebtNeuladen(browser, befunde, gemeldeteGrenzen)
+
+    // Zusicherungen ab PO-2026-09-27-002 (Anfangsnotiz), s.o. — nur bei
+    // 1280px (dieselbe Begründung: die A→B-Fälle brauchen die ab `lg`
+    // gleichzeitig sichtbare Listen-Spalte).
+    await pruefeAnfangsnotizUeberlebtNeuladen(browser, befunde, gemeldeteGrenzen)
   } finally {
     await browser?.close()
     beendeVorschau(server)
@@ -2270,6 +2646,15 @@ async function main() {
   console.log('Schreibvorgang (PO-2026-09-27-004, ADR-0035). Das Verhalten beim ECHTEN')
   console.log('Entladen mit Fokus im Kommentarfeld ist dieselbe benannte, nicht zusicherbare')
   console.log('Grenze wie bei Tags (ADR-0031) — siehe „Gemeldet" oben.')
+  console.log('Die Anfangsnotiz committet ohne Enter/Klick auf denselben vier Auslösern')
+  console.log('(Feld verlassen, beide Routenwechsel, Hintergrund, pagehide am weiterlebenden')
+  console.log('Dokument) und übersteht ein Neuladen; ab lg landet unbestätigter Text bei einem')
+  console.log('Ortswechsel ausschließlich über den Browserverlauf bei A, nicht bei B. Eine')
+  console.log('100-Zeichen-Notiz (auch als leerzeichenloses Wort) bleibt im Feld UND in der')
+  console.log('Ortsliste bei jeder Breite vollständig sichtbar (PO-2026-09-27-002). Das')
+  console.log('Verhalten beim ECHTEN Entladen mit Fokus im Anfangsnotiz-Feld ist dieselbe')
+  console.log('benannte, nicht zusicherbare Grenze wie bei Tags/Bewertungsachse (ADR-0031) —')
+  console.log('siehe „Gemeldet" oben.')
   // ADR-0029 Punkt 4: ein ERFOLGREICHER Lauf weist die Grenze selbst aus,
   // nicht nur der Fehlerfall (Playwright-Skip oben) und nicht nur der Kopf
   // dieser Datei. Als Eigenschaft formuliert, nicht als Funktions-/

@@ -37,6 +37,7 @@ import {
 } from '../../../persistence/orte-repository'
 import type { OrtDatensatz } from '../../../persistence/schema'
 import { sortiereOrte, type SortierErgebnis } from '../../../shared/lib/sortierung'
+import { normalisiereAnfangsnotiz } from '../lib/anfangsnotiz'
 import {
   ermittleKanonischeSchreibweise,
   leiteTagVokabularAb,
@@ -180,6 +181,9 @@ export const useOrteStore = defineStore('orte', () => {
       adresse: null,
       breite: null,
       laenge: null,
+      // Aktiv als leer angelegt (ADR-0007-Muster, PO-2026-09-27-002), nicht
+      // weggelassen — dieselbe Regel wie bei den übrigen leeren Feldern hier.
+      anfangsnotiz: null,
       // Aktiv als „nicht bewertet" angelegt (ADR-0007), nicht weggelassen —
       // dieselbe Regel wie im Migrationsschritt 002-bewertungen.
       bewertungen: {
@@ -198,7 +202,12 @@ export const useOrteStore = defineStore('orte', () => {
     return neuerOrt
   }
 
-  type BearbeitbaresFeld = Omit<OrtStammdaten, 'id' | 'geaendertAm'>
+  // `anfangsnotiz` ist hier ausdrücklich AUSGENOMMEN (code-conventions.md
+  // „Freitext mit Zeichenobergrenze und ohne Zeilenumbruch"): Das Feld hat
+  // mit `aktualisiereAnfangsnotiz` unten sein eigenes Gate (Normalisierung
+  // vor jedem Schreiben) — ein zweiter Pfad über `aktualisiereFeld` ohne
+  // dieses Gate wäre eine Konvention statt einer Struktur.
+  type BearbeitbaresFeld = Omit<OrtStammdaten, 'id' | 'geaendertAm' | 'anfangsnotiz'>
 
   /** Ändert ausschließlich den Arbeitsspeicher — kein Schreibvorgang. */
   function aktualisiereFeld(id: string, patch: Partial<BearbeitbaresFeld>): void {
@@ -208,6 +217,33 @@ export const useOrteStore = defineStore('orte', () => {
     const aktualisiert: OrtDatensatz = {
       ...bisheriger,
       ...patch,
+      geaendertAm: new Date().toISOString(),
+    }
+    orte.value = [
+      ...orte.value.slice(0, index),
+      aktualisiert,
+      ...orte.value.slice(index + 1),
+    ]
+  }
+
+  /**
+   * Gate für die Anfangsnotiz (PO-2026-09-27-002, code-conventions.md
+   * „Freitext mit Zeichenobergrenze und ohne Zeilenumbruch"): der EINZIGE
+   * Schreibpfad, der `text` verändert — jede Eingabe (jeder Tastenanschlag)
+   * läuft hier durch `normalisiereAnfangsnotiz` (Zeilenumbrüche zu einem
+   * Leerzeichen, Kürzung auf `ANFANGSNOTIZ_MAX_ZEICHEN`, Leerraum zu `null`),
+   * BEVOR sie in den Arbeitsspeicher geschrieben wird — kein lokaler Entwurf,
+   * kein Store-Setter ohne dieses Gate (`aktualisiereFeld` schließt das Feld
+   * per `Omit` aus, s. o.). Kein Schreibvorgang — wie bei jedem anderen Feld
+   * persistiert die View über `persistiereOrt`.
+   */
+  function aktualisiereAnfangsnotiz(id: string, text: string): void {
+    const index = orte.value.findIndex((ort) => ort.id === id)
+    if (index === -1) return
+    const bisheriger = orte.value[index]!
+    const aktualisiert: OrtDatensatz = {
+      ...bisheriger,
+      anfangsnotiz: normalisiereAnfangsnotiz(text),
       geaendertAm: new Date().toISOString(),
     }
     orte.value = [
@@ -387,6 +423,7 @@ export const useOrteStore = defineStore('orte', () => {
     ladeNeu,
     legeOrtAn,
     aktualisiereFeld,
+    aktualisiereAnfangsnotiz,
     aktualisiereAchse,
     fuegeTagHinzu,
     entferneTagVonOrt,

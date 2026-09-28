@@ -8,6 +8,7 @@ function ort(teil: Partial<OrtDatensatz> & { id: string; bezeichnung: string }):
     adresse: null,
     breite: null,
     laenge: null,
+    anfangsnotiz: null,
     geaendertAm: '2026-09-08T10:00:00.000Z',
     bewertungen: {
       ambiente: { wert: null, kommentar: null },

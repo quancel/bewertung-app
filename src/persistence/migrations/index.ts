@@ -17,6 +17,7 @@ import { SCHEMA_VERSION } from '../schema'
 import { schritt002Bewertungen } from './002-bewertungen'
 import { schritt003Tags } from './003-tags'
 import { schritt004Bilder } from './004-bilder'
+import { schritt005Anfangsnotiz } from './005-anfangsnotiz'
 
 export interface RohBestand {
   schemaVersion: number
@@ -41,13 +42,15 @@ export interface Migrationsschritt {
 /**
  * Geordnete Schrittliste. v1 hatte keine Vorgängerversion — der erste
  * Schritt (v1 → v2, PO-2026-09-07-002, Bewertungsachsen) steht hier vorne,
- * gefolgt von v2 → v3 (PO-2026-09-07-004, Tags) und v3 → v4
- * (PO-2026-09-07-005, Bilder). Künftige Schritte werden hinten angehängt.
+ * gefolgt von v2 → v3 (PO-2026-09-07-004, Tags), v3 → v4 (PO-2026-09-07-005,
+ * Bilder) und v4 → v5 (PO-2026-09-27-002, Anfangsnotiz). Künftige Schritte
+ * werden hinten angehängt.
  */
 export const migrationsschritte: Migrationsschritt[] = [
   schritt002Bewertungen,
   schritt003Tags,
   schritt004Bilder,
+  schritt005Anfangsnotiz,
 ]
 
 export type Migrationsergebnis =

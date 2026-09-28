@@ -10,6 +10,7 @@ function beispielOrt(teil: Partial<OrtDatensatz> = {}): OrtDatensatz {
     adresse: null,
     breite: null,
     laenge: null,
+    anfangsnotiz: null,
     geaendertAm: '2026-09-08T10:00:00.000Z',
     bewertungen: {
       ambiente: { wert: null, kommentar: null },

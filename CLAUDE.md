@@ -339,6 +339,37 @@ Die Umsetzung selbst (`shared/composables/useMitwachsendesTextfeld.ts`) muss
 in jedem unterstützten Browser wirken — dieser Rauchtest belegt das nur für
 Chromium, WebKit/Firefox bleiben nur manuell prüfbar.
 
+Ab PO-2026-09-27-002 (die Anfangsnotiz, ein neues 100-Zeichen-Kurztextfeld
+ohne Zeilenumbruch, design-conventions.md „Kurztextfeld mit
+Zeichenobergrenze") kommen vier weitere harte Zusicherungen dazu
+(`pruefeAnfangsnotizUeberlebtNeuladen()`, nur bei 1280px): Die Anfangsnotiz
+committet auch ohne Enter oder Klick über dasselbe Vier-Auslöser-Muster wie
+Tags/Bewertungsachse (Feld verlassen, `/orte/:a`→`/orte`, `/orte/:a`→
+`/orte/:b`, `visibilitychange`→hidden, `pagehide` am weiterlebenden
+Dokument — dort zusätzlich hart geprüft: der **erste** `put()` trägt die
+Notiz bereits) und übersteht ein Neuladen. Anders als bei Tags/Bewertungsachse
+(ADR-0030/ADR-0035) gibt es dafür **keine** `uebernimmOffeneEingabe`-
+Orchestrierung: Die Anfangsnotiz hat keinen lokalen Entwurf, jede Eingabe
+geht sofort über den Store-Setter (`aktualisiereAnfangsnotiz`) in den
+Arbeitsspeicher, und `persistiereOrt` schreibt bei jedem der vier Auslöser
+ohnehin den vollständigen Datensatz — die Notiz reist „kostenlos" mit. Ab
+`lg` landet unbestätigter Text bei einem Ortswechsel ausschließlich über den
+Browserverlauf (`goBack`/`goForward`) bei Ort A, das Feld zeigt danach Bs
+eigenen Wert — ohne eigenen `:key` an `AnfangsnotizFeld.vue`, weil die rein
+aus `ort.anfangsnotiz` gespeiste `:wert`-Prop nach dem Wechsel automatisch
+den neuen Wert zeigt. Wie bei Tags/Bewertungsachse bleibt das Verhalten beim
+ECHTEN Entladen mit Fokus im Anfangsnotiz-Feld eine benannte, nicht
+zusicherbare Grenze (ADR-0031) und wird nur gemeldet. Zwei neue Ansichten
+(`ortsdetail-lange-anfangsnotiz`, `ortsliste-lange-anfangsnotiz`) legen
+jeweils eine 100-Zeichen-Notiz als leerzeichenloses Wort an und liefern damit
+nur die Daten für zwei bereits bestehende, generische Zusicherungen:
+`pruefeMehrzeiligeTextfelder()` (PO-2026-09-27-001, jedes sichtbare
+`<textarea>`) deckt das Feld selbst ab, `pruefeUeberlauf()` die Sekundärzeile
+der Ortsliste (`Ortszeile.vue`s neue `overflow-wrap: anywhere`-Regel).
+Zusätzlich läuft die Verdeckungsprüfung im Ortsdetail einmal zusätzlich mit
+fokussiertem Anfangsnotiz-Feld und sichtbarem Zähler
+(„{aktuell}/100" im normalen Textfluss, verdeckt nichts).
+
 Ab PO-2026-09-27-004 (ADR-0035, Korrektur zu ADR-0030 Punkt 4/8) kommt eine
 weitere Gruppe harter Zusicherungen dazu, nur bei 1280px: Kommentar UND
 Zahlenwert einer Bewertungsachse committen auch ohne Enter oder Klick auf

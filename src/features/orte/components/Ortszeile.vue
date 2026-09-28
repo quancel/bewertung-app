@@ -21,6 +21,12 @@
  * „Master-Detail (ab lg)"): `ausgewaehlt` kommt von `Ortebereich.vue`, das
  * `route.params.ortId` gegen diesen Ort vergleicht — diese Komponente
  * bleibt store- und routenfrei und bekommt das Ergebnis nur als Prop.
+ *
+ * Sekundärzeile: Anfangsnotiz vor Adresse (PO-2026-09-27-002,
+ * design-conventions.md „Ortszeile: Sekundärzeile (Adresse/Anfangsnotiz)"):
+ * Hat der Ort eine Anfangsnotiz, zeigt die Zeile sie statt der Adresse — reine
+ * Ableitung aus Props, kein Zwischenzustand, reagiert also ohne Neuladen auf
+ * eine Änderung ab `lg`. Ohne beides entfällt die Zeile ganz (unverändert).
  */
 import { computed } from 'vue'
 import type { OrtDatensatz } from '../../../persistence/schema'
@@ -56,6 +62,11 @@ const ausgefuellteAchsen = computed(() => zaehleAusgefuellteAchsen(props.ort.bew
 const achsenWert = computed(() =>
   istAchsenKriterium(props.sortierKriterium) ? props.ort.bewertungen[props.sortierKriterium].wert : null,
 )
+
+// Priorität per Wahrheitswert (design-conventions.md „Ortszeile:
+// Sekundärzeile (Adresse/Anfangsnotiz)"): Anfangsnotiz VOR Adresse, ohne
+// beides bleibt die Sekundärzeile ganz weg (s. Template unten).
+const sekundaerzeile = computed(() => props.ort.anfangsnotiz || props.ort.adresse)
 </script>
 
 <template>
@@ -85,9 +96,9 @@ const achsenWert = computed(() =>
       </span>
     </span>
     <span
-      v-if="ort.adresse"
+      v-if="sekundaerzeile"
       class="ortszeile__adresse"
-    >{{ ort.adresse }}</span>
+    >{{ sekundaerzeile }}</span>
   </RouterLink>
 </template>
 
@@ -154,8 +165,16 @@ const achsenWert = computed(() =>
   color: var(--text-muted);
 }
 
+/* Wrap statt Kürzen, jetzt bindend (design-conventions.md „Ortszeile:
+   Sekundärzeile (Adresse/Anfangsnotiz)"): kein `line-clamp`, kein
+   `text-overflow`, kein `white-space: nowrap`/`pre-line` — reiner Fließtext,
+   der über so viele Zeilen wächst, wie der Inhalt braucht.
+   `overflow-wrap: anywhere` bricht auch ein einzelnes, zusammenhängendes
+   100-Zeichen-„Wort" innerhalb der Zeile um, statt „nichts ragt aus dem
+   Bildschirm" zu verletzen. */
 .ortszeile__adresse {
   font-size: var(--font-size-14);
   color: var(--text-muted);
+  overflow-wrap: anywhere;
 }
 </style>
