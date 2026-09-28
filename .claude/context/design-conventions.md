@@ -246,9 +246,19 @@ Zeichenobergrenze": ein Kommentarfeld wechselt beim Commit seine Form
 nicht). Als Ursache des Verlustmechanismus hält der Abschnitt zusätzlich den
 fehlenden, ortsgebundenen `:key` an den vier `Bewertungsachse`-Instanzen
 fest (anders als `Ortssuche`/`TagEingabe`) — nur als Kontext für die
-Konvention, die technische Lösung liegt beim `architekt`.
+Konvention, die technische Lösung liegt beim `architekt`. Eine sechzehnte
+Runde (2026-09-28, Meldung des `frontend-lead` bei der Umsetzung von
+PO-2026-09-27-003 — der einzige sanktionierte Roundtrip, kein neuer
+Nutzerauftrag) korrigiert den „Legende"-Bullet unter „Ortsliste:
+Zonenfarben und Hervorhebungs-Schatten": Bei 320px Containerbreite passten
+`<h1>Orte</h1>`, Legende-Button und `PrimaerButton` „Ort hinzufügen" nicht
+einzeilig in `.ortebereich__kopf` — das Button-Label brach intern um, statt
+dass der Button in eine zweite Zeile ging. Neu ergänzt: ein
+`@container`-Fallback auf zwei Zeilen unterhalb 360px Containerbreite
+(ADR-0012, analog zu `Werkzeugleiste.vue`), keine Icon-only-Variante
+(design-concept.md „Ikonografie" verbietet Icon-only bei Primäraktionen).
 
-- **Zuletzt kuratiert**: 2026-09-27
+- **Zuletzt kuratiert**: 2026-09-28
 
 ## Zustände
 
@@ -1015,6 +1025,42 @@ nicht für Ortsdetail, Kartenansicht, Sheets oder andere Listen.
   `Werkzeugleiste.vue` Zeile 1: Der dortige Platz ist bereits gegen drei
   Elemente durchgerechnet (siehe „Ansichtsumschalter" oben) — ein viertes
   Element kippt diese Rechnung erneut.
+  - **Korrektur (2026-09-28, Meldung des `frontend-lead` zu
+    PO-2026-09-27-003): bei 320px Containerbreite reichte der Platz für
+    `<h1>Orte</h1>` + Legende-Button + `PrimaerButton` „Ort hinzufügen"
+    NICHT einzeilig** — das Label brach innerhalb des Buttons um (44px →
+    72px Button-Höhe), statt dass der Button selbst in eine zweite Zeile
+    ging (kein horizontaler Überlauf, deshalb vom Rauchtest nicht
+    gefangen). Durchgerechnet: benötigte Breite einzeilig ca. 315–342px
+    (h1 ~50px + 2× `--space-16` Gap + Legende-Button 44px + Button „Ort
+    hinzufügen" ~180–200px), verfügbar bei 320px Viewport nur 288px
+    (320 − 2×16px Seitenabstand von `.ortebereich__liste-spalte`); bei
+    390px Viewport 358px — nah genug an der oberen Bedarfsschätzung, um
+    ebenfalls in den Fallback zu fallen, statt auf einer Kante zu stehen,
+    die beim nächsten Font-Update erneut reißen könnte. Die feste
+    400px-Listen-Spalte ab `lg` (Inhaltsbreite 368px nach Abzug des
+    Innenabstands) bleibt davon unberührt.
+    - **Bindend (ADR-0012 — Breitenlogik am Container, nicht am Viewport):
+      Umsetzung über `@container`, keine `@media`-Grenze.**
+      `.ortebereich__kopf` wird analog zu `.werkzeugleiste` selbst zum
+      Container (`container-type: inline-size`). Unterhalb **360px**
+      Containerbreite (Kommentar im Code mit dieser Herleitung, kein
+      bestehender Breakpoint-Token trifft den Wert) fällt der Kopf auf
+      **zwei Zeilen**: Zeile 1 bleibt `<h1>Orte</h1>` + Legende-Button
+      (dieselbe Randverteilung wie bisher, jetzt nur zu zweit statt zu
+      dritt), Zeile 2 ausschließlich der `PrimaerButton`, rechtsbündig
+      (`justify-content: flex-end` bzw. `margin-inline-start: auto`) —
+      nicht gestreckt über die volle Breite, damit der Button seine
+      bisherige, kompakte Form behält und keine neue „volle-Breite-Button"-
+      Optik einführt, die es sonst in dieser Kopfzeile nicht gibt. Ab 360px
+      (insbesondere die 368px der Listen-Spalte ab `lg`) bleibt die
+      bestehende einzeilige Anordnung unverändert — **kein** DOM-/
+      Reihenfolgewechsel, reine CSS-Umschaltung, Tab-/Vorlesereihenfolge
+      bleibt `<h1>` → Legende → „Ort hinzufügen".
+    - **Ausdrücklich verworfen: Icon-only-Variante von „Ort hinzufügen"**
+      unterhalb des Schwellenwerts — verstößt gegen design-concept.md
+      „Ikonografie": „kein Icon ohne Label bei Primäraktionen". Der Button
+      bleibt in jeder Breite mit sichtbarem Text.
   - **Öffnet die bestehende `Sheet.vue`-Chrome** (wie das
     Sortierungs-Sheet), kein neues Popover-Muster. Inhalt: ein kurzer
     erklärender Satz ohne Bewertungs-Rhetorik, danach eine Liste der fünf
