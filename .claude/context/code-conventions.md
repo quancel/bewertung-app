@@ -7,7 +7,9 @@
 > nicht hierhin.
 
 - **Modus**: `vorgegeben` (Greenfield, ADR-0002)
-- **Zuletzt geprüft**: 2026-09-27, Nachpflege zu PO-2026-09-27-004 (nach
+- **Zuletzt geprüft**: 2026-09-28, Nachpflege zu PO-2026-09-27-002 (nach
+  der Abnahme): Import-Regel für begrenzten Freitext ist endgültig (unverändert
+  übernehmen). Davor 2026-09-27, Nachpflege zu PO-2026-09-27-004 (nach
   der Abnahme): Rauchtest-Bauformen für gleichzeitig offene Entwürfe
   (`setzeEingabenOhneFokus`) und für Felder, deren Existenz selbst der Befund
   ist (`wertOderLeer`); Doku-Änderungen im Bericht mit Beleg; veraltete
@@ -20,8 +22,7 @@
   CSS-Hook über eine Custom Property statt `:deep()` und mehrere Signale in
   einer `box-shadow`-Deklaration. Davor 2026-09-27, Einordnen von PO-2026-09-27-002:
   Freitext mit Obergrenze ohne Zeilenumbruch (Gate im Store-Setter, kein
-  neues ADR; die Import-Zeile steht unter Vorbehalt einer offenen
-  Nutzerfrage). Davor 2026-09-27, Einordnen von PO-2026-09-27-001:
+  neues ADR). Davor 2026-09-27, Einordnen von PO-2026-09-27-001:
   mitwachsende mehrzeilige Textfelder als geteiltes Composable (Anwendung
   von ADR-0024, kein neues ADR). Davor 2026-09-27, Nachpflege zu PO-2026-09-26-002 und
   Einordnen von PO-2026-09-26-003: `CSS_TARGET` als Kompatibilitätsvorgabe
@@ -430,8 +431,9 @@ src/
   gibt (Struktur statt Konvention). `maxlength` ist Komfort und nicht das
   Gate. Die Komponente ruft dieselbe Funktion auf, um das DOM nachzuziehen,
   schreibt aber nur zurück, wenn sich der Text dadurch ändert (Caret, IME).
-  Der Import übernimmt den Wert unverändert. *Das ist eine Annahme bis zur
-  Antwort auf die Nutzerfrage aus PO-2026-09-27-002.*
+  Der Import übernimmt den Wert unverändert, ohne Normalisierung und ohne
+  Kürzung. Ein Datenstand ohne das Feld (ältere Container-Version) bekommt
+  `null`.
 - **Ergebnisse statt Ausnahmen**: Lade-/Schreibfunktionen geben ein
   ausdrückliches Ergebnis zurück, das der Aufrufer auswerten muss.
 - **Geschrieben wird der vollständige Datensatz aus dem Store**, nie
