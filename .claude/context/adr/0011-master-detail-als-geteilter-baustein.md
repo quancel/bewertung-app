@@ -14,6 +14,10 @@
   Punkt 1 kommt eine exponierte Methode `setzeDetailVersatzZurueck()`. Den
   Versatz aus Punkt 6 setzt der Baustein zurück, die Bereichsansicht löst
   das nur aus.
+- **Nachtrag zu Punkt 6**: 2026-09-28, Rückläufer PO-2026-09-27-003. Ab `lg`
+  ist jede Spalte ein abgeschlossener Scroll-Bereich. Siehe Abschnitt
+  „Nachtrag zu Punkt 6". Die Entscheidung bleibt unverändert, kein
+  `superseded by`.
 
 ## Kontext
 
@@ -108,6 +112,60 @@ Gefunden hat das der `product-owner` bei der Abnahme (bestätigt vom
 ist mit `dfa27ff` auf `replace` korrigiert. Kein `superseded by`: Weder die
 Entscheidung noch der geforderte Code ändert sich, nur der Satz, mit dem sie
 begründet ist.
+
+## Nachtrag zu Punkt 6 (2026-09-28, Rückläufer PO-2026-09-27-003)
+
+- **Befund**: `npm run smoke` meldet
+  `desktop-1280/ortsliste-legende: Fenster scrollt ab lg (Dokument 1074px,
+  Ansichtsfenster 900px)`. Ab `lg` scrollt also das Fenster, obwohl Punkt 6
+  das ausschließt. Die Zusicherung (`pruefeMasterDetailSpalten`, ADR-0032
+  Punkt 6) läuft seit -002. Rot wurde sie erst, als ein bestimmter Inhalt
+  zufällig vorlag.
+- **Gemeldete Ursache, nicht bestätigt**: Der Lead nennt den impliziten
+  `min-height: auto` der Grid-Items. Für diese beiden Elemente ist das nach
+  CSS Grid §6.6 nicht zu erwarten, denn sie sind selbst Scroll-Container, und
+  deren automatische Mindestgröße ist 0. Der Lauf selbst spricht auch
+  dagegen: `ortsliste-zonen` läuft unmittelbar davor mit **demselben** Bestand
+  und meldet nichts. `pruefeScrollVersatzUndFokusBeiOrtswechsel` verlangt mit
+  14 Orten als Vorbedingung, dass beide Spalten intern scrollen.
+- **Zweiter Kandidat**: `.ortszeile__sr-hervorhebung` (neu in -003,
+  ADR-0034 Punkt 5) ist `position: absolute` ohne positionierten Vorfahren.
+  Ihr Containing Block ist deshalb der initiale Containing Block, nicht die
+  Spalte. Die Spalte schneidet sie nicht ab, und ihre statische Position tief
+  in der Liste verlängert das **Dokument**. Das passt zum Unterschied zwischen
+  den beiden Ansichten: Nach „Gesamtnote" stehen die hervorgehobenen Zeilen
+  oben (`-zonen`, grün), nach „Bezeichnung" stehen sie unten (`-legende`,
+  rot). Welcher Kandidat trägt, stellt die Diagnose des Leads fest.
+- **Entscheidung (normativ ist die Eigenschaft)**: Ab `lg` ist jede Spalte
+  ein **abgeschlossener Scroll-Bereich**. Wie hoch ihr Inhalt ist und was in
+  ihm absolut positioniert ist, verlängert weder die Spalte noch das Dokument.
+  Der Überschuss wird in der Spalte gescrollt. Mittel sind drei Deklarationen
+  im `@media (min-width: 1024px)`-Block von `MasterDetail.vue`:
+  1. Wurzel `grid-template-rows: minmax(0, 1fr)`. Das ist das Gegenstück zur
+     vorhandenen Spaltenspur `minmax(0, 1fr)`. Die Zeile ist damit genau die
+     feste Höhe und nicht implizit `auto`.
+  2. Spalten `min-height: 0`, das Gegenstück zu `min-width: 0` (ADR-0012
+     Punkt 4).
+  3. Spalten `position: relative`. Der Scroll-Container ist damit der
+     Containing Block seiner absolut positionierten Nachfahren. Kein
+     `z-index`, also kein neuer Stapelkontext.
+  Alle drei bleiben stehen, auch wenn die Diagnose nur eine als tragend
+  ausweist. Jede schließt eine eigene Art ab, auf die eine Spalte das
+  Dokument verlängern kann. Das Ergebnis der Diagnose wird hier in der
+  Nachpflege nachgetragen.
+- **Warum kein neues ADR**: Es ist eine Korrektur innerhalb des bestehenden
+  Musters. Die Umkehr kostet drei CSS-Zeilen in einer Datei, es gibt keinen
+  Contract, keine Daten und keinen zweiten Context. Die Zahl früherer
+  Korrekturen am Baustein (ADR-0032, ADR-0033) ist kein ADR-Kriterium. Beide
+  waren neue Entscheidungen, nämlich Sichtbarkeitsstruktur und eine Art
+  exponierter Methode. Diese hier ist keine.
+- **Verifikation**: harte Rauchtest-Zusicherung ab `lg`, deterministisch
+  statt vom zufällig angesammelten Bestand abhängig. Die Vorbedingung ist
+  Teil der Zusicherung: Spalteninhalt höher als die Spalte **und** ein absolut
+  positioniertes Element im Spalteninhalt unterhalb der sichtbaren
+  Spaltenhöhe. Geprüft wird in beiden `detailOffen`-Zuständen. Die
+  Zusicherung muss gegen den Stand vor der Korrektur rot werden (ADR-0027
+  Punkt 8).
 
 ## Alternativen (kurz)
 

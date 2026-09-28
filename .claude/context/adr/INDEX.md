@@ -13,7 +13,16 @@
 > Eine Zeile pro ADR. Keine Zusammenfassung des Inhalts — der Titel muss
 > reichen, um zu entscheiden, ob das ADR relevant ist.
 
-**Stand: 2026-09-27 (Einordnen PO-2026-09-27-004)** — fünfunddreißig ADRs.
+**Stand: 2026-09-28 (Rückläufer PO-2026-09-27-003)** — fünfunddreißig ADRs,
+kein neues. **0011** hat einen **Nachtrag zu Punkt 6** bekommen: Ab `lg` ist
+jede Master-Detail-Spalte ein abgeschlossener Scroll-Bereich. Die Zeilenspur
+ist `minmax(0, 1fr)`, die Spalten bekommen `min-height: 0` und
+`position: relative`. Die gemeldete Ursache (`min-height: auto`) ist dort
+als unbestätigt markiert, der zweite Kandidat ist ein unverankerter
+`position: absolute`-Nachfahre. Der Diagnosebefund des Leads wird in der
+Nachpflege nachgetragen. Kein `superseded by`.
+
+Davor **Stand: 2026-09-27 (Einordnen PO-2026-09-27-004)** — fünfunddreißig ADRs.
 **0035** präzisiert ADR-0030 Punkt 4/8 für mehrere Entwurfsbesitzer im
 Ortsdetail. Ein externer Auslöser holt alle Entwürfe ab (Tag und die vier
 Achsen) und schreibt danach genau einmal. `Bewertungsachse.vue` bekommt eine
@@ -168,7 +177,7 @@ PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
 | [0008](0008-feldbesitz-und-ableitungen-ueber-context-grenzen.md) | Feldbesitz und Ableitungen über Context-Grenzen im Ort-Datensatz | orte, bewertungen, tags, medien, datensicherung | accepted | 2026-09-08 |
 | [0009](0009-ansichtszustand-der-ortsliste.md) | Ansichtszustand der Ortsliste gehört dem Context `orte` — und Gerätezustand darf eine Voreinstellung haben | orte, tags, datensicherung | accepted | 2026-09-08 |
 | [0010](0010-app-rahmen-chrome-grenze-und-routenbesitz.md) | App-Rahmen — Grenze der Navigationschrome, Routenbesitz und eine Meldung an zwei Orten | app-shell, orte | accepted | 2026-09-08 |
-| [0011](0011-master-detail-als-geteilter-baustein.md) | Master-Detail als geteilter Baustein — ein Adressraum, eine Bereichsansicht | app-shell, orte, karte | accepted (Punkt 5 präzisiert durch 0032; Punkt 1/6 präzisiert durch 0033) | 2026-09-08 |
+| [0011](0011-master-detail-als-geteilter-baustein.md) | Master-Detail als geteilter Baustein — ein Adressraum, eine Bereichsansicht | app-shell, orte, karte | accepted (Punkt 5 präzisiert durch 0032; Punkt 1/6 präzisiert durch 0033; Nachtrag zu Punkt 6: abgeschlossener Scroll-Bereich, 2026-09-28) | 2026-09-08 |
 | [0012](0012-breitenlogik-am-container-statt-am-viewport.md) | Breitenabhängige Layouts richten sich nach ihrem Container, nicht nach dem Viewport | app-shell, orte, medien, karte, bewertungen, tags | accepted | 2026-09-08 |
 | [0013](0013-fremde-bausteine-in-den-ortsansichten.md) | Fremde Bausteine in den Ortsansichten — Import-Richtung und die Slot-Naht der Werkzeugleiste | orte, bewertungen, tags, medien | accepted | 2026-09-09 |
 | [0014](0014-tag-modell-abgeleitetes-vokabular.md) | Tag-Modell — Feld im Ort-Datensatz, abgeleitetes Vokabular, case-insensitive Identität | tags, orte, datensicherung | accepted | 2026-09-09 |

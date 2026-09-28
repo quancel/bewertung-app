@@ -7,7 +7,10 @@
 > nicht hierhin.
 
 - **Modus**: `vorgegeben` (Greenfield, ADR-0002)
-- **Zuletzt geprüft**: 2026-09-28, Nachpflege zu PO-2026-09-27-002 (nach
+- **Zuletzt geprüft**: 2026-09-28, Rückläufer PO-2026-09-27-003: Ein
+  Scroll-Container im Grid/Flex ist ein abgeschlossener Scroll-Bereich (Spur,
+  `min-height: 0` als Paar zu `min-width: 0`, `position: relative`; ADR-0011
+  Nachtrag P6). Davor 2026-09-28, Nachpflege zu PO-2026-09-27-002 (nach
   der Abnahme): Import-Regel für begrenzten Freitext ist endgültig (unverändert
   übernehmen). Davor 2026-09-27, Nachpflege zu PO-2026-09-27-004 (nach
   der Abnahme): Rauchtest-Bauformen für gleichzeitig offene Entwürfe
@@ -324,6 +327,21 @@ src/
   die Elternbreite anzunehmen. Vorbild: `orte/components/Werkzeugleiste.vue`.
 - **Ab `lg` scrollt die Listen-Spalte selbst, nicht das Fenster** (ADR-0011
   P6). Was kleben soll, klebt **innerhalb** des scrollenden Spaltenelements.
+- **Ein Scroll-Container in einem Grid-/Flex-Elternteil mit fester Höhe ist
+  ein abgeschlossener Scroll-Bereich** (ADR-0011 Nachtrag P6). Das gilt für
+  jeden Layout-Container, nicht nur in `shared/ui/`. Drei Teile gehören
+  zusammen:
+  - In der Scroll-Achse ist die **Spur** begrenzt:
+    `grid-template-rows: minmax(0, …)`, nie eine implizite `auto`-Zeile und
+    nie ein nacktes `1fr`, das `minmax(auto, 1fr)` bedeutet.
+  - Das **Item** trägt `min-width: 0` **und** `min-height: 0` als Paar. Das
+    gilt auch für jedes Grid-/Flex-Item zwischen der festen Höhe und dem
+    Scroll-Container.
+  - Neben `overflow-y: auto|scroll` steht `position: relative`, ohne
+    `z-index`. Sonst entkommt ein absolut positionierter Nachfahre ohne
+    eigenen positionierten Vorfahren (typisch: Screenreader-Text mit
+    `clip`-Muster) dem Abschneiden und verlängert das Dokument.
+  Vorbild ist `shared/ui/MasterDetail.vue` (ab PO-2026-09-27-003).
 - **Den Versatz eines Scroll-Containers setzt der Baustein zurück, dem der
   Container gehört** (ADR-0033). Bei `MasterDetail.vue` geschieht das über
   `defineExpose({ setzeDetailVersatzZurueck })`: synchron, nur

@@ -200,6 +200,15 @@
   `CLAUDE.md` in `files_to_touch` aufnehmen und die Doku-Ergänzung als
   `constraint` mit Belegpflicht setzen (Regel: code-conventions.md,
   „Tests und Verifikation"). (task_id: PO-2026-09-27-004)
+- [2026-09-28] app-shell/projektweit: Eine gemeldete **Ursache** ist eine
+  Tatsachenbehauptung wie jede andere. Die Behauptung „`min-height: auto`
+  gewinnt bei genug Inhalt" widersprach dem Lauf, aus dem sie stammte:
+  `ortsliste-zonen` war mit demselben Bestand grün. Vor dem Festlegen einer
+  Korrektur deshalb den Unterschied zwischen grünen und roten Fällen im
+  selben Lauf lesen. Genauso gilt: Eine Negativ-Zusicherung („Fenster scrollt
+  nicht") ist zufällig grün, solange niemand ihre Vorbedingung herstellt. Das
+  gehört als `constraint` ins Paket. (task_id: PO-2026-09-27-003, ADR-0011
+  Nachtrag P6)
 - [2026-09-11] orte/tags/karte: Leerzustände sind je **Filterstufe** zu
   zählen, nicht pauschal einer. Bestand leer · Filter ohne Treffer · gefiltert,
   aber nichts davon darstellbar (Orte ohne Koordinaten) sind drei verschiedene
