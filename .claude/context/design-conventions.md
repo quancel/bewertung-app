@@ -1042,8 +1042,12 @@ nicht für Ortsdetail, Kartenansicht, Sheets oder andere Listen.
     Innenabstands) bleibt davon unberührt.
     - **Bindend (ADR-0012 — Breitenlogik am Container, nicht am Viewport):
       Umsetzung über `@container`, keine `@media`-Grenze.**
-      `.ortebereich__kopf` wird analog zu `.werkzeugleiste` selbst zum
-      Container (`container-type: inline-size`). Unterhalb **360px**
+      `.ortebereich__liste-spalte` wird analog zu `.werkzeugleiste` selbst
+      zum Container (`container-type: inline-size`) — nicht
+      `.ortebereich__kopf` selbst, da ein Element sich nicht per
+      `@container` auf seine eigene Breite abfragen kann;
+      `.ortebereich__liste-spalte` ist der nächste Vorfahre, dessen Breite
+      genau die des Kopfs bestimmt. Unterhalb **360px**
       Containerbreite (Kommentar im Code mit dieser Herleitung, kein
       bestehender Breakpoint-Token trifft den Wert) fällt der Kopf auf
       **zwei Zeilen**: Zeile 1 bleibt `<h1>Orte</h1>` + Legende-Button
