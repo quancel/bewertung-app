@@ -516,7 +516,7 @@ Ansichten und eine harte Zusicherung dazu. `ortsliste-gewichtung-hinweis`,
 373–375) zeigen die drei Einstiege je mit dem **längsten** Szenarionamen
 („Fokus Preis-Leistung") und laufen so durch Verdeckung, Überlauf und
 Button-Umbruch bei allen `BREITEN`. Neu ist die optionale Ansichts-Eigenschaft
-`aufraeumen` (Zeile 2816): Die Gewichtung ist persistiert und würde sonst für
+`aufraeumen` (Zeile 3065): Die Gewichtung ist persistiert und würde sonst für
 den Rest des Laufs gelten und Noten und Zonen späterer Ansichten verschieben;
 `setzeGewichtungZurueck` (Zeile 906) stellt Ausgewogen wieder her. Die harte
 Zusicherung `pruefeGewichtungWirktUeberallUndUeberstehtNeuladen` (ab Zeile
@@ -728,3 +728,50 @@ berechnete Luminanz, nicht für ein Foto — die Bildschirmfotos
 `.smoke/*-ortsliste-zonen.png` und `*-ortsliste-legende.png` (alle drei
 Breiten) wurden angesehen und gehen zur Graustufen-Begutachtung an den
 `ux-ui-designer`.
+
+Ab PO-2026-11-24-003 (ADR-0038, Kartenausschnitt merken, Sitzung = JS-Lebensdauer)
+kommt eine weitere Gruppe harter Zusicherungen dazu
+(`pruefeKartenausschnittBleibtErhalten()`, `scripts/smoke.mjs` ab Zeile 2832,
+je Breite aus `BREITEN` auf frischer Seite mit eigenem Bestand: drei Orte mit
+Koordinaten — Berlin, München (Tag „ka"), Athen (Tag „kb") —, die über den
+Koordinaten-Notnagel angelegt werden). Die Umsetzung ist ein nicht-reaktives
+Modul `features/karte/composables/kartenausschnittSitzung.ts` (Mitte und Zoom,
+nur von `useLeafletKarte.ts` benutzt); die reinen Funktionen
+`liegtMarkerImAusschnitt` und `bildeMengenKennung` liegen in
+`karte/lib/kartenausschnitt.ts` mit Vitest. Gemessen wird die **Lage aller
+Marker relativ zum Kartencontainer** (die Leaflet-Instanz ist von außen nicht
+erreichbar; Mitte und Zoom bestimmen die Markerpositionen eindeutig, und
+Marker außerhalb des Ansichtsfensters bleiben im DOM). Toleranz im Prüfcode
+benannt: `KARTENAUSSCHNITT_TOLERANZ_PX = 2` je Achse und Marker. Der Ausschnitt
+wird per Mausrad (heraus) und Ziehen auf der Kartenfläche gesetzt
+(Treiberaktion), gemessen wird nach dem Rückweg (Messgröße). **Vorbedingungen
+sind Teil der Zusicherung**: der gesetzte Ausschnitt weicht um mehr als 20px
+vom eingepassten ab, der Kartencontainer ist nach dem Rückweg ein **neuer**
+DOM-Knoten (sonst wäre „gleich geblieben" kein Beleg für Wiederherstellen),
+und im Filterfall liegt der Marker des Filters nachweislich außerhalb des
+gemerkten Ausschnitts. Geprüft werden vier Rückwege (Schließen — ab `lg`
+„Detailansicht schließen", darunter „Zurück" —, goBack aus dem Detail,
+Liste → Karte, Karte → `/daten` → goBack), danach ein echtes `reload()`
+(eingepasster Startausschnitt, nichts persistiert), der Filterfall (Filter in
+der Liste auf einen Ort außerhalb des gemerkten Ausschnitts → eingepasst, der
+Marker liegt in der Mitte) und die Filteränderung **in** der Kartenansicht
+(passt neu ein). Zwei Bauformen sind Absicht: Die Marker werden per Fokus
+mit `preventScroll` + Enter geöffnet, und der Klick auf „Daten" läuft
+programmatisch, weil bei 320px die Leaflet-Quellenangabe über der festen
+Tab-Leiste liegt und Playwrights Klick abfinge (aufgefallen beim Bau dieser
+Zusicherung, **nicht** Gegenstand dieses Pakets — ob das ein Befund für
+`pruefeVerdeckung` ist, entscheidet der `architekt`). **Rot-Nachweis**
+(ADR-0027 Punkt 8; je eine kompilierbare Mutation an `useLeafletKarte.ts`,
+gekürzte temporäre Smoke-Kopie, danach Quelle und Kopie zurückgesetzt):
+Gemerkten Ausschnitt nicht schreiben (`moveend`-Listener entfernt) → 12
+Befunde „Ausschnitt nicht wiederhergestellt (Abweichung 81.0px …,
+stattdessen eingepasst)" (4 Rückwege × 3 Breiten); Prüfung „Marker im
+Ausschnitt" durch `|| true` ersetzt → „der einzige gefilterte Marker liegt
+nicht im Ausschnitt (kein Einpassen)" bei allen drei Breiten; Einpassen bei
+Änderung der ID-Menge entfernt → „Filteränderung in der Kartenansicht — nicht
+alle Marker liegen danach im Ausschnitt". **Unbelegt**: dass die Fokusrückgabe
+(`focus({ preventScroll: true })`) den Ausschnitt nicht verschiebt (keine
+eigene Zusicherung; die Rückweg-Messung läuft allerdings nach der
+Fokusrückgabe und sollte bei einer Verschiebung über 2px rot werden, nicht gesondert nachgewiesen) und dass die
+Wiederherstellung ohne Animation geschieht (`animate: false` nicht gesondert
+gemessen). Nur Chromium.

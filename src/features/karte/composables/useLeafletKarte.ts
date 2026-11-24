@@ -18,7 +18,12 @@
 import { onBeforeUnmount, onMounted, watch, type Ref } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { berechneKartenausschnitt } from '../lib/kartenausschnitt'
+import {
+  berechneKartenausschnitt,
+  bildeMengenKennung,
+  liegtMarkerImAusschnitt,
+} from '../lib/kartenausschnitt'
+import { leseGemerktenAusschnitt, merkeAusschnitt } from './kartenausschnittSitzung'
 import type { KartenOrt } from '../model/karte.types'
 
 /**
@@ -47,6 +52,11 @@ export function useLeafletKarte(
   let karte: L.Map | null = null
   let kachelEbene: L.TileLayer | null = null
   const markerJeId = new Map<string, L.Marker>()
+  // ADR-0038: Der erste Aufbau mit GELADENER Markermenge entscheidet über
+  // Wiederherstellen oder Einpassen; danach wird nur bei inhaltlicher
+  // Änderung der Menge der Marker-IDs eingepasst.
+  let ersterAufbauErledigt = false
+  let letzteMengenKennung: string | null = null
 
   function navigiere(ortId: string): void {
     aufOrtAusgewaehlt(ortId)
@@ -133,8 +143,9 @@ export function useLeafletKarte(
   }
 
   /**
-   * `fitBounds`/`setView` beim Aufbau und bei jeder Änderung der
-   * Markermenge (Constraint KARTENAUSSCHNITT) — kein Nachführen bei reinem
+   * `fitBounds`/`setView` beim ersten Aufbau ohne passenden gemerkten
+   * Ausschnitt und bei jeder inhaltlichen Änderung der Menge der Marker-IDs
+   * (Constraint KARTENAUSSCHNITT, ADR-0038) — kein Nachführen bei reinem
    * Pan/Zoom des Nutzers, weil diese Funktion dafür gar nicht aufgerufen
    * wird. Reine Berechnung in `../lib/kartenausschnitt.ts`.
    */
@@ -155,6 +166,47 @@ export function useLeafletKarte(
     )
   }
 
+  /**
+   * ADR-0038 Punkt 4: Gemerkten Ausschnitt als Startansicht setzen (ohne
+   * Animation, ohne vorheriges Einpassen), sofern mindestens ein Marker darin
+   * liegt. Liefert, ob wiederhergestellt wurde.
+   */
+  function stelleGemerktenAusschnittWiederHer(): boolean {
+    if (!karte) return false
+    const gemerkt = leseGemerktenAusschnitt()
+    if (!gemerkt) return false
+    karte.setView([gemerkt.breite, gemerkt.laenge], gemerkt.zoom, { animate: false })
+    const grenzen = karte.getBounds()
+    const liegtDrin = liegtMarkerImAusschnitt(orte.value, {
+      suedwesten: { breite: grenzen.getSouth(), laenge: grenzen.getWest() },
+      nordosten: { breite: grenzen.getNorth(), laenge: grenzen.getEast() },
+    })
+    return liegtDrin
+  }
+
+  /** Marker nachführen und den Ausschnitt nur dann anfassen, wenn es der
+   * erste Aufbau mit Markern ist oder sich die ID-Menge ändert (ADR-0038). */
+  function synchronisiere(): void {
+    aktualisiereMarker()
+    if (!karte || orte.value.length === 0) return
+    const kennung = bildeMengenKennung(orte.value)
+    if (!ersterAufbauErledigt) {
+      ersterAufbauErledigt = true
+      letzteMengenKennung = kennung
+      if (!stelleGemerktenAusschnittWiederHer()) wendeKartenausschnittAn()
+      return
+    }
+    if (kennung === letzteMengenKennung) return
+    letzteMengenKennung = kennung
+    wendeKartenausschnittAn()
+  }
+
+  function merkeAktuellenAusschnitt(): void {
+    if (!karte) return
+    const mitte = karte.getCenter()
+    merkeAusschnitt({ breite: mitte.lat, laenge: mitte.lng, zoom: karte.getZoom() })
+  }
+
   onMounted(() => {
     if (!containerRef.value) return
 
@@ -168,14 +220,15 @@ export function useLeafletKarte(
       errorTileUrl: TRANSPARENTE_KACHEL,
     }).addTo(karte)
 
-    aktualisiereMarker()
-    wendeKartenausschnittAn()
+    // Erst NACH dem Initial-`setView` registrieren: Dessen `moveend` (Mitte
+    // 0/0, Zoom 2) würde sonst den gemerkten Ausschnitt überschreiben, bevor
+    // er gelesen wird (ADR-0038 Punkt 3: gemerkt wird, was zuletzt zu sehen war).
+    karte.on('moveend', merkeAktuellenAusschnitt)
+
+    synchronisiere()
   })
 
-  watch(orte, () => {
-    aktualisiereMarker()
-    wendeKartenausschnittAn()
-  })
+  watch(orte, synchronisiere)
 
   // ADR-0021 Punkt 2b: einen bereits sichtbar fehlgeschlagenen Fremd-Abruf
   // (leere Kachelfläche) an GENAU dieser Stelle wiederholen, wenn das Netz
@@ -186,13 +239,15 @@ export function useLeafletKarte(
 
   onBeforeUnmount(() => {
     markerJeId.clear()
+    karte?.off('moveend', merkeAktuellenAusschnitt)
     karte?.remove()
     karte = null
     kachelEbene = null
   })
 
   function fokussiereMarker(ortId: string): void {
-    markerJeId.get(ortId)?.getElement()?.focus()
+    // preventScroll: Die Fokusrückgabe verschiebt den Ausschnitt nicht (ADR-0038 Punkt 7).
+    markerJeId.get(ortId)?.getElement()?.focus({ preventScroll: true })
   }
 
   return { fokussiereMarker }

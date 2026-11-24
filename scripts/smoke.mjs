@@ -2732,6 +2732,255 @@ async function pruefeGewichtsreglerCommitWaehrendZiehens(browser, befunde) {
   await seite.close()
 }
 
+/**
+ * Zusicherungen ab PO-2026-11-24-003 (ADR-0038): der Kartenausschnitt bleibt
+ * über die Lebensdauer der JS-Laufzeit erhalten — und nur über sie.
+ *
+ * Gemessen wird die Lage der Marker relativ zum Kartencontainer (Pixel), nicht
+ * die Leaflet-Instanz (sie ist von außen nicht erreichbar): Mitte und Zoom
+ * bestimmen die Bildschirmpositionen aller Marker eindeutig. Auch Marker
+ * außerhalb des Ansichtsfensters liegen im DOM (Leaflet entfernt sie nicht).
+ * TOLERANZ: `KARTENAUSSCHNITT_TOLERANZ_PX` je Koordinatenachse und Marker —
+ * Rundung der Pixel-Transformationen, kein sichtbarer Versatz.
+ *
+ * Treiberaktion und Messgröße getrennt: Der Ausschnitt wird mit Mausrad und
+ * Ziehen auf der Kartenfläche gesetzt (Treiber), gemessen werden die
+ * Markerpositionen nach dem Rückweg (Messgröße). Vorbedingung ist Teil der
+ * Zusicherung: (1) der gesetzte Ausschnitt weicht um mehr als
+ * `KARTENAUSSCHNITT_MINDESTABWEICHUNG_PX` vom eingepassten ab, (2) der
+ * Kartencontainer ist nach dem Rückweg ein NEUER DOM-Knoten (die Karte wurde
+ * tatsächlich neu aufgebaut, nicht nur weitergezeigt), (3) im Filterfall
+ * liegt der Marker des Filters nachweislich außerhalb des gemerkten Ausschnitts.
+ * Geprüft werden Rückwege über „Detailansicht schließen", goBack aus dem
+ * Detail, Liste -> Karte und Karte -> /daten -> goBack, danach ein echtes
+ * `reload()` (eingepasster Startausschnitt, nichts persistiert) und der
+ * Filterfall (gemerkter Ausschnitt ohne sichtbaren Marker -> einpassen).
+ * Eigener Bestand auf frischer Seite (Namen „Ka-…", Tags „ka"/„kb").
+ */
+const KARTENAUSSCHNITT_TOLERANZ_PX = 2
+const KARTENAUSSCHNITT_MINDESTABWEICHUNG_PX = 20
+
+async function legeKartenOrtAn(seite, bezeichnung, tag, breite, laenge) {
+  await legeOrtAnUndOeffneIhn(seite, bezeichnung)
+  await seite.locator('.tag-eingabe__feld').fill(tag)
+  await seite.keyboard.press('Enter')
+  await seite.waitForTimeout(300)
+  await seite.getByRole('button', { name: 'Koordinaten von Hand eintragen' }).click()
+  await seite.locator('#ortsdetail-breite').fill(String(breite))
+  await seite.locator('#ortsdetail-laenge').fill(String(laenge))
+  await seite.keyboard.press('Tab')
+  await seite.waitForTimeout(400)
+  await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+}
+
+function leseMarkerLage(seite) {
+  return seite.evaluate(() => {
+    const container = document.querySelector('.karte-container')
+    if (!container) return null
+    const rahmen = container.getBoundingClientRect()
+    const marker = [...document.querySelectorAll('.karte-marker')]
+      .map((el) => {
+        const r = el.getBoundingClientRect()
+        return {
+          name: el.getAttribute('aria-label') ?? '',
+          x: r.left + r.width / 2 - rahmen.left,
+          y: r.top + r.height / 2 - rahmen.top,
+        }
+      })
+      .sort((a, b) => a.name.localeCompare(b.name))
+    return { breite: rahmen.width, hoehe: rahmen.height, marker }
+  })
+}
+
+function maxAbweichung(a, b) {
+  if (!a || !b || a.marker.length !== b.marker.length) return Infinity
+  let max = 0
+  for (const [i, m] of a.marker.entries()) {
+    if (m.name !== b.marker[i].name) return Infinity
+    max = Math.max(max, Math.abs(m.x - b.marker[i].x), Math.abs(m.y - b.marker[i].y))
+  }
+  return max
+}
+
+function liegtImContainer(lage, marker) {
+  return marker.x >= 0 && marker.x <= lage.breite && marker.y >= 0 && marker.y <= lage.hoehe
+}
+
+async function warteAufKartenmarker(seite, anzahl) {
+  await seite.waitForFunction((n) => document.querySelectorAll('.karte-marker').length === n, anzahl, { timeout: 10000 })
+  await seite.waitForTimeout(900)
+}
+
+async function fokussiereUndOeffneMarker(seite, name) {
+  await seite.evaluate((n) => {
+    document.querySelector(`.karte-marker[aria-label^="${n}"]`)?.focus({ preventScroll: true })
+  }, name)
+  await seite.keyboard.press('Enter')
+  await seite.waitForURL(/\/orte\/[^/?]+/, { timeout: 10000 })
+  await seite.waitForTimeout(500)
+}
+
+/** Der eine Weg zurück je Breite (pruefeAbschlussKombination): ab lg „Detailansicht
+ *  schließen", darunter „Zurück". */
+function schliesseDetailAnsicht(seite) {
+  return seite
+    .locator('[aria-label="Detailansicht schließen"]:visible, button:visible:has-text("Zurück")')
+    .first()
+    .click()
+}
+
+async function pruefeKartenausschnittBleibtErhalten(browser, breite, befunde) {
+  const kontext = `${breite.name}/kartenausschnitt`
+  const seite = await browser.newPage({ viewport: { width: breite.width, height: breite.height } })
+  seite.on('pageerror', (fehler) => befunde.push(`${kontext}: Laufzeitfehler: ${fehler.message}`))
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await legeKartenOrtAn(seite, 'Ka-A', 'ka', 52.52, 13.405)
+    await legeKartenOrtAn(seite, 'Ka-B', 'ka', 48.137, 11.575)
+    await legeKartenOrtAn(seite, 'Ka-C', 'kb', 37.98, 23.73)
+
+    await seite.goto(BASIS + '/orte?ansicht=karte', { waitUntil: 'networkidle' })
+    await warteAufKartenmarker(seite, 3)
+    const eingepasst = await leseMarkerLage(seite)
+
+    // --- Treiber: Ausschnitt mit Mausrad (heraus) und Ziehen abweichend setzen
+    const mitteX = eingepasst.breite / 2
+    const container = await seite.locator('.karte-container').boundingBox()
+    await seite.mouse.move(container.x + mitteX, container.y + eingepasst.hoehe / 2)
+    await seite.mouse.wheel(0, 60)
+    await seite.waitForTimeout(900)
+    await seite.mouse.move(container.x + mitteX, container.y + eingepasst.hoehe / 2)
+    await seite.mouse.down()
+    await seite.mouse.move(container.x + mitteX + 30, container.y + eingepasst.hoehe / 2 + 20, { steps: 8 })
+    await seite.mouse.up()
+    await seite.waitForTimeout(700)
+    const gesetzt = await leseMarkerLage(seite)
+
+    const abweichung = maxAbweichung(eingepasst, gesetzt)
+    if (!(abweichung > KARTENAUSSCHNITT_MINDESTABWEICHUNG_PX)) {
+      befunde.push(`${kontext}: Vorbedingung nicht erreicht — der gesetzte Ausschnitt weicht nur um ${abweichung}px vom eingepassten ab`)
+      return
+    }
+    if (!gesetzt.marker.some((m) => liegtImContainer(gesetzt, m))) {
+      befunde.push(`${kontext}: Vorbedingung nicht erreicht — kein Marker im gesetzten Ausschnitt`)
+      return
+    }
+
+    const markiere = () => seite.evaluate(() => { document.querySelector('.karte-container').dataset.rauchtestAlt = '1' })
+    const pruefeNachRueckweg = async (weg) => {
+      await warteAufKartenmarker(seite, 3)
+      const neuAufgebaut = await seite.evaluate(() => document.querySelector('.karte-container')?.dataset.rauchtestAlt === undefined)
+      if (!neuAufgebaut) befunde.push(`${kontext}: ${weg} — Vorbedingung nicht erreicht, die Karte wurde nicht neu aufgebaut`)
+      const lage = await leseMarkerLage(seite)
+      const ab = maxAbweichung(gesetzt, lage)
+      if (!(ab <= KARTENAUSSCHNITT_TOLERANZ_PX)) {
+        const eingep = maxAbweichung(eingepasst, lage)
+        befunde.push(`${kontext}: ${weg} — Ausschnitt nicht wiederhergestellt (Abweichung ${ab === Infinity ? 'unvergleichbar' : ab.toFixed(1) + 'px'} > ${KARTENAUSSCHNITT_TOLERANZ_PX}px${eingep <= KARTENAUSSCHNITT_TOLERANZ_PX ? ', stattdessen eingepasst' : ''})`)
+      }
+    }
+
+    // Rückweg 1: Detail über Marker öffnen, über „Detailansicht schließen" zurück
+    await markiere()
+    await fokussiereUndOeffneMarker(seite, 'Ka-A')
+    await schliesseDetailAnsicht(seite)
+    await pruefeNachRueckweg('Schließen')
+
+    // Rückweg 2: Detail, dann Browser-Zurück
+    await markiere()
+    await fokussiereUndOeffneMarker(seite, 'Ka-B')
+    await seite.goBack({ waitUntil: 'networkidle' })
+    await pruefeNachRueckweg('goBack aus dem Detail')
+
+    // Rückweg 3: Liste und zurück zur Karte
+    await markiere()
+    await seite.locator('.werkzeugleiste__ansicht-umschalten:visible').first().click()
+    await seite.locator('.ortszeile').first().waitFor({ state: 'visible', timeout: 10000 })
+    await seite.locator('.werkzeugleiste__ansicht-umschalten:visible').first().click()
+    await pruefeNachRueckweg('Liste → Karte')
+
+    // Rückweg 4: über /daten (die Bereichsansicht wird dabei ausgehängt)
+    await markiere()
+    // Programmatischer Klick: Bei 320px liegt die Leaflet-Quellenangabe der
+    // Karte über der festen Tab-Leiste und finge Playwrights Klick ab —
+    // Treiberaktion, nicht Messgröße (der Rückweg wird nach goBack gemessen).
+    await seite.evaluate(() => {
+      const link = [...document.querySelectorAll('a')].find((a) => /^\s*Daten\s*$/.test(a.textContent ?? '') && a.offsetParent !== null)
+      link?.click()
+    })
+    await seite.waitForURL(/\/daten/, { timeout: 10000 })
+    await seite.goBack({ waitUntil: 'networkidle' })
+    await pruefeNachRueckweg('Karte → Daten → goBack')
+
+    await seite.screenshot({ path: `${FOTOS}/${breite.name}-kartenausschnitt-wiederhergestellt.png` })
+
+    // Neuladen: Sitzung = JS-Lebensdauer, der Startausschnitt ist wieder der eingepasste
+    await seite.reload({ waitUntil: 'networkidle' })
+    await warteAufKartenmarker(seite, 3)
+    const nachNeuladen = await leseMarkerLage(seite)
+    const abNeuladen = maxAbweichung(eingepasst, nachNeuladen)
+    if (!(abNeuladen <= KARTENAUSSCHNITT_TOLERANZ_PX)) {
+      befunde.push(`${kontext}: nach dem Neuladen ist der Ausschnitt nicht der eingepasste Startausschnitt (Abweichung ${abNeuladen === Infinity ? 'unvergleichbar' : abNeuladen.toFixed(1) + 'px'})`)
+    }
+
+    // Filterfall: auf Ka-A hineinzoomen, bis Ka-C außerhalb liegt; Filter „kb"
+    // in der Liste; zurück zur Karte -> eingepasst auf Ka-C
+    const a = nachNeuladen.marker.find((m) => m.name.startsWith('Ka-A'))
+    const c = () => leseMarkerLage(seite).then((l) => ({ l, c: l.marker.find((m) => m.name.startsWith('Ka-C')) }))
+    const cont = await seite.locator('.karte-container').boundingBox()
+    await seite.mouse.move(cont.x + a.x, cont.y + a.y)
+    let zustand = await c()
+    for (let i = 0; i < 4 && liegtImContainer(zustand.l, zustand.c); i += 1) {
+      await seite.mouse.wheel(0, -240)
+      await seite.waitForTimeout(900)
+      zustand = await c()
+    }
+    if (liegtImContainer(zustand.l, zustand.c)) {
+      befunde.push(`${kontext}: Filterfall — Vorbedingung nicht erreicht, Ka-C liegt trotz Heranzoomen im Ausschnitt`)
+      return
+    }
+    if (!zustand.l.marker.some((m) => m.name.startsWith('Ka-A') && liegtImContainer(zustand.l, m))) {
+      befunde.push(`${kontext}: Filterfall — Vorbedingung nicht erreicht, Ka-A liegt nicht im gemerkten Ausschnitt`)
+      return
+    }
+    await markiere()
+    await seite.locator('.werkzeugleiste__ansicht-umschalten:visible').first().click()
+    await seite.locator('.ortszeile').first().waitFor({ state: 'visible', timeout: 10000 })
+    await seite.locator('.tag-filterleiste__pill', { hasText: /^\s*kb\s*$/ }).click()
+    await seite.waitForTimeout(300)
+    await seite.locator('.werkzeugleiste__ansicht-umschalten:visible').first().click()
+    await warteAufKartenmarker(seite, 1)
+    const gefiltert = await leseMarkerLage(seite)
+    const neu = await seite.evaluate(() => document.querySelector('.karte-container')?.dataset.rauchtestAlt === undefined)
+    if (!neu) befunde.push(`${kontext}: Filterfall — Vorbedingung nicht erreicht, die Karte wurde nicht neu aufgebaut`)
+    const nurC = gefiltert.marker[0]
+    if (!nurC || !liegtImContainer(gefiltert, nurC)) {
+      befunde.push(`${kontext}: Filterfall — der einzige gefilterte Marker liegt nicht im Ausschnitt (kein Einpassen)`)
+    } else if (
+      Math.abs(nurC.x - gefiltert.breite / 2) > KARTENAUSSCHNITT_TOLERANZ_PX ||
+      Math.abs(nurC.y - gefiltert.hoehe / 2) > KARTENAUSSCHNITT_TOLERANZ_PX
+    ) {
+      befunde.push(`${kontext}: Filterfall — der gefilterte Marker liegt nicht in der Mitte des eingepassten Ausschnitts`)
+    }
+    await seite.screenshot({ path: `${FOTOS}/${breite.name}-kartenausschnitt-filter-eingepasst.png` })
+
+    // Filteränderung IN der Kartenansicht passt wie bisher neu ein: Der Filter
+    // wird hier wieder abgewählt, die zwei zusätzlichen Marker (Berlin, München
+    // — bei dem eingepassten Zoom 14 auf Athen nicht im Ausschnitt) müssen
+    // danach alle im Ausschnitt liegen.
+    await seite.locator('.tag-filterleiste__pill', { hasText: /^\s*kb\s*$/ }).click()
+    await warteAufKartenmarker(seite, 3)
+    const entfiltert = await leseMarkerLage(seite)
+    if (!entfiltert.marker.every((m) => liegtImContainer(entfiltert, m))) {
+      befunde.push(`${kontext}: Filteränderung in der Kartenansicht — nicht alle Marker liegen danach im Ausschnitt (kein Neu-Einpassen)`)
+    }
+    console.log(`  ${kontext} — geprüft (vier Rückwege, Neuladen, Filterfall), Bildschirmfotos in ${FOTOS}/`)
+  } catch (fehler) {
+    befunde.push(`${kontext}: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  } finally {
+    await seite.close()
+  }
+}
+
 /** Öffnet jede Ansicht bei einer Breite und prüft die Zusicherungen 1-5
  *  (Zusicherung 2 — Laufzeitfehler — hängt an Listenern auf `seite`, die
  *  der Aufrufer vor dem Aufruf registriert). */
@@ -4268,6 +4517,12 @@ async function main() {
       await pruefeBildvorschau(browser, breite, befunde)
     }
 
+    // Zusicherungen ab PO-2026-11-24-003 (ADR-0038), s. Funktionskommentar —
+    // für JEDE Breite aus BREITEN, jeweils auf frischer Seite mit eigenem Bestand.
+    for (const breite of BREITEN) {
+      await pruefeKartenausschnittBleibtErhalten(browser, breite, befunde)
+    }
+
     // Zusicherung ab PO-2026-11-24-001 (ADR-0037), s. Funktionskommentar —
     // nur bei 1280px, eigener Bestand auf frischer Seite.
     await pruefeGewichtungWirktUeberallUndUeberstehtNeuladen(browser, befunde)
@@ -4392,6 +4647,10 @@ async function main() {
   console.log('(nur in der Ortsliste), die Hervorhebung trägt einen 1px-Hairline plus Schattenlayer,')
   console.log('Zeilenabstand >= 8px. Der Legenden-Auslöser zeigt sichtbaren Text in beiden')
   console.log('Listen-Kopfzeilen bei jeder Breite, ab lg bleibt die Kopfzeile einzeilig.')
+  console.log('Der Kartenausschnitt (Mitte, Zoom) bleibt über Detail (Schließen, goBack), Liste und')
+  console.log('/daten erhalten, nach einem Neuladen gilt wieder der eingepasste Startausschnitt;')
+  console.log('liegt im gemerkten Ausschnitt kein sichtbarer Marker, und bei einer Filteränderung in')
+  console.log('der Kartenansicht, wird eingepasst (PO-2026-11-24-003, ADR-0038).')
   console.log('Zusicherungen über engine-abhängige Darstellung sind auf WebKit ungeprüft')
   console.log('(ADR-0029) — geprüft ist ausschließlich Chromium.')
 }
