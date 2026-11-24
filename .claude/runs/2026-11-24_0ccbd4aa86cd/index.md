@@ -40,3 +40,4 @@ den JSON-Dateien daneben.
 | 2026-11-24T23:07:14Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (This session's worker process was restarted. If your previou) |
 | 2026-11-24T23:07:18Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (Kann hier weitergehen?) |
 | 2026-11-24T23:49:31Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (<agent-message from="a1959756ccd15633d">) |
+| 2026-11-24T23:49:52Z | 015 | `frontend-lead` | — | — | — | `015-frontend-lead.json` |
