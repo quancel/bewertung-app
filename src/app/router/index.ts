@@ -7,7 +7,10 @@ export const router = createRouter({
   // Rückkehr aus einer Detailansicht behält die Scrollposition der Liste
   // (Browser-Zurück wie App-eigene Zurück-Aktion); jede andere Navigation
   // beginnt am Seitenanfang.
-  scrollBehavior(_to, _from, savedPosition) {
+  // Gleiche `fullPath` bei `to` und `from` (Verlaufseintrag ohne eigene
+  // Adresse, ADR-0036 Punkt 3): kein Scroll, weder Rücksprung noch Anfang.
+  scrollBehavior(to, from, savedPosition) {
+    if (to.fullPath === from.fullPath) return false
     return savedPosition ?? { top: 0 }
   },
 })

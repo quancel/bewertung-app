@@ -31,6 +31,7 @@ defineProps<{
 const emit = defineEmits<{
   'dateien-ausgewaehlt': [dateien: File[]]
   'bild-loeschen-angefragt': [id: string]
+  'bild-oeffnen': [index: number]
 }>()
 
 function aufDateiAuswahl(event: Event): void {
@@ -46,9 +47,10 @@ function aufDateiAuswahl(event: Event): void {
 <template>
   <div class="bilderraster">
     <Bildkachel
-      v-for="bild in bilder"
+      v-for="(bild, index) in bilder"
       :key="bild.id"
       :bild="bild"
+      @oeffnen="emit('bild-oeffnen', index)"
       @loeschen-angefragt="emit('bild-loeschen-angefragt', bild.id)"
     />
 

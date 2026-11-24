@@ -19,7 +19,7 @@ import type { BildDatensatz } from '../../../persistence/schema'
 import IconPapierkorb from '../../../shared/ui/icons/IconPapierkorb.vue'
 
 const props = defineProps<{ bild: BildDatensatz }>()
-const emit = defineEmits<{ 'loeschen-angefragt': [] }>()
+const emit = defineEmits<{ 'loeschen-angefragt': []; oeffnen: [] }>()
 
 const objektUrl = ref<string | null>(null)
 
@@ -35,13 +35,25 @@ const altText = computed(() => `Bild vom ${new Date(props.bild.hinzugefuegtAm).t
 </script>
 
 <template>
-  <div class="bildkachel">
-    <img
-      v-if="objektUrl"
-      :src="objektUrl"
-      :alt="altText"
-      class="bildkachel__bild"
+  <div
+    class="bildkachel"
+    :data-bild-id="bild.id"
+  >
+    <!-- Öffnen und Löschen sind GESCHWISTER-Buttons, nie verschachtelt. Der
+         Name des Öffnen-Buttons kommt aus dem Alt-Text des Bildes. -->
+    <button
+      type="button"
+      class="bildkachel__oeffnen"
+      aria-haspopup="dialog"
+      @click="emit('oeffnen')"
     >
+      <img
+        v-if="objektUrl"
+        :src="objektUrl"
+        :alt="altText"
+        class="bildkachel__bild"
+      >
+    </button>
     <button
       type="button"
       class="bildkachel__loeschen"
@@ -60,6 +72,16 @@ const altText = computed(() => `Bild vom ${new Date(props.bild.hinzugefuegtAm).t
   border-radius: var(--radius-12);
   overflow: hidden;
   background-color: var(--surface-sunken);
+}
+
+.bildkachel__oeffnen {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
 }
 
 .bildkachel__bild {

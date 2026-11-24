@@ -360,6 +360,11 @@ const ANSICHTEN = [
   // hinter einem offenen modalen Dialog ab (der Rest der Seite liegt unter
   // dem `.sheet-backdrop` und wäre sonst fälschlich „verdeckt").
   { name: 'ortsliste-legende', pfad: '/orte', vorbereiten: oeffneZonenLegende },
+  // PO-2026-11-24-006: die geöffnete Bildvorschau (Vollbild-Dialog) mit drei
+  // Bildern, hoch und quer, auf frischer Seite — läuft durch Verdeckung,
+  // Überlauf und Button-Umbruch wie jede Ansicht. Die harten Zusicherungen
+  // (Blättern, Wischen, Esc, Zurück) stehen in `pruefeBildvorschau`.
+  { name: 'bildvorschau', pfad: '/orte', vorbereiten: oeffneBildvorschau },
 ]
 
 /** Photon-Endpunkt, NUR zum Abfangen (Request-Interception) — es wird
@@ -442,7 +447,10 @@ async function ladePlaywright() {
   ]
   for (const kandidat of kandidaten) {
     try {
-      return await import(kandidat.startsWith('/') ? kandidat : require.resolve(kandidat))
+      const modul = await import(kandidat.startsWith('/') ? kandidat : require.resolve(kandidat))
+      // Ein CommonJS-Treffer (`require.resolve('playwright')`) liefert die
+      // Exporte nur unter `default`, ein ESM-Treffer als benannte Exporte.
+      return modul.chromium ? modul : (modul.default ?? null)
     } catch {
       /* nächster Kandidat */
     }
@@ -700,6 +708,60 @@ async function oeffneZonenLegende(seite) {
 
   await seite.locator('.zonen-legende__knopf').click()
   await seite.waitForTimeout(300)
+}
+
+/** PO-2026-11-24-006: drei echte PNGs (hoch, quer, hoch) — im Browser über
+ *  ein Canvas erzeugt, damit der Rauchtest keine Binärdateien mitführt. Jedes
+ *  Bild hat eine eigene Farbe und eine Randmarkierung, damit „vollständig,
+ *  nicht beschnitten" am Seitenverhältnis des gerenderten Elements messbar
+ *  ist. */
+async function erzeugeTestbilder(seite, formate) {
+  const base64 = await seite.evaluate(async (liste) => {
+    const farben = ['#c0392b', '#2980b9', '#27ae60']
+    const ergebnis = []
+    for (const [i, [w, h]] of liste.entries()) {
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')
+      ctx.fillStyle = farben[i % farben.length]
+      ctx.fillRect(0, 0, w, h)
+      ctx.strokeStyle = '#fff'
+      ctx.lineWidth = 8
+      ctx.strokeRect(4, 4, w - 8, h - 8)
+      ergebnis.push(canvas.toDataURL('image/png').split(',')[1])
+    }
+    return ergebnis
+  }, formate)
+  return base64.map((daten, i) => ({
+    name: `rauchtest-bild-${i + 1}.png`,
+    mimeType: 'image/png',
+    buffer: Buffer.from(daten, 'base64'),
+  }))
+}
+
+const BILDVORSCHAU_FORMATE = [
+  [300, 600],
+  [600, 300],
+  [300, 600],
+]
+
+/** Legt einen Ort mit den übergebenen Bildern an und wartet auf alle Kacheln.
+ *  Treiberaktion — die Messgröße (Dialog) wird erst danach erzeugt. */
+async function legeOrtMitBildernAn(seite, bezeichnung, formate) {
+  await legeOrtAnUndOeffneIhn(seite, bezeichnung)
+  const dateien = await erzeugeTestbilder(seite, formate)
+  await seite.locator('input[type="file"]').setInputFiles(dateien)
+  await seite.locator('.bildkachel').nth(formate.length - 1).waitFor({ state: 'visible', timeout: 10000 })
+  await seite.waitForTimeout(300)
+}
+
+async function oeffneBildvorschau(seite) {
+  await legeOrtMitBildernAn(seite, 'Rauchtest-Bildvorschau', BILDVORSCHAU_FORMATE)
+  await seite.locator('.bildkachel__oeffnen').first().scrollIntoViewIfNeeded()
+  await seite.locator('.bildkachel__oeffnen').first().click()
+  await seite.getByRole('dialog', { name: 'Bildvorschau' }).waitFor({ state: 'visible' })
+  await seite.waitForTimeout(400)
 }
 
 /** Zusicherung 4: Was über CSS geladen wird, ist aufgelöst. Ein `.icon`
@@ -1549,6 +1611,274 @@ function pruefeSpaltenMesswerte(messwerte, kontext, befunde) {
     }
   }
 }
+
+/**
+ * PO-2026-11-24-006 (ADR-0036): harte Zusicherungen der Bildvorschau, je
+ * Breite aus BREITEN, auf frischer Seite mit Touch-Emulation (`hasTouch`).
+ * Geprüft wird die EIGENSCHAFT, nicht eine Stelle:
+ *  - Öffnen legt genau EINEN Verlaufseintrag an, Blättern keinen;
+ *  - das Bild ist vollständig sichtbar (Seitenverhältnis des gerenderten
+ *    Elements = natürliches, liegt im Ansichtsfenster, schneidet keinen
+ *    Button) — hoch UND quer;
+ *  - Pfeiltaste und Wischgeste (CDP-Touch) wechseln das Bild, ein kurzer,
+ *    langsamer Wisch und ein Tipp nicht; an den Enden kein Umbruch
+ *    (`aria-disabled`);
+ *  - Fokus beim Öffnen auf „×", Tab bleibt im Dialog;
+ *  - Esc schließt, der Fokus liegt auf der Kachel des ZULETZT gezeigten
+ *    Bildes, der Ort bleibt offen, der eigene Eintrag ist wieder weg;
+ *  - System-Zurück schließt nur den Dialog (Adresse = Ortsdetail), ein
+ *    Vorwärts/Neuladen darauf öffnet nie;
+ *  - Öffnen/Schließen verschiebt den Scroll-Stand nicht (ADR-0036 Punkt 3);
+ *  - bei einem Bild keine Blätter-Bedienung und kein Zähler.
+ * Vorbedingungen sind Teil der Zusicherung: ohne dass tatsächlich geblättert
+ * wurde, wäre „Fokus auf zuletzt gezeigter Kachel" kein Beleg.
+ */
+async function pruefeBildvorschau(browser, breite, befunde) {
+  const kontext = `${breite.name}/bildvorschau`
+  const ctx = await browser.newContext({
+    viewport: { width: breite.width, height: breite.height },
+    hasTouch: true,
+  })
+  const seite = await ctx.newPage()
+  seite.on('pageerror', (f) => befunde.push(`${kontext}: Laufzeitfehler: ${f.message}`))
+  seite.on('console', (n) => {
+    if (n.type() === 'error' && !n.location()?.url?.includes('photon.komoot.io')) {
+      befunde.push(`${kontext}: Konsole: ${n.text().slice(0, 160)}`)
+    }
+  })
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await legeOrtMitBildernAn(seite, 'Rauchtest-Bildvorschau-Hart', BILDVORSCHAU_FORMATE)
+    const dialog = seite.getByRole('dialog', { name: 'Bildvorschau' })
+    const kacheln = seite.locator('.bildkachel__oeffnen')
+    const zaehler = () => dialog.locator('.bildvorschau__zaehler').innerText()
+    const pfadVorher = await seite.evaluate(() => location.pathname + location.search)
+
+    /** Scroll-Stand der Detail-Spalte bzw. des Fensters (nächster
+     *  scrollbarer Vorfahr der Bilder, sonst das Fenster). */
+    const scrollStand = () =>
+      seite.evaluate(() => {
+        let el = document.querySelector('.bilderbereich')?.parentElement
+        while (el && !['auto', 'scroll'].includes(getComputedStyle(el).overflowY)) el = el.parentElement
+        return { container: el ? el.scrollTop : null, fenster: window.scrollY }
+      })
+
+    // Treiberaktion (Messgröße unberührt): Kachel 1 in Sicht bringen.
+    await kacheln.first().scrollIntoViewIfNeeded()
+    const standVorher = await scrollStand()
+    const verlaufVorher = await seite.evaluate(() => history.length)
+
+    // Per Tastatur geöffnet (Fokus ohne Scrollen + Enter): ein Playwright-
+    // `click()` würde selbst scrollen, wenn die Kachel unter der festen
+    // Bottom-Tab-Leiste liegt, und die Messgröße „Scroll-Stand" verfälschen
+    // (Treiberaktion und Messgröße getrennt). Zugleich der Nachweis „per
+    // Enter zu öffnen".
+    await kacheln.first().evaluate((el) => el.focus({ preventScroll: true }))
+    await seite.keyboard.press('Enter')
+    await dialog.waitFor({ state: 'visible' })
+    await seite.waitForTimeout(400)
+
+    // Verlauf: genau EIN Eintrag, Adresse unverändert.
+    const verlaufOffen = await seite.evaluate(() => history.length)
+    if (verlaufOffen !== verlaufVorher + 1) {
+      befunde.push(`${kontext}: Öffnen legt ${verlaufOffen - verlaufVorher} Verlaufseinträge an statt genau einen`)
+    }
+    const pfadOffen = await seite.evaluate(() => location.pathname + location.search)
+    if (pfadOffen !== pfadVorher) befunde.push(`${kontext}: Öffnen ändert die Adresse (${pfadVorher} → ${pfadOffen})`)
+
+    // Der Hintergrund bleibt stehen: der Router setzt beim Öffnen keinen
+    // Scroll (ADR-0036 Punkt 3: scrollBehavior bei gleicher fullPath).
+    const standOffen = await scrollStand()
+    if (standOffen.container !== standVorher.container || standOffen.fenster !== standVorher.fenster) {
+      befunde.push(`${kontext}: Öffnen verschiebt den Scroll-Stand dahinter (${JSON.stringify(standVorher)} → ${JSON.stringify(standOffen)})`)
+    }
+
+    // Fokus beim Öffnen auf „×".
+    const fokusName = () => seite.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.tagName)
+    if ((await fokusName()) !== 'Vorschau schließen') befunde.push(`${kontext}: Fokus liegt beim Öffnen nicht auf „Vorschau schließen"`)
+    if ((await zaehler()) !== '1 von 3') befunde.push(`${kontext}: Zähler zeigt beim Öffnen „${await zaehler()}" statt „1 von 3"`)
+
+    // Vollständig sichtbar, nicht verdeckt — für jedes der drei Bilder.
+    const messeBild = () =>
+      seite.evaluate(() => {
+        const bild = document.querySelector('.bildvorschau__bild')
+        if (!bild) return null
+        const r = bild.getBoundingClientRect()
+        const knoepfe = [...document.querySelectorAll('.bildvorschau button')].map((b) => b.getBoundingClientRect())
+        const schneidet = knoepfe.some((k) => r.left < k.right && r.right > k.left && r.top < k.bottom && r.bottom > k.top)
+        return {
+          w: r.width, h: r.height, links: r.left, rechts: r.right, oben: r.top, unten: r.bottom,
+          nw: bild.naturalWidth, nh: bild.naturalHeight, schneidet,
+          fw: window.innerWidth, fh: window.innerHeight,
+          objectFit: getComputedStyle(bild).objectFit,
+        }
+      })
+    for (let i = 0; i < 3; i++) {
+      const m = await messeBild()
+      const hochOderQuer = BILDVORSCHAU_FORMATE[i][1] > BILDVORSCHAU_FORMATE[i][0] ? 'hoch' : 'quer'
+      if (!m || m.nw === 0) {
+        befunde.push(`${kontext}: Bild ${i + 1} (${hochOderQuer}) ist nicht geladen`)
+      } else {
+        const sollVerhaeltnis = m.nw / m.nh
+        const istVerhaeltnis = m.w / m.h
+        const beschnittenDurchBox = Math.abs(istVerhaeltnis - sollVerhaeltnis) / sollVerhaeltnis > 0.03 && m.objectFit !== 'contain'
+        if (beschnittenDurchBox) befunde.push(`${kontext}: Bild ${i + 1} (${hochOderQuer}) wird verzerrt/beschnitten dargestellt`)
+        if (m.links < -0.5 || m.oben < -0.5 || m.rechts > m.fw + 0.5 || m.unten > m.fh + 0.5) {
+          befunde.push(`${kontext}: Bild ${i + 1} (${hochOderQuer}) ragt aus dem Ansichtsfenster`)
+        }
+        if (m.schneidet) befunde.push(`${kontext}: Bild ${i + 1} (${hochOderQuer}) wird von einem Bedienelement überdeckt`)
+        if (m.w < 40 || m.h < 40) befunde.push(`${kontext}: Bild ${i + 1} (${hochOderQuer}) ist praktisch nicht sichtbar (${Math.round(m.w)}×${Math.round(m.h)})`)
+      }
+      if (i < 2) {
+        await seite.keyboard.press('ArrowRight')
+        await seite.waitForTimeout(150)
+      }
+    }
+    await seite.screenshot({ path: `${FOTOS}/${kontext.replace('/', '-')}-bild3.png` })
+    // Zurück auf 1: Pfeiltaste links, Enden ohne Umbruch.
+    await seite.keyboard.press('ArrowRight') // am Ende: kein Umbruch
+    await seite.waitForTimeout(150)
+    if ((await zaehler()) !== '3 von 3') befunde.push(`${kontext}: Pfeil rechts am letzten Bild bricht um oder wechselt („${await zaehler()}")`)
+    const weiterZu = await dialog.getByRole('button', { name: 'Nächstes Bild' }).getAttribute('aria-disabled')
+    if (weiterZu !== 'true') befunde.push(`${kontext}: „Nächstes Bild" ist am letzten Bild nicht aria-disabled`)
+    await seite.keyboard.press('ArrowLeft')
+    await seite.keyboard.press('ArrowLeft')
+    await seite.keyboard.press('ArrowLeft') // am Anfang: kein Umbruch
+    await seite.waitForTimeout(150)
+    if ((await zaehler()) !== '1 von 3') befunde.push(`${kontext}: Pfeiltasten links gelangen nicht (ohne Umbruch) zu „1 von 3" („${await zaehler()}")`)
+    const zurueckZu = await dialog.getByRole('button', { name: 'Vorheriges Bild' }).getAttribute('aria-disabled')
+    if (zurueckZu !== 'true') befunde.push(`${kontext}: „Vorheriges Bild" ist am ersten Bild nicht aria-disabled`)
+
+    // Pfeil-Buttons per Klick.
+    await dialog.getByRole('button', { name: 'Nächstes Bild' }).click()
+    if ((await zaehler()) !== '2 von 3') befunde.push(`${kontext}: Klick auf „Nächstes Bild" wechselt nicht zu „2 von 3"`)
+    await dialog.getByRole('button', { name: 'Vorheriges Bild' }).click()
+
+    // Wischgeste per CDP-Touch (echte Pointer Events mit pointerType touch).
+    const cdp = await ctx.newCDPSession(seite)
+    const flaeche = await seite.locator('.bildvorschau__flaeche').boundingBox()
+    const y = flaeche.y + flaeche.height / 2
+    const xStart = flaeche.x + flaeche.width * 0.75
+    async function wische(vonX, bisX, haltMs) {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: vonX, y }] })
+      const schritte = 4
+      for (let k = 1; k <= schritte; k++) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: vonX + ((bisX - vonX) * k) / schritte, y }] })
+      }
+      await seite.waitForTimeout(haltMs)
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+      await seite.waitForTimeout(250)
+    }
+    const hist = await seite.evaluate(() => history.length)
+    await wische(xStart, xStart - 120, 20)
+    if ((await zaehler()) !== '2 von 3') befunde.push(`${kontext}: Wischen nach links wechselt nicht zum nächsten Bild („${await zaehler()}")`)
+    await wische(xStart - 120, xStart, 20)
+    if ((await zaehler()) !== '1 von 3') befunde.push(`${kontext}: Wischen nach rechts wechselt nicht zum vorherigen Bild („${await zaehler()}")`)
+    // Kurzer, langsamer Wisch (20px in >400ms) darf nicht blättern.
+    await wische(xStart, xStart - 20, 450)
+    if ((await zaehler()) !== '1 von 3') befunde.push(`${kontext}: ein kurzer, langsamer Wisch blättert („${await zaehler()}")`)
+    // Blättern erzeugt keine Verlaufseinträge.
+    await seite.keyboard.press('ArrowRight')
+    await seite.waitForTimeout(150)
+    if ((await seite.evaluate(() => history.length)) !== hist) befunde.push(`${kontext}: Blättern (Taste/Pfeil/Wischen) erzeugt Verlaufseinträge`)
+    await cdp.detach()
+
+    // Tab bleibt im Dialog: vier Schritte vorwärts und rückwärts.
+    const imDialog = () => seite.evaluate(() => !!document.activeElement?.closest('.bildvorschau'))
+    await dialog.getByRole('button', { name: 'Vorschau schließen' }).focus()
+    for (let k = 0; k < 4; k++) {
+      await seite.keyboard.press('Tab')
+      if (!(await imDialog())) { befunde.push(`${kontext}: Tab verlässt den Dialog (Schritt ${k + 1})`); break }
+    }
+    await dialog.getByRole('button', { name: 'Vorschau schließen' }).focus()
+    await seite.keyboard.press('Shift+Tab')
+    if (!(await imDialog())) befunde.push(`${kontext}: Shift+Tab verlässt den Dialog`)
+
+    // Esc schließt; Vorbedingung: wir stehen auf Bild 2 (zuletzt gezeigt).
+    await seite.keyboard.press('Escape')
+    await dialog.waitFor({ state: 'detached', timeout: 3000 }).catch(() => {})
+    await seite.waitForTimeout(400)
+    if ((await dialog.count()) > 0) befunde.push(`${kontext}: Esc schließt die Vorschau nicht`)
+    const fokusKachel = await seite.evaluate(() => {
+      const el = document.activeElement
+      const alle = [...document.querySelectorAll('.bildkachel__oeffnen')]
+      return alle.indexOf(el)
+    })
+    if (fokusKachel !== 1) befunde.push(`${kontext}: nach Esc liegt der Fokus nicht auf der Kachel des zuletzt gezeigten Bildes (Index ${fokusKachel}, erwartet 1)`)
+    const pfadNachEsc = await seite.evaluate(() => location.pathname + location.search)
+    if (pfadNachEsc !== pfadVorher) befunde.push(`${kontext}: nach Esc ist die Adresse ${pfadNachEsc} statt ${pfadVorher}`)
+    const standNachEsc = await scrollStand()
+    if (standNachEsc.container !== standVorher.container || standNachEsc.fenster !== standVorher.fenster) {
+      befunde.push(`${kontext}: Öffnen+Schließen verschiebt den Scroll-Stand (${JSON.stringify(standVorher)} → ${JSON.stringify(standNachEsc)})`)
+    }
+    // Der eigene Eintrag ist wieder weg: ein Zurück verlässt das Ortsdetail.
+    await seite.goBack()
+    await seite.waitForTimeout(500)
+    if ((await dialog.count()) > 0) befunde.push(`${kontext}: nach Esc führt Zurück erneut in eine Vorschau`)
+    const pfadNachZurueck = await seite.evaluate(() => location.pathname + location.search)
+    if (pfadNachZurueck === pfadVorher) befunde.push(`${kontext}: nach Esc bleibt ein Verlaufseintrag mit der Adresse des Ortsdetails zurück`)
+    await seite.goForward()
+    await seite.waitForTimeout(500)
+    if ((await dialog.count()) > 0) befunde.push(`${kontext}: Vorwärts auf den Ort öffnet eine Vorschau`)
+
+    // Schließen per „×" (Tipp): gleicher Weg wie Esc.
+    await kacheln.nth(2).scrollIntoViewIfNeeded()
+    await kacheln.nth(2).click()
+    await dialog.waitFor({ state: 'visible' })
+    await dialog.getByRole('button', { name: 'Vorschau schließen' }).click()
+    await dialog.waitFor({ state: 'detached', timeout: 3000 }).catch(() => {})
+    await seite.waitForTimeout(400)
+    if ((await dialog.count()) > 0) befunde.push(`${kontext}: „×" schließt die Vorschau nicht`)
+    if ((await seite.evaluate(() => [...document.querySelectorAll('.bildkachel__oeffnen')].indexOf(document.activeElement))) !== 2) {
+      befunde.push(`${kontext}: nach „×" liegt der Fokus nicht auf der Kachel des gezeigten Bildes`)
+    }
+
+    // System-Zurück schließt nur den Dialog: Adresse bleibt das Ortsdetail.
+    await kacheln.nth(1).scrollIntoViewIfNeeded()
+    const standZurueckVorher = await scrollStand()
+    await kacheln.nth(1).evaluate((el) => el.focus({ preventScroll: true }))
+    await seite.keyboard.press('Enter')
+    await dialog.waitFor({ state: 'visible' })
+    await seite.waitForTimeout(300)
+    await seite.keyboard.press('ArrowRight') // geblättert → Bild 3 ist zuletzt gezeigt
+    await seite.waitForTimeout(150)
+    await seite.goBack()
+    await seite.waitForTimeout(500)
+    if ((await dialog.count()) > 0) befunde.push(`${kontext}: System-Zurück schließt die Vorschau nicht`)
+    const pfadNachSystemZurueck = await seite.evaluate(() => location.pathname + location.search)
+    if (pfadNachSystemZurueck !== pfadVorher) befunde.push(`${kontext}: System-Zurück verlässt das Ortsdetail (${pfadNachSystemZurueck} statt ${pfadVorher})`)
+    if ((await seite.evaluate(() => [...document.querySelectorAll('.bildkachel__oeffnen')].indexOf(document.activeElement))) !== 2) {
+      befunde.push(`${kontext}: nach System-Zurück liegt der Fokus nicht auf der Kachel des zuletzt gezeigten Bildes`)
+    }
+    const standZurueckNachher = await scrollStand()
+    if (standZurueckNachher.container !== standZurueckVorher.container || standZurueckNachher.fenster !== standZurueckVorher.fenster) {
+      befunde.push(`${kontext}: System-Zurück verschiebt den Scroll-Stand (${JSON.stringify(standZurueckVorher)} → ${JSON.stringify(standZurueckNachher)})`)
+    }
+    // Vorwärts auf den markierten Eintrag und Neuladen darauf öffnen nie.
+    await seite.goForward()
+    await seite.waitForTimeout(500)
+    if ((await dialog.count()) > 0) befunde.push(`${kontext}: Vorwärts auf den markierten Eintrag öffnet die Vorschau`)
+    await seite.reload({ waitUntil: 'networkidle' })
+    await seite.waitForTimeout(400)
+    if ((await dialog.count()) > 0) befunde.push(`${kontext}: Neuladen auf dem markierten Eintrag öffnet die Vorschau`)
+
+    // Ein Bild: keine Blätter-Bedienung, kein Zähler.
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await legeOrtMitBildernAn(seite, 'Rauchtest-Bildvorschau-Einzelbild', [[600, 300]])
+    await seite.locator('.bildkachel__oeffnen').first().click()
+    await dialog.waitFor({ state: 'visible' })
+    await seite.waitForTimeout(300)
+    if ((await dialog.locator('.bildvorschau__zaehler').count()) > 0 || (await dialog.getByRole('button', { name: /Bild$/ }).count()) > 0) {
+      befunde.push(`${kontext}: bei nur einem Bild gibt es Zähler oder Pfeil-Buttons`)
+    }
+    await seite.keyboard.press('Escape')
+    await seite.waitForTimeout(400)
+    console.log(`  ${kontext} — Bildvorschau geprüft`)
+  } finally {
+    await ctx.close()
+  }
+}
+
 
 /** Öffnet jede Ansicht bei einer Breite und prüft die Zusicherungen 1-5
  *  (Zusicherung 2 — Laufzeitfehler — hängt an Listenern auf `seite`, die
@@ -3049,6 +3379,12 @@ async function main() {
       await spaltenSeite.close()
     }
 
+    // Zusicherungen ab PO-2026-11-24-006 (ADR-0036), s. `pruefeBildvorschau` —
+    // für JEDE Breite aus BREITEN, jeweils auf frischer Seite.
+    for (const breite of BREITEN) {
+      await pruefeBildvorschau(browser, breite, befunde)
+    }
+
     // Zusicherung ab PO-2026-09-27-001 (design-conventions.md „Mehrzeilige
     // Textfelder wachsen mit dem Inhalt"), Weg (2) — nur bei 1280px (ab lg
     // gleichzeitig sichtbare Listen-Spalte, s. Funktionskommentar). Weg (1)
@@ -3144,6 +3480,11 @@ async function main() {
   // (Chromium, ADR-0023 Punkt 5) — Zusicherungen über engine-abhängige
   // Darstellung (Pseudo-Element-Stile, `appearance`, native
   // Bedienelement-Darstellung) sind auf WebKit ungeprüft.
+  console.log('Die Bildvorschau (Vollbild) zeigt jedes Bild vollständig, blättert per Pfeiltaste,')
+  console.log('Pfeil-Button und Wischgeste ohne Umbruch und ohne Verlaufseinträge, schließt per')
+  console.log('Esc/„×" (Fokus auf der Kachel des zuletzt gezeigten Bildes, eigener Eintrag')
+  console.log('entfernt) und per System-Zurück (Adresse bleibt das Ortsdetail); Vorwärts und')
+  console.log('Neuladen öffnen nie (PO-2026-11-24-006, ADR-0036).')
   console.log('Zusicherungen über engine-abhängige Darstellung sind auf WebKit ungeprüft')
   console.log('(ADR-0029) — geprüft ist ausschließlich Chromium.')
 }

@@ -1108,7 +1108,10 @@ async function aufLoeschenBestaetigt(): Promise<void> {
 
           <div class="ortsdetail__feld">
             <span>Bilder</span>
-            <Bilderbereich :ort-id="ort.id" />
+            <Bilderbereich
+              :ort-id="ort.id"
+              :bezeichnung="ort.bezeichnung"
+            />
           </div>
 
           <div class="ortsdetail__gesamtnote">

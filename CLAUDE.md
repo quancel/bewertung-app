@@ -469,6 +469,47 @@ positioniertes Element im Spalteninhalt unterhalb der sichtbaren
 Spaltenhöhe) — ohne sie wäre „scrollt nicht" kein Beleg für eine wirksame
 Abschottung, sondern nur dafür, dass nie genug Inhalt vorlag.
 
+Ab PO-2026-11-24-006 (ADR-0036, Bildvorschau im Vollbild) kommt eine weitere
+Gruppe harter Zusicherungen dazu (`pruefeBildvorschau()`, `scripts/smoke.mjs`
+ab Zeile 1636, je Breite aus `BREITEN` in einem eigenen Kontext mit
+`hasTouch`; dazu die Ansicht `bildvorschau` in `ANSICHTEN`, Zeile 367, mit drei
+im Browser erzeugten PNGs hoch/quer/hoch, `legeOrtMitBildernAn()` Zeile 751).
+Geprüft werden Eigenschaften: Öffnen legt **genau einen** Verlaufseintrag mit
+unveränderter Adresse an, Blättern keinen; jedes Bild ist vollständig sichtbar
+(im Ansichtsfenster, nicht von einem Button geschnitten); Pfeiltaste,
+Pfeil-Button und eine **CDP-Touch-Wischgeste** blättern, ein kurzer, langsamer
+Wisch nicht; kein Umbruch an den Enden (`aria-disabled`); Fokus beim Öffnen auf
+„×", Tab/Shift+Tab bleiben im Dialog; Esc und „×" schließen, der Fokus liegt auf
+der Kachel des **zuletzt gezeigten** Bildes (Vorbedingung: es wurde tatsächlich
+geblättert), die Adresse bleibt das Ortsdetail, und ein anschließendes Zurück
+landet **nicht** erneut auf demselben Ort (der eigene Eintrag ist entfernt);
+System-Zurück schließt nur den Dialog, Vorwärts und Neuladen auf dem markierten
+Eintrag öffnen nie; der Scroll-Stand des Hintergrunds ändert sich weder beim
+Öffnen noch beim Schließen; bei einem Bild entfallen Zähler und Pfeile. Zwei
+Bauformen sind Absicht: Die Kachel wird per **Fokus ohne Scrollen + Enter**
+geöffnet, nicht per `click()` — Playwrights Klick scrollt bei 320px selbst, wenn
+die Kachel unter der festen Tab-Leiste liegt, und verfälschte die Messgröße
+(Treiberaktion und Messgröße getrennt); und der Scroll-Stand wird **während**
+geöffneter Vorschau gemessen, weil `router.back()` die gespeicherte Position
+wiederherstellt und ein fehlerhaftes `scrollBehavior` nach dem Schließen sonst
+unsichtbar bliebe. **Rot-Nachweis** (ADR-0027 Punkt 8; je eine kompilierbare
+Mutation, danach Quelle zurückgesetzt, jeweils `npm run smoke` Exit 1 mit den
+genannten Befunden): `force: true` aus dem Composable entfernt → „Öffnen legt 0
+Verlaufseinträge an", „System-Zurück verlässt das Ortsdetail"; `router.back()`
+beim Schließen entfernt → „nach Esc bleibt ein Verlaufseintrag … zurück",
+„Vorwärts … öffnet die Vorschau"; `popstate`-Listener entfernt → „System-Zurück
+schließt die Vorschau nicht"; Gleiche-`fullPath`-Bedingung in `scrollBehavior`
+entfernt → „Öffnen verschiebt den Scroll-Stand dahinter" (bei 320px);
+Pfeiltasten-Zweig entfernt → „Pfeil rechts am letzten Bild bricht um oder
+wechselt"; `@pointerup` stillgelegt → „Wischen nach links wechselt nicht";
+Fokus-Rückgabe entfernt → „nach Esc liegt der Fokus nicht auf der Kachel";
+Tab-Falle entfernt → „Tab verlässt den Dialog". Unbelegt: eine Mutation, die
+nur die Markierung `bildvorschau` im State entfernt (das Öffnen funktioniert
+ohne sie, `schliesse()` lässt dann den Eintrag stehen — durch die
+„nach Esc bleibt ein Verlaufseintrag"-Prüfung abgedeckt, aber nicht gesondert
+rot gelaufen). Auch hier gilt: nur Chromium, Touch ist CDP-emuliert — echtes
+iOS-/Android-System-Zurück bleibt nur manuell prüfbar.
+
 **Der Lead führt ihn aus, bevor er ein Paket als erledigt meldet** — nicht
 statt der Unit-Tests, sondern zusätzlich. Typecheck, Lint und Vitest
 prüfen, ob Code zusammenpasst; der Rauchtest prüft, ob das Ergebnis

@@ -27,8 +27,14 @@ import { useMedienStore } from '../stores/medien.store'
 import Bilderraster from './Bilderraster.vue'
 import SpeichermangelBanner from './SpeichermangelBanner.vue'
 import BildLoeschenDialog from './BildLoeschenDialog.vue'
+import Bildvorschau from './Bildvorschau.vue'
 
-const props = defineProps<{ ortId: string }>()
+const props = defineProps<{
+  ortId: string
+  /** Bezeichnung des Ortes für den Alt-Text der Vorschau
+   * („Bild {n} von {m} von {Bezeichnung}"). */
+  bezeichnung?: string
+}>()
 
 const store = useMedienStore()
 
@@ -42,6 +48,8 @@ const speichermangelSichtbar = ref(false)
 // Schreibfehler im Ortsdetail).
 const allgemeinerFehler = ref(false)
 const loeschenAngefragtId = ref<string | null>(null)
+const vorschauStartIndex = ref<number | null>(null)
+const wurzelRef = ref<HTMLElement | null>(null)
 
 async function ladeBilderFuerAktuellenOrt(): Promise<void> {
   // Ephemere UI-Zustände gehören zum jeweils angezeigten Ort — beim Wechsel
@@ -52,6 +60,7 @@ async function ladeBilderFuerAktuellenOrt(): Promise<void> {
   speichermangelSichtbar.value = false
   allgemeinerFehler.value = false
   loeschenAngefragtId.value = null
+  vorschauStartIndex.value = null
   await store.sicherstellenGeladenFuerOrt(props.ortId)
 }
 
@@ -75,6 +84,11 @@ async function fuegeDateienHinzu(dateien: File[]): Promise<void> {
   }
 }
 
+/** Fokus-Rückgabeziel der Vorschau: der Öffnen-Button der Kachel dieses Bildes. */
+function kachelFuerBild(bildId: string): HTMLElement | null {
+  return wurzelRef.value?.querySelector<HTMLElement>(`[data-bild-id="${CSS.escape(bildId)}"] .bildkachel__oeffnen`) ?? null
+}
+
 function aufSpeichermangelSchliessen(): void {
   speichermangelSichtbar.value = false
 }
@@ -92,7 +106,10 @@ async function aufLoeschenBestaetigt(): Promise<void> {
 </script>
 
 <template>
-  <div class="bilderbereich">
+  <div
+    ref="wurzelRef"
+    class="bilderbereich"
+  >
     <SpeichermangelBanner
       v-if="speichermangelSichtbar"
       @schliessen="aufSpeichermangelSchliessen"
@@ -111,6 +128,16 @@ async function aufLoeschenBestaetigt(): Promise<void> {
       :in-arbeit-anzahl="inArbeitAnzahl"
       @dateien-ausgewaehlt="fuegeDateienHinzu"
       @bild-loeschen-angefragt="aufLoeschenAngefragt"
+      @bild-oeffnen="(index) => (vorschauStartIndex = index)"
+    />
+
+    <Bildvorschau
+      v-if="vorschauStartIndex !== null"
+      :ort-id="ortId"
+      :start-index="vorschauStartIndex"
+      :bezeichnung="bezeichnung ?? ''"
+      :rueckgabe-ziel="kachelFuerBild"
+      @schliessen="vorschauStartIndex = null"
     />
 
     <BildLoeschenDialog
