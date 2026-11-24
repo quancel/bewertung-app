@@ -35,3 +35,7 @@ den JSON-Dateien daneben.
 | 2026-11-24T15:15:46Z | 013 | `frontend-lead` | — | — | — | `013-frontend-lead.json` |
 | 2026-11-24T15:43:12Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (<agent-message from="a0f357c7e8462a6e7">) |
 | 2026-11-24T15:43:30Z | 014 | `frontend-lead` | — | — | — | `014-frontend-lead.json` |
+| 2026-11-24T16:57:37Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (<task-notification>) |
+| 2026-11-24T17:33:54Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (This session's worker process was restarted. If your previou) |
+| 2026-11-24T23:07:14Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (This session's worker process was restarted. If your previou) |
+| 2026-11-24T23:07:18Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (Kann hier weitergehen?) |

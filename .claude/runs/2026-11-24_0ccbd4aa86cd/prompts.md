@@ -1269,3 +1269,35 @@ Jo fang an.
   - /home/user/bewertung-app/CLAUDE.md
 </agent-message>
 ```
+
+## 2026-11-24T16:57:37Z
+
+```
+<task-notification>
+<task-id>a1959756ccd15633d</task-id>
+<tool-use-id>toolu_01WQ1vKTvcciQufnRKyYX3a3</tool-use-id>
+<output-file>/tmp/claude-0/-home-user-bewertung-app/7881d4f6-a216-5753-8ac0-0ccbd4aa86cd/tasks/a1959756ccd15633d.output</output-file>
+<status>failed</status>
+<summary>Agent "Paket 004 Kartenmarker umsetzen" failed: Agent terminated early due to an API error: You've hit your 5-hour limit · resets 5:40pm (UTC) (error type rate_limit, HTTP 429, request id req_011ChN7AMQvhrhNLWNpDyS5M, model sent to the API: claude-sonnet-5-5)</summary>
+<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once. This agent's work so far is saved. The limit resets at 5:40pm (UTC). Once its requests are accepted again, send the agent a message (SendMessage) to let it continue from where it stopped instead of starting a new agent.</note>
+<result>First the green baseline with the isolation fix (all breiten, kartenausschnitt included).</result>
+</task-notification>
+```
+
+## 2026-11-24T17:33:54Z
+
+```
+This session's worker process was restarted. If your previous turn was already complete, take no action and wait for the next event. Otherwise, continue from where you left off.
+```
+
+## 2026-11-24T23:07:14Z
+
+```
+This session's worker process was restarted. If your previous turn was already complete, take no action and wait for the next event. Otherwise, continue from where you left off.
+```
+
+## 2026-11-24T23:07:18Z
+
+```
+Kann hier weitergehen?
+```
