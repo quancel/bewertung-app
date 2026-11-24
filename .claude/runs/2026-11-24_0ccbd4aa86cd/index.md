@@ -32,3 +32,4 @@ den JSON-Dateien daneben.
 | 2026-11-24T14:29:51Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (<agent-message from="adc80e49a4a5b2722">) |
 | 2026-11-24T14:30:09Z | 012 | `frontend-lead` | — | — | — | `012-frontend-lead.json` |
 | 2026-11-24T15:15:28Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (<agent-message from="a2c453f6ddea05789">) |
+| 2026-11-24T15:15:46Z | 013 | `frontend-lead` | — | — | — | `013-frontend-lead.json` |
