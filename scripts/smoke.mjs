@@ -384,6 +384,15 @@ const ANSICHTEN = [
   // auch die eigenen Gewichte auf 1:1:1:1 zurück (sie sind persistiert und
   // bleiben sonst für spätere „Eigene"-Läufe bei anderen Breiten stehen).
   { name: 'gewichtung-eigene', pfad: '/orte', vorbereiten: oeffneEigeneGewichte, aufraeumen: setzeGewichtungZurueck },
+  // PO-2026-11-24-004: die Karte mit DICHTEN Markern — Namensetiketten, die
+  // einander überlappen (Kollisionsausblendung), sehr lange Namen (gekürzt),
+  // eine „10,0" im Kreis und ein Ort ohne Note (nur Punkt). Zuletzt, weil der
+  // Bestand Koordinaten trägt und früheren Ansichten sonst Marker beigemischt
+  // wären. `eigenerKontext`: Die Ansicht läuft in einem frischen Browser-Kontext
+  // (eigene IndexedDB) statt auf der gemeinsamen Seite — acht zusätzliche Orte
+  // verlängerten dort die Liste so, dass die Ortssuche-Zustände eine unter der
+  // sticky Werkzeugleiste weggescrollte Zeile als „verdeckt" meldeten.
+  { name: 'karten-marker', pfad: '/orte', vorbereiten: bereiteKartenMarkerVor, eigenerKontext: true },
 ]
 
 /** Photon-Endpunkt, NUR zum Abfangen (Request-Interception) — es wird
@@ -1126,6 +1135,25 @@ function pruefeUeberlauf() {
     )
   }
 
+  /** Benannte Bedingung (ADR-0023 Punkt 7, PO-2026-11-24-004): Das Element wird
+   *  von seinem nächsten Vorfahren mit `overflow-x: hidden|clip` horizontal
+   *  abgeschnitten, und dieser Vorfahr liegt selbst vollständig im Bildschirm —
+   *  der Überstand ist dann nie sichtbar. Das trifft strukturell jede
+   *  Kachelfläche einer Karte (Leaflet-Kacheln ragen über den Container hinaus
+   *  und werden von ihm abgeschnitten), keine Klassen-/ID-Liste. Ein Element,
+   *  das aus einem NICHT abschneidenden Container ragt (die Koordinatenzeile aus
+   *  PO-2026-09-12-002), bleibt ein Befund. */
+  function wirdSichtbarAbgeschnitten(el) {
+    for (let vorfahr = el.parentElement; vorfahr && vorfahr !== document.body; vorfahr = vorfahr.parentElement) {
+      const ueberlaufX = getComputedStyle(vorfahr).overflowX
+      if (ueberlaufX === 'hidden' || ueberlaufX === 'clip') {
+        const rahmen = vorfahr.getBoundingClientRect()
+        return rahmen.left >= -1 && rahmen.right <= breite + 1
+      }
+    }
+    return false
+  }
+
   for (const el of document.querySelectorAll('body *')) {
     if (el.getAttribute('tabindex') === '-1') continue
     if (el.closest('[aria-hidden="true"]')) continue
@@ -1133,6 +1161,7 @@ function pruefeUeberlauf() {
     if (stil.visibility === 'hidden' || stil.opacity === '0' || stil.display === 'none') continue
     const kasten = el.getBoundingClientRect()
     if (kasten.width < 4 || kasten.height < 4) continue
+    if (wirdSichtbarAbgeschnitten(el)) continue
     // Komplett außerhalb (z. B. das Skip-Link-Muster, das erst bei Fokus
     // einblendet) ist kein Überlauf-Befund — nur ein Element, das
     // TEILWEISE sichtbar ist und darüber hinaus ragt, zählt (genau die
@@ -2900,13 +2929,10 @@ async function pruefeKartenausschnittBleibtErhalten(browser, breite, befunde) {
 
     // Rückweg 4: über /daten (die Bereichsansicht wird dabei ausgehängt)
     await markiere()
-    // Programmatischer Klick: Bei 320px liegt die Leaflet-Quellenangabe der
-    // Karte über der festen Tab-Leiste und finge Playwrights Klick ab —
-    // Treiberaktion, nicht Messgröße (der Rückweg wird nach goBack gemessen).
-    await seite.evaluate(() => {
-      const link = [...document.querySelectorAll('a')].find((a) => /^\s*Daten\s*$/.test(a.textContent ?? '') && a.offsetParent !== null)
-      link?.click()
-    })
+    // Echter Klick (Playwright prüft, dass nichts den Link überdeckt): Bei 320px
+    // lag die Leaflet-Quellenangabe über der festen Tab-Leiste und fing den Klick
+    // ab — `.karte-wrapper` bildet dafür jetzt einen eigenen Stapelkontext.
+    await seite.locator('a:visible', { hasText: /^\s*Daten\s*$/ }).first().click({ timeout: 5000 })
     await seite.waitForURL(/\/daten/, { timeout: 10000 })
     await seite.goBack({ waitUntil: 'networkidle' })
     await pruefeNachRueckweg('Karte → Daten → goBack')
@@ -2981,12 +3007,378 @@ async function pruefeKartenausschnittBleibtErhalten(browser, breite, befunde) {
   }
 }
 
+/**
+ * PO-2026-11-24-004: Bestand für die Karten-Marker. Zwei Reihen auf einem
+ * Breitengrad im Abstand von 0,0006° Länge — bei Zoom 17 sind das 56px, also
+ * KEINE sich überlappenden Trefferflächen (44px), aber einander überlappende
+ * Namensetiketten (120px). Reihe B liegt 0,0009° südlich (≈137px bei Zoom 17).
+ *   Hoch / Niedrig  — alle Achsen 9 bzw. 5: Note unabhängig vom Szenario
+ *   Zehn            — „10,0" muss in den Kreis passen
+ *   Lang            — Name weit über 120px (wird gekürzt), nur Ambiente 8
+ *   Nur-Zeit        — nur Zeit 7: bei Eigene (nur Ambiente zählt) „ohne Gewicht"
+ *   Ohne            — keine Bewertung: Punkt ohne Zahl
+ *   Aenderung/Gegen — Aenderung 8,0 (Ausgewogen) bzw. 8,7 (Fokus Geschmack),
+ *                     Gegen konstant 8,5: der Vorrang kippt mit dem Szenario
+ * Achsenindizes: 0 Ambiente, 1 Zeit, 2 Geschmack, 3 Preis-Leistung.
+ */
+const KARTE_MARKER_LAENGE0 = 13.405
+const KARTE_MARKER_SCHRITT = 0.0006
+const KARTE_MARKER_BESTAND = [
+  { bezeichnung: 'Mk-Paar-Hoch-Mit-Einem-Sehr-Langen-Namen-Fuer-Die-Kuerzung', achsen: { 0: 9, 1: 9, 2: 9, 3: 9 }, reihe: 'A', k: 0 },
+  { bezeichnung: 'Mk-Paar-Niedrig-Mit-Einem-Sehr-Langen-Namen-Fuer-Die-Kuerzung', achsen: { 0: 5, 1: 5, 2: 5, 3: 5 }, reihe: 'A', k: 1 },
+  { bezeichnung: 'Mk-Zehn', achsen: { 0: 10, 1: 10, 2: 10, 3: 10 }, reihe: 'A', k: 4 },
+  { bezeichnung: 'Mk-Lang-Mit-Einer-Bezeichnung-Die-Deutlich-Ueber-Zweihundertvierzig-Pixel-Hinausreicht', achsen: { 0: 8 }, reihe: 'A', k: 2 },
+  { bezeichnung: 'Mk-Nur-Zeit', achsen: { 1: 7 }, reihe: 'A', k: 3 },
+  { bezeichnung: 'Mk-Ohne', achsen: {}, reihe: 'B', k: 0.5 },
+  { bezeichnung: 'Mk-Aenderung', achsen: { 0: 6, 2: 10 }, reihe: 'B', k: 2.5 },
+  { bezeichnung: 'Mk-Gegen', achsen: { 0: 9, 1: 8 }, reihe: 'B', k: 3.5 },
+]
+const KARTE_MARKER_PAAR_HOCH = 'Mk-Paar-Hoch'
+const KARTE_MARKER_PAAR_NIEDRIG = 'Mk-Paar-Niedrig'
+/** Zielabstand der beiden Paar-Marker in px (Zoom 17 = 56px). */
+const KARTE_MARKER_ABSTAND = { min: 48, max: 70 }
+/** Etikettbreite im Normalzustand = Token `--karte-marker-etikett`. */
+const KARTE_MARKER_ETIKETT_BREITE = 120
+
+async function legeKartenMarkerBestandAn(seite) {
+  await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+  if ((await seite.locator('.ortszeile', { hasText: KARTE_MARKER_PAAR_HOCH }).count()) > 0) return
+  for (const ort of KARTE_MARKER_BESTAND) {
+    await legeOrtAnUndOeffneIhn(seite, ort.bezeichnung)
+    for (const [index, wert] of Object.entries(ort.achsen)) {
+      await seite.locator('.bewertungsachse').nth(Number(index)).locator('input[type="number"]').fill(String(wert))
+      await seite.keyboard.press('Tab')
+      await seite.waitForTimeout(100)
+    }
+    await seite.getByRole('button', { name: 'Koordinaten von Hand eintragen' }).click()
+    await seite.locator('#ortsdetail-breite').fill(ort.reihe === 'A' ? '52.52' : '52.5191')
+    await seite.locator('#ortsdetail-laenge').fill((KARTE_MARKER_LAENGE0 + ort.k * KARTE_MARKER_SCHRITT).toFixed(5))
+    await seite.keyboard.press('Tab')
+    await seite.waitForTimeout(400)
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await seite.waitForTimeout(150)
+  }
+}
+
+/** Liest alle Marker mit allem, was die Zusicherungen brauchen. Rechtecke in
+ *  Fensterkoordinaten (gleiches System für Etikett und Körper). */
+function leseKartenMarker(seite) {
+  return seite.evaluate(() => {
+    const rechteck = (el) => {
+      const b = el.getBoundingClientRect()
+      return { links: b.left, oben: b.top, rechts: b.right, unten: b.bottom }
+    }
+    return [...document.querySelectorAll('.karte-marker')].map((el) => {
+      const label = el.querySelector('.karte-marker__label')
+      const koerper = el.querySelector('.karte-marker__koerper')
+      const name = el.getAttribute('aria-label') ?? ''
+      const box = el.getBoundingClientRect()
+      return {
+        name,
+        basis: name.replace(/, (Gesamtnote |keine Gesamtnote).*$/, ''),
+        text: koerper?.textContent ?? '',
+        istPunkt: koerper?.classList.contains('karte-marker__punkt') ?? false,
+        koerperUeberlauf: koerper ? koerper.scrollWidth > koerper.clientWidth : false,
+        labelAus: label?.classList.contains('karte-marker__label--aus') ?? true,
+        labelVorhanden: label != null,
+        labelAriaHidden: label?.getAttribute('aria-hidden') ?? null,
+        labelZeiger: label ? getComputedStyle(label).pointerEvents : null,
+        labelDeckkraft: label ? getComputedStyle(label).opacity : null,
+        labelGekuerzt: label ? label.scrollWidth > label.clientWidth : false,
+        koerper: koerper ? rechteck(koerper) : null,
+        etikett: label ? rechteck(label) : null,
+        x: box.left + box.width / 2,
+        y: box.top + box.height / 2,
+      }
+    })
+  })
+}
+
+function rechteckeUeberlappen(a, b) {
+  return a.links < b.rechts && b.links < a.rechts && a.oben < b.unten && b.oben < a.unten
+}
+
+/** Zusicherung: keine zwei SICHTBAREN Namen überlappen sich, und kein sichtbarer
+ *  Name liegt auf Scheibe/Punkt eines anderen Markers (Eigenschaft über alle
+ *  Marker, keine Namensliste). */
+function pruefeKeineUeberlappung(marker, wo, befunde) {
+  const sichtbar = marker.filter((m) => !m.labelAus && m.etikett)
+  for (const [i, a] of sichtbar.entries()) {
+    for (const b of sichtbar.slice(i + 1)) {
+      if (rechteckeUeberlappen(a.etikett, b.etikett)) befunde.push(`${wo}: die Namen von „${a.basis}" und „${b.basis}" überlappen sich`)
+    }
+    for (const m of marker) {
+      if (m !== a && m.koerper && rechteckeUeberlappen(a.etikett, m.koerper)) befunde.push(`${wo}: der Name von „${a.basis}" liegt auf Scheibe/Punkt von „${m.basis}"`)
+    }
+  }
+}
+
+/** Zoomt (Mausrad um die Mitte der Marker), bis der Abstand der beiden
+ *  Paar-Marker im Zielbereich liegt; liefert den Abstand oder null. */
+async function stelleKartenMarkerAbstandEin(seite) {
+  for (let i = 0; i < 6; i += 1) {
+    const marker = await leseKartenMarker(seite)
+    const hoch = marker.find((m) => m.basis.startsWith(KARTE_MARKER_PAAR_HOCH))
+    const niedrig = marker.find((m) => m.basis.startsWith(KARTE_MARKER_PAAR_NIEDRIG))
+    if (!hoch || !niedrig) return null
+    const abstand = Math.abs(hoch.x - niedrig.x)
+    if (abstand >= KARTE_MARKER_ABSTAND.min && abstand <= KARTE_MARKER_ABSTAND.max) return abstand
+    const mx = marker.reduce((summe, m) => summe + m.x, 0) / marker.length
+    const my = marker.reduce((summe, m) => summe + m.y, 0) / marker.length
+    await seite.mouse.move(mx, my)
+    await seite.mouse.wheel(0, abstand > KARTE_MARKER_ABSTAND.max ? 60 : -60)
+    await seite.waitForTimeout(900)
+  }
+  return null
+}
+
+/** Maus in eine neutrale Ecke der Kartenfläche (kein Marker, kein Bedienelement),
+ *  damit :hover keinen Namen aufklappt, den die Messung dann mitmisst. */
+async function parkeMausNeutral(seite) {
+  const cont = await seite.locator('.karte-container').boundingBox()
+  await seite.mouse.move(cont.x + cont.width / 2, cont.y + 3)
+  await seite.waitForTimeout(350)
+}
+
+async function bereiteKartenMarkerVor(seite) {
+  await legeKartenMarkerBestandAn(seite)
+  await seite.goto(BASIS + '/orte?ansicht=karte', { waitUntil: 'networkidle' })
+  await warteAufKartenmarker(seite, KARTE_MARKER_BESTAND.length)
+  await stelleKartenMarkerAbstandEin(seite)
+  await parkeMausNeutral(seite)
+}
+
+async function sortiereListeNachGesamtnote(seite) {
+  await seite.locator('.werkzeugleiste__chip').click()
+  await seite.waitForTimeout(200)
+  await seite.locator('.sortier-sheet__eintrag', { hasText: 'Gesamtnote' }).click()
+  await seite.waitForTimeout(300)
+}
+
+/** Wert je Ort, wie ihn die Ortszeile zeigt (Liste muss nach Gesamtnote sortiert sein). */
+function leseListenNoten(seite) {
+  return seite.evaluate(() =>
+    [...document.querySelectorAll('.ortszeile')]
+      .map((zeile) => ({
+        name: zeile.querySelector('.ortszeile__bezeichnung')?.textContent?.trim() ?? '',
+        wert: zeile.querySelector('.ortszeile__gesamtnote-wert')?.textContent?.trim() ?? null,
+      }))
+      .filter((eintrag) => eintrag.name.startsWith('Mk-')),
+  )
+}
+
+/** Notentext, Punkt-statt-Zahl und zugänglicher Name jedes Markers = Wert der Ortszeile. */
+function vergleicheMarkerMitListe(marker, liste, wo, befunde, ohneGewicht = []) {
+  for (const eintrag of liste) {
+    const m = marker.find((kandidat) => kandidat.basis === eintrag.name)
+    if (!m) {
+      befunde.push(`${wo}: kein Marker für „${eintrag.name}"`)
+      continue
+    }
+    if (eintrag.wert !== null) {
+      if (m.name !== `${eintrag.name}, Gesamtnote ${eintrag.wert}`) befunde.push(`${wo}: zugänglicher Name „${m.name}" statt „${eintrag.name}, Gesamtnote ${eintrag.wert}"`)
+      if (m.text !== eintrag.wert || m.istPunkt) befunde.push(`${wo}: „${eintrag.name}" zeigt im Kreis „${m.text}" statt dem Wert der Ortszeile „${eintrag.wert}"`)
+      if (m.koerperUeberlauf) befunde.push(`${wo}: „${m.text}" passt bei „${eintrag.name}" nicht in den Kreis`)
+    } else {
+      const erwartet = ohneGewicht.includes(eintrag.name)
+        ? `${eintrag.name}, keine Gesamtnote bei dieser Gewichtung`
+        : `${eintrag.name}, keine Gesamtnote`
+      if (m.name !== erwartet) befunde.push(`${wo}: zugänglicher Name „${m.name}" statt „${erwartet}"`)
+      if (!m.istPunkt || m.text !== '') befunde.push(`${wo}: „${eintrag.name}" ohne Note zeigt „${m.text}" statt eines Punkts ohne Zahl`)
+    }
+  }
+}
+
+/**
+ * PO-2026-11-24-004, harte Zusicherungen für die Karten-Marker — je Breite aus
+ * BREITEN, frische Seite, eigener Bestand (`KARTE_MARKER_BESTAND`). Eigenschaften,
+ * keine Stellen:
+ *   1. Notentext, Punkt-statt-Zahl und zugänglicher Name jedes Markers = der
+ *      Wert der Ortszeile (derselbe Wert, ADR-0037 Punkt 7); „10,0" passt in
+ *      den Kreis; ohne Gewicht heißt es „… keine Gesamtnote bei dieser Gewichtung".
+ *   2. Im Ausgangsausschnitt und im verdichteten Zoom überlappen keine zwei
+ *      sichtbaren Namen und kein Name liegt auf einem anderen Marker.
+ *   3. Verdichtet (Paar bei Zoom 17, Vorbedingung: ihre Etiketten überlappen,
+ *      ihre Körper nicht) ist der Name des höher bewerteten Orts sichtbar, der
+ *      andere nicht; der Punkt des ausgeblendeten Namens bleibt antippbar;
+ *      Etiketten haben pointer-events:none und aria-hidden.
+ *   4. Hover und Tastaturfokus zeigen den ausgeblendeten Namen; der Fokus
+ *      verschafft ihm Vorrang.
+ *   5. Heranzoomen löst die Überlappung: beide Namen sichtbar.
+ *   6. Ein Szenariowechsel in der geöffneten Karte (ohne Neumontage) ändert
+ *      Zahlen UND Vorrang sofort, und die Zahlen bleiben gleich der Ortszeile;
+ *      bei Eigene (nur Ambiente) steht der Ort nur mit Zeit ohne Zahl.
+ * Nicht per Rauchtest prüfbar bis -005: der ausgewählte Marker (die Prop
+ * `ausgewaehlteOrtId` setzt `Ortebereich.vue` erst mit der Schnellansicht).
+ */
+async function pruefeKartenMarker(browser, breite, befunde) {
+  const kontext = `${breite.name}/karten-marker`
+  const seite = await browser.newPage({ viewport: { width: breite.width, height: breite.height } })
+  seite.on('pageerror', (fehler) => befunde.push(`${kontext}: Laufzeitfehler: ${fehler.message}`))
+  const anzahl = KARTE_MARKER_BESTAND.length
+  try {
+    await legeKartenMarkerBestandAn(seite)
+    await sortiereListeNachGesamtnote(seite)
+    const liste = await leseListenNoten(seite)
+    if (liste.length !== anzahl) {
+      befunde.push(`${kontext}: Vorbedingung nicht erreicht — ${liste.length} statt ${anzahl} Orte in der Liste`)
+      return
+    }
+
+    await seite.goto(BASIS + '/orte?ansicht=karte', { waitUntil: 'networkidle' })
+    await warteAufKartenmarker(seite, anzahl)
+    await parkeMausNeutral(seite)
+    await seite.screenshot({ path: `${FOTOS}/${breite.name}-karten-marker-eingepasst.png` })
+
+    // 1 + 2 (Ausgangsausschnitt)
+    let marker = await leseKartenMarker(seite)
+    vergleicheMarkerMitListe(marker, liste, `${kontext} (eingepasst)`, befunde)
+    pruefeKeineUeberlappung(marker, `${kontext} (eingepasst)`, befunde)
+    for (const m of marker) {
+      if (!m.labelVorhanden || m.labelAriaHidden !== 'true') befunde.push(`${kontext}: der Name von „${m.basis}" ist nicht aria-hidden`)
+      if (m.labelZeiger !== 'none') befunde.push(`${kontext}: der Name von „${m.basis}" fängt Zeigerereignisse ab (pointer-events ${m.labelZeiger})`)
+    }
+
+    // Verdichten: Paar bei Zoom 17
+    const abstand = await stelleKartenMarkerAbstandEin(seite)
+    await parkeMausNeutral(seite)
+    if (abstand === null) {
+      befunde.push(`${kontext}: Vorbedingung nicht erreicht — der Abstand des Paars ließ sich nicht auf ${KARTE_MARKER_ABSTAND.min}-${KARTE_MARKER_ABSTAND.max}px einstellen`)
+      return
+    }
+    marker = await leseKartenMarker(seite)
+    const hoch = marker.find((m) => m.basis.startsWith(KARTE_MARKER_PAAR_HOCH))
+    const niedrig = marker.find((m) => m.basis.startsWith(KARTE_MARKER_PAAR_NIEDRIG))
+    const lang = marker.find((m) => m.basis.startsWith('Mk-Lang'))
+    if (!rechteckeUeberlappen(hoch.etikett, niedrig.etikett) || rechteckeUeberlappen(hoch.koerper, niedrig.koerper)) {
+      befunde.push(`${kontext}: Vorbedingung nicht erreicht — die Etiketten des Paars überlappen nicht oder ihre Körper berühren sich`)
+      return
+    }
+    await seite.screenshot({ path: `${FOTOS}/${breite.name}-karten-marker-verdichtet.png` })
+    pruefeKeineUeberlappung(marker, `${kontext} (verdichtet)`, befunde)
+    if (hoch.labelAus) befunde.push(`${kontext}: von zwei kollidierenden Namen fehlt der des höher bewerteten Orts (${hoch.basis}, 9,0)`)
+    if (!niedrig.labelAus) befunde.push(`${kontext}: der Name des niedriger bewerteten Orts (${niedrig.basis}, 5,0) bleibt trotz Kollision sichtbar`)
+    if (!lang.labelGekuerzt || lang.etikett.rechts - lang.etikett.links > KARTE_MARKER_ETIKETT_BREITE + 1) {
+      befunde.push(`${kontext}: der lange Name von „${lang.basis}" ist nicht auf ${KARTE_MARKER_ETIKETT_BREITE}px gekürzt`)
+    }
+    // Ausgeblendeter Name: Punkt/Kreis bleibt sichtbar und antippbar.
+    const trifft = await seite.evaluate((name) => {
+      const el = [...document.querySelectorAll('.karte-marker')].find((kandidat) => (kandidat.getAttribute('aria-label') ?? '').startsWith(name))
+      const k = el?.querySelector('.karte-marker__koerper')?.getBoundingClientRect()
+      if (!el || !k) return null
+      const oben = document.elementFromPoint(k.left + k.width / 2, k.top + k.height / 2)
+      return oben?.closest('.karte-marker') === el
+    }, KARTE_MARKER_PAAR_NIEDRIG)
+    if (trifft !== true) befunde.push(`${kontext}: der Kreis des Orts mit ausgeblendetem Namen ist nicht antippbar (Treffer ${trifft})`)
+
+    // 4. Hover und Fokus
+    await seite.mouse.move(niedrig.x, niedrig.y)
+    await seite.waitForTimeout(400)
+    const hoverDeckkraft = await seite.evaluate((name) => {
+      const el = [...document.querySelectorAll('.karte-marker')].find((kandidat) => (kandidat.getAttribute('aria-label') ?? '').startsWith(name))
+      return el ? getComputedStyle(el.querySelector('.karte-marker__label')).opacity : null
+    }, KARTE_MARKER_PAAR_NIEDRIG)
+    if (hoverDeckkraft !== '1') befunde.push(`${kontext}: der ausgeblendete Name erscheint bei Hover nicht (Deckkraft ${hoverDeckkraft})`)
+    await parkeMausNeutral(seite)
+    await seite.evaluate((name) => {
+      ;[...document.querySelectorAll('.karte-marker')].find((kandidat) => (kandidat.getAttribute('aria-label') ?? '').startsWith(name))?.focus({ preventScroll: true })
+    }, KARTE_MARKER_PAAR_NIEDRIG)
+    await seite.waitForTimeout(500)
+    marker = await leseKartenMarker(seite)
+    const nFokus = marker.find((m) => m.basis.startsWith(KARTE_MARKER_PAAR_NIEDRIG))
+    const hFokus = marker.find((m) => m.basis.startsWith(KARTE_MARKER_PAAR_HOCH))
+    if (nFokus.labelAus) befunde.push(`${kontext}: der Name des fokussierten Markers ist ausgeblendet`)
+    if (!hFokus.labelAus) befunde.push(`${kontext}: der fokussierte Marker verdrängt den höher bewerteten Namen nicht (Vorrang Fokus)`)
+    await seite.evaluate(() => document.activeElement?.blur())
+    await seite.waitForTimeout(500)
+    marker = await leseKartenMarker(seite)
+    if (marker.find((m) => m.basis.startsWith(KARTE_MARKER_PAAR_HOCH)).labelAus) befunde.push(`${kontext}: nach dem Fokusverlust bleibt der Name des höher bewerteten Orts ausgeblendet`)
+
+    // 6. Szenariowechsel bei geöffneter Karte (ohne Neumontage)
+    await seite.evaluate(() => { document.querySelector('.karte-container').dataset.rauchtestAlt = '1' })
+    const vorWechsel = marker.find((m) => m.basis === 'Mk-Aenderung')
+    const gegenVor = marker.find((m) => m.basis === 'Mk-Gegen')
+    if (vorWechsel.text !== '8,0' || !vorWechsel.labelAus || gegenVor.labelAus) {
+      befunde.push(`${kontext}: Vorbedingung nicht erreicht — Ausgewogen: Aenderung "${vorWechsel.text}" (Name ${vorWechsel.labelAus ? 'aus' : 'an'}), Gegen Name ${gegenVor.labelAus ? 'aus' : 'an'}`)
+    }
+    await waehleGewichtungUeberSortierSheet(seite, 'Fokus Geschmack')
+    await parkeMausNeutral(seite)
+    if (await seite.evaluate(() => document.querySelector('.karte-container')?.dataset.rauchtestAlt === undefined)) {
+      befunde.push(`${kontext}: Vorbedingung nicht erreicht — die Karte wurde beim Szenariowechsel neu aufgebaut`)
+    }
+    marker = await leseKartenMarker(seite)
+    const nachWechsel = marker.find((m) => m.basis === 'Mk-Aenderung')
+    const gegenNach = marker.find((m) => m.basis === 'Mk-Gegen')
+    if (nachWechsel.text !== '8,7') befunde.push(`${kontext}: nach dem Szenariowechsel zeigt Aenderung "${nachWechsel.text}" statt "8,7"`)
+    if (nachWechsel.labelAus || !gegenNach.labelAus) befunde.push(`${kontext}: nach dem Szenariowechsel kippt der Vorrang nicht (Aenderung 8,7 vor Gegen 8,5)`)
+    pruefeKeineUeberlappung(marker, `${kontext} (Fokus Geschmack)`, befunde)
+
+    // Zahlen = Ortszeile nach dem Wechsel: Liste ohne Neuladen über die Umschaltung.
+    await seite.locator('.werkzeugleiste__ansicht-umschalten:visible').first().click()
+    await seite.locator('.ortszeile').first().waitFor({ state: 'visible', timeout: 10000 })
+    const listeFokus = await leseListenNoten(seite)
+    await seite.locator('.werkzeugleiste__ansicht-umschalten:visible').first().click()
+    await warteAufKartenmarker(seite, anzahl)
+    marker = await leseKartenMarker(seite)
+    vergleicheMarkerMitListe(marker, listeFokus, `${kontext} (Fokus Geschmack)`, befunde)
+
+    // Eigene Gewichte: nur Ambiente zählt -> „Nur-Zeit" ohne Gewicht
+    const dialog = await oeffneGewichtungSheetUeberSortierSheet(seite)
+    await dialog.locator('.gewichtung-sheet__name', { hasText: 'Eigene' }).click()
+    await seite.waitForTimeout(300)
+    await setzeEigeneGewichteUeberZahlenfelder(seite, dialog, { zeit: 0, geschmack: 0, preisLeistung: 0 })
+    await seite.waitForTimeout(300)
+    await seite.keyboard.press('Escape')
+    await seite.waitForTimeout(400)
+    marker = await leseKartenMarker(seite)
+    const nurZeit = marker.find((m) => m.basis === 'Mk-Nur-Zeit')
+    if (!nurZeit || nurZeit.name !== 'Mk-Nur-Zeit, keine Gesamtnote bei dieser Gewichtung' || !nurZeit.istPunkt || nurZeit.text !== '') {
+      befunde.push(`${kontext}: bei Eigene (nur Ambiente) steht Mk-Nur-Zeit als „${nurZeit?.name}" mit „${nurZeit?.text}" statt als Punkt „… keine Gesamtnote bei dieser Gewichtung"`)
+    }
+    const ohne = marker.find((m) => m.basis === 'Mk-Ohne')
+    if (ohne?.name !== 'Mk-Ohne, keine Gesamtnote') befunde.push(`${kontext}: der unbewertete Ort heißt „${ohne?.name}" statt „Mk-Ohne, keine Gesamtnote"`)
+    await seite.screenshot({ path: `${FOTOS}/${breite.name}-karten-marker-eigene-gewichtung.png` })
+
+    // 5. Heranzoomen löst die Überlappung auf (Zurück auf Ausgewogen: Paar unverändert)
+    const cont = await seite.locator('.karte-container').boundingBox()
+    const mitte = marker.find((m) => m.basis.startsWith(KARTE_MARKER_PAAR_HOCH))
+    await seite.mouse.move(Math.min(Math.max(mitte.x, cont.x + 60), cont.x + cont.width - 60), cont.y + cont.height / 2)
+    for (let i = 0; i < 3; i += 1) {
+      await seite.mouse.wheel(0, -60)
+      await seite.waitForTimeout(900)
+    }
+    await parkeMausNeutral(seite)
+    marker = await leseKartenMarker(seite)
+    const hochZoom = marker.find((m) => m.basis.startsWith(KARTE_MARKER_PAAR_HOCH))
+    const niedrigZoom = marker.find((m) => m.basis.startsWith(KARTE_MARKER_PAAR_NIEDRIG))
+    const abstandZoom = Math.abs(hochZoom.x - niedrigZoom.x)
+    if (!(abstandZoom > 130)) {
+      befunde.push(`${kontext}: Vorbedingung nicht erreicht — nach dem Heranzoomen beträgt der Abstand des Paars nur ${abstandZoom.toFixed(0)}px`)
+    } else if (hochZoom.labelAus || niedrigZoom.labelAus) {
+      befunde.push(`${kontext}: nach dem Heranzoomen (Abstand ${abstandZoom.toFixed(0)}px, keine Überlappung mehr) bleibt ein Name ausgeblendet`)
+    }
+    pruefeKeineUeberlappung(marker, `${kontext} (herangezoomt)`, befunde)
+    console.log(`  ${kontext} — geprüft (Note = Ortszeile, Kollision, Vorrang, Hover/Fokus, Szenariowechsel, Heranzoomen), Bildschirmfotos in ${FOTOS}/`)
+  } catch (fehler) {
+    befunde.push(`${kontext}: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  } finally {
+    await seite.close()
+  }
+}
+
 /** Öffnet jede Ansicht bei einer Breite und prüft die Zusicherungen 1-5
  *  (Zusicherung 2 — Laufzeitfehler — hängt an Listenern auf `seite`, die
  *  der Aufrufer vor dem Aufruf registriert). */
-async function pruefeAnsichtenBeiBreite(seite, breite, befunde) {
+async function pruefeAnsichtenBeiBreite(hauptSeite, breite, befunde) {
   const legendenGesehen = { inMasterDetail: 0, standalone: 0 }
   for (const ansicht of ANSICHTEN) {
+    // `eigenerKontext`: frischer Kontext statt der gemeinsamen Seite (s. ANSICHTEN).
+    const seite = ansicht.eigenerKontext
+      ? await (await hauptSeite.context().browser().newContext({ viewport: { width: breite.width, height: breite.height } })).newPage()
+      : hauptSeite
+    if (ansicht.eigenerKontext) {
+      seite.on('pageerror', (fehler) => befunde.push(`${breite.name}/${ansicht.name}: Laufzeitfehler: ${fehler.message}`))
+    }
     await seite.goto(BASIS + ansicht.pfad, { waitUntil: 'networkidle' })
     if (ansicht.vorbereiten) await ansicht.vorbereiten(seite)
     await seite.waitForTimeout(400)
@@ -3063,6 +3455,7 @@ async function pruefeAnsichtenBeiBreite(seite, breite, befunde) {
       await pruefeBalkenfuellungInZonenfarbe(seite, befunde)
     }
     if (ansicht.aufraeumen) await ansicht.aufraeumen(seite)
+    if (ansicht.eigenerKontext) await seite.context().close()
   }
   if (legendenGesehen.inMasterDetail === 0) {
     befunde.push(`${breite.name}: Listen-Kopfzeile der Master-Detail-Liste mit Legenden-Auslöser wurde nie untersucht`)
@@ -4521,6 +4914,12 @@ async function main() {
     // für JEDE Breite aus BREITEN, jeweils auf frischer Seite mit eigenem Bestand.
     for (const breite of BREITEN) {
       await pruefeKartenausschnittBleibtErhalten(browser, breite, befunde)
+    }
+
+    // Zusicherungen ab PO-2026-11-24-004, s. `pruefeKartenMarker` — für JEDE
+    // Breite aus BREITEN, jeweils auf frischer Seite mit eigenem Bestand.
+    for (const breite of BREITEN) {
+      await pruefeKartenMarker(browser, breite, befunde)
     }
 
     // Zusicherung ab PO-2026-11-24-001 (ADR-0037), s. Funktionskommentar —

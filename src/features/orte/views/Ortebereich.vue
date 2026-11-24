@@ -152,6 +152,7 @@ import {
 } from '../model/ansicht'
 import { leiteAnsichtAusAdresse } from '../lib/ansichtAusAdresse'
 import { filtereOrteMitKoordinaten } from '../../karte/lib/koordinatenFilter'
+import type { KartenOrt } from '../../karte/model/karte.types'
 import { bestimmeKartenLeerzustand } from '../../karte/lib/leerzustand'
 import { useOrteStore, type AchsenName } from '../stores/orte.store'
 
@@ -222,7 +223,20 @@ const ansicht = computed(() => leiteAnsichtAusAdresse(route.name, route.query.an
 
 /** Gezeichnet wird `orteGefiltert`, eingeschränkt auf Orte mit beiden
  * Koordinaten (ADR-0019 Punkt 9) — die Sortierung bleibt unausgewertet. */
-const kartenOrte = computed(() => filtereOrteMitKoordinaten(store.orteGefiltert))
+const kartenOrte = computed<KartenOrt[]>(() => {
+  const ortJeId = new Map(store.orteGefiltert.map((eintrag) => [eintrag.id, eintrag]))
+  return filtereOrteMitKoordinaten(store.orteGefiltert).map((basis) => {
+    // Derselbe Wert wie in der Ortszeile (ADR-0037 Punkt 7): `gesamtnoteVon`
+    // mit den Gewichten aus dem Store; `karte` rechnet und formatiert nichts.
+    const ergebnis = gesamtnoteVon(ortJeId.get(basis.id)!)
+    return {
+      ...basis,
+      notentext: ergebnis.art === 'wert' ? formatiereGesamtnote(ergebnis.zehntel) : null,
+      rohwert: ergebnis.art === 'wert' ? ergebnis.roh : null,
+      ohneNoteGrund: ergebnis.art === 'wert' ? null : ergebnis.art,
+    }
+  })
+})
 
 /** Dritter Kartenzustand (ADR-0019 Punkt 10c): Filter lässt Orte übrig, aber
  * keiner davon hat Koordinaten. Nur relevant, wenn weder `bestandLeer` noch

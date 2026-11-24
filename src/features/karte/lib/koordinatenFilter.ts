@@ -11,7 +11,7 @@
  * 0 ist am Äquator und am Nullmeridian eine gültige, gesetzte Koordinate
  * (Constraint DATENAUSWAHL, ADR-0007-Muster).
  */
-import type { KartenOrt } from '../model/karte.types'
+import type { KartenOrtBasis } from '../model/karte.types'
 
 interface OrtMitOptionalenKoordinaten {
   id: string
@@ -22,8 +22,8 @@ interface OrtMitOptionalenKoordinaten {
 
 export function filtereOrteMitKoordinaten(
   orte: readonly OrtMitOptionalenKoordinaten[],
-): KartenOrt[] {
-  const ergebnis: KartenOrt[] = []
+): KartenOrtBasis[] {
+  const ergebnis: KartenOrtBasis[] = []
   for (const ort of orte) {
     if (ort.breite !== null && ort.laenge !== null) {
       ergebnis.push({ id: ort.id, bezeichnung: ort.bezeichnung, breite: ort.breite, laenge: ort.laenge })

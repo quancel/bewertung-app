@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { berechneKartenausschnitt, bildeMengenKennung, liegtMarkerImAusschnitt } from './kartenausschnitt'
-import type { KartenOrt } from '../model/karte.types'
+import type { KartenOrtBasis } from '../model/karte.types'
 
-function ort(id: string, breite: number, laenge: number): KartenOrt {
+function ort(id: string, breite: number, laenge: number): KartenOrtBasis {
   return { id, bezeichnung: id, breite, laenge }
 }
 

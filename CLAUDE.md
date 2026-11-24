@@ -471,9 +471,9 @@ Abschottung, sondern nur dafür, dass nie genug Inhalt vorlag.
 
 Ab PO-2026-11-24-006 (ADR-0036, Bildvorschau im Vollbild) kommt eine weitere
 Gruppe harter Zusicherungen dazu (`pruefeBildvorschau()`, `scripts/smoke.mjs`
-ab Zeile 2010, je Breite aus `BREITEN` in einem eigenen Kontext mit
+ab Zeile 2039, je Breite aus `BREITEN` in einem eigenen Kontext mit
 `hasTouch`; dazu die Ansicht `bildvorschau` in `ANSICHTEN`, Zeile 372, mit drei
-im Browser erzeugten PNGs hoch/quer/hoch, `legeOrtMitBildernAn()` Zeile 797).
+im Browser erzeugten PNGs hoch/quer/hoch, `legeOrtMitBildernAn()` Zeile 806).
 Geprüft werden Eigenschaften: Öffnen legt **genau einen** Verlaufseintrag mit
 unveränderter Adresse an, Blättern keinen; jedes Bild ist vollständig sichtbar
 (im Ansichtsfenster, nicht von einem Button geschnitten); Pfeiltaste,
@@ -513,14 +513,14 @@ iOS-/Android-System-Zurück bleibt nur manuell prüfbar.
 Ab PO-2026-11-24-001 (ADR-0037, Gewichtung der Gesamtnote) kommen drei neue
 Ansichten und eine harte Zusicherung dazu. `ortsliste-gewichtung-hinweis`,
 `ortsdetail-gewichtung` und `gewichtung-sheet` (`scripts/smoke.mjs` Zeilen
-373–375) zeigen die drei Einstiege je mit dem **längsten** Szenarionamen
+378–380) zeigen die drei Einstiege je mit dem **längsten** Szenarionamen
 („Fokus Preis-Leistung") und laufen so durch Verdeckung, Überlauf und
 Button-Umbruch bei allen `BREITEN`. Neu ist die optionale Ansichts-Eigenschaft
-`aufraeumen` (Zeile 3065): Die Gewichtung ist persistiert und würde sonst für
+`aufraeumen` (Zeile 3457): Die Gewichtung ist persistiert und würde sonst für
 den Rest des Laufs gelten und Noten und Zonen späterer Ansichten verschieben;
-`setzeGewichtungZurueck` (Zeile 906) stellt Ausgewogen wieder her. Die harte
+`setzeGewichtungZurueck` (Zeile 915) stellt Ausgewogen wieder her. Die harte
 Zusicherung `pruefeGewichtungWirktUeberallUndUeberstehtNeuladen` (ab Zeile
-2280, nur bei 1280px, eigener Bestand auf frischer Seite) prüft Eigenschaften:
+2309, nur bei 1280px, eigener Bestand auf frischer Seite) prüft Eigenschaften:
 Das Prüfbeispiel (Fokus Geschmack, Geschmack 10, Ambiente 6 → „8,7", bei
 Ausgewogen „8,0") zeigt Zeile **und** Detail **sofort** und nach einem
 Neuladen; die Reihenfolge nach Gesamtnote kippt von B-vor-A zu A-vor-B (das
@@ -604,17 +604,17 @@ dazu. Die Ansicht `gewichtung-eigene` (`scripts/smoke.mjs` Zeile 386) zeigt das
 Sheet mit offenem Block „Eigene" im **widersprüchlichsten** Zustand: Eine Achse
 „zählt nicht", die letzte trägt „100 % · muss zählen", und die Statuszeile
 steht nach einem abgefangenen Versuch — bei allen `BREITEN` durch Verdeckung,
-Überlauf und Button-Umbruch. `setzeGewichtungZurueck` (Zeile 906) stellt für
+Überlauf und Button-Umbruch. `setzeGewichtungZurueck` (Zeile 915) stellt für
 **alle** Gewichtungs-Ansichten jetzt auch die **eigenen** Gewichte auf 1:1:1:1
 zurück: Sie überstehen die Wahl eines festen Szenarios (das ist Absicht,
 ADR-0037 Punkt 2) und würden sonst für die nächste „Eigene"-Vorbereitung bei
 einer anderen Breite stehen bleiben. Die Erweiterung: `pruefeReglerGreifbarkeit`
-(Zeile 1275) läuft nicht mehr über den Ansichtsnamen `ortsdetail`, sondern über
+(Zeile 1304) läuft nicht mehr über den Ansichtsnamen `ortsdetail`, sondern über
 die **benannte Bedingung** „die Ansicht enthält einen `input[type="range"]`" —
 dadurch deckt sie die Gewichtsregler im Sheet ohne weiteres Zutun mit ab, und
 jeder künftige Regler ebenso. Die Befundzeile benennt einen Regler ohne `id`
 über sein `aria-label`. Die harte Zusicherung
-`pruefeEigeneGewichteUndEndgruppen` (ab Zeile 2475, nur bei 1280px, eigener
+`pruefeEigeneGewichteUndEndgruppen` (ab Zeile 2504, nur bei 1280px, eigener
 Browser-Kontext = frische IndexedDB, eigener Bestand mit drei Orten)
 prüft Eigenschaften: Die Erstbelegung ist 1:1:1:1 und das Sheet **bleibt bei
 „Eigene" offen**; mit Ambiente 9 / Zeit 1 / Geschmack 10 / Preis-Leistung 1
@@ -634,7 +634,7 @@ bisherigen Wert zurück, die letzte Achse über 0 bleibt bei „0" auf „1" (Ze
 „100 % · muss zählen", Regler `min="1"`, Statuszeile `role="status"` bis zur
 nächsten Änderung, auch Pos1 am Regler bleibt bei 1, danach darf die vorher
 „letzte" Achse auf 0). Die zweite Zusicherung
-`pruefeGewichtsreglerCommitWaehrendZiehens` (ab Zeile 2666, nur bei 1280px)
+`pruefeGewichtsreglerCommitWaehrendZiehens` (ab Zeile 2695, nur bei 1280px)
 hält die Maustaste am Regler der Zeile „Zeit" gedrückt und prüft **vor** dem
 Loslassen, dass das Zahlenfeld denselben Wert zeigt, der Anteil stimmt und die
 Gesamtnote in der Liste dahinter sich geändert hat (Vorbedingung: der Regler
@@ -672,21 +672,21 @@ Regler und Zahlenfeld sichtbar).
 Ab PO-2026-11-24-007 (prägnantere Zonen, ADR-0034/0037, Nutzerentscheidung:
 Plakette und 1px-Hairline sind zulässig) kommen eine Ansicht, drei harte
 Zusicherungen und eine bewusste Messung dazu. Die Ansicht `ortsliste-keine-treffer`
-(`scripts/smoke.mjs` Zeile 367, `bereiteOrtslisteKeineTrefferVor()` Zeile 738,
+(`scripts/smoke.mjs` Zeile 367, `bereiteOrtslisteKeineTrefferVor()` Zeile 747,
 `aufraeumen` setzt den Tag-Filter zurück) erzeugt den Null-Treffer-Zustand der
 Liste (zwei Orte, Tag-Filter UND auf beide) — er hat eine **eigene**
 Kopfzeile mit Legenden-Auslöser neben der der Master-Detail-Liste. Die Tags
 heißen bewusst nur `ka`/`kb`: Lange Tag-Namen blieben im Bestand und ließen die
 Filter-Pillen in allen späteren Ansichten aus dem Bildschirm ragen (ein erster
 Lauf meldete 23 solcher Befunde, durch meinen Rauchtest erzeugt, nicht durch die
-App). `pruefeLegendenAusloeser()` (Zeile 1628) läuft auf **jeder** Ansicht über
+App). `pruefeLegendenAusloeser()` (Zeile 1657) läuft auf **jeder** Ansicht über
 die benannte Bedingung „Listen-Kopfzeile mit Legende" und prüft, dass der
 Auslöser **gerenderten, nicht leeren Text** zeigt (`innerText`, nicht
 `aria-label`), das Label den sichtbaren Text enthält, kein Icon darin steckt,
 ≥ 44 × 44 px groß ist, nicht aus dem Bildschirm ragt und ab `lg` die Kopfzeile
 **einzeilig** bleibt; die Vorbedingung („beide Kopfzeilen-Varianten wurden je
 Breite wirklich untersucht", Zähler `legendenGesehen`) steht in der Zusicherung
-selbst. `pruefeZonenPlakette()` (Zeile 1684, auf `ortsliste-zonen`, alle
+selbst. `pruefeZonenPlakette()` (Zeile 1713, auf `ortsliste-zonen`, alle
 `BREITEN`) prüft Eigenschaften: Eine Zone hat eine Plakettenfläche, eine Zeile
 ohne Zone keine (damit ist 8,0 von „kein Wert in einer Zone" eindeutig
 unterscheidbar); Zahl auf Fläche ≥ 4,5:1; Höhe und Padding der Zahl sind in
@@ -696,7 +696,7 @@ fluchten; die fünf Flächen werden streng dunkler; ein Hervorhebungs-Schatten t
 Hervorhebung keinen; **Zeilenabstand ≥ 8px** — das war die Auflage der
 Design-Konvention („Zeilenabstände ≥ `--space-8`"), die `Ortebereich.vue` mit
 `gap: var(--space-4)` verletzte; der Wert steht jetzt auf `--space-8`.
-`pruefeBalkenfuellungInZonenfarbe()` (Zeile 1760, nur 1280px) sortiert nach
+`pruefeBalkenfuellungInZonenfarbe()` (Zeile 1789, nur 1280px) sortiert nach
 Ambiente und prüft, dass die Füllung bei einem Wert in einer Zone der
 Plakettenfläche entspricht (flach), bei einem Wert unter 8 weder Zonenfüllung
 noch Fläche hat und dass der Balken im **Ortsdetail** keine Zonenfarbe trägt
@@ -731,7 +731,7 @@ Breiten) wurden angesehen und gehen zur Graustufen-Begutachtung an den
 
 Ab PO-2026-11-24-003 (ADR-0038, Kartenausschnitt merken, Sitzung = JS-Lebensdauer)
 kommt eine weitere Gruppe harter Zusicherungen dazu
-(`pruefeKartenausschnittBleibtErhalten()`, `scripts/smoke.mjs` ab Zeile 2832,
+(`pruefeKartenausschnittBleibtErhalten()`, `scripts/smoke.mjs` ab Zeile 2861,
 je Breite aus `BREITEN` auf frischer Seite mit eigenem Bestand: drei Orte mit
 Koordinaten — Berlin, München (Tag „ka"), Athen (Tag „kb") —, die über den
 Koordinaten-Notnagel angelegt werden). Die Umsetzung ist ein nicht-reaktives
@@ -755,12 +755,10 @@ Liste → Karte, Karte → `/daten` → goBack), danach ein echtes `reload()`
 (eingepasster Startausschnitt, nichts persistiert), der Filterfall (Filter in
 der Liste auf einen Ort außerhalb des gemerkten Ausschnitts → eingepasst, der
 Marker liegt in der Mitte) und die Filteränderung **in** der Kartenansicht
-(passt neu ein). Zwei Bauformen sind Absicht: Die Marker werden per Fokus
-mit `preventScroll` + Enter geöffnet, und der Klick auf „Daten" läuft
-programmatisch, weil bei 320px die Leaflet-Quellenangabe über der festen
-Tab-Leiste liegt und Playwrights Klick abfinge (aufgefallen beim Bau dieser
-Zusicherung, **nicht** Gegenstand dieses Pakets — ob das ein Befund für
-`pruefeVerdeckung` ist, entscheidet der `architekt`). **Rot-Nachweis**
+(passt neu ein). Die Marker werden per Fokus mit `preventScroll` + Enter
+geöffnet. Der Klick auf „Daten" war hier zunächst programmatisch, weil bei
+320px die Leaflet-Quellenangabe über der festen Tab-Leiste lag und Playwrights
+Klick abfing; mit PO-2026-11-24-004 ist er ein echter Klick (s. dort). **Rot-Nachweis**
 (ADR-0027 Punkt 8; je eine kompilierbare Mutation an `useLeafletKarte.ts`,
 gekürzte temporäre Smoke-Kopie, danach Quelle und Kopie zurückgesetzt):
 Gemerkten Ausschnitt nicht schreiben (`moveend`-Listener entfernt) → 12
@@ -775,3 +773,77 @@ eigene Zusicherung; die Rückweg-Messung läuft allerdings nach der
 Fokusrückgabe und sollte bei einer Verschiebung über 2px rot werden, nicht gesondert nachgewiesen) und dass die
 Wiederherstellung ohne Animation geschieht (`animate: false` nicht gesondert
 gemessen). Nur Chromium.
+
+Ab PO-2026-11-24-004 (Karten-Marker: Namen über dem
+Punkt, Gesamtnote als Zahl im Kreis, Kollisionsausblendung) kommen eine Ansicht
+und eine Gruppe harter Zusicherungen dazu. Die Ansicht `karten-marker`
+(`scripts/smoke.mjs` Zeile 395, `bereiteKartenMarkerVor()` Zeile 3143) steht bewusst **zuletzt**
+in `ANSICHTEN` und läuft über die neue Eigenschaft `eigenerKontext` in einem
+**frischen Browser-Kontext** (eigene IndexedDB) statt auf der gemeinsamen Seite: Ihr
+Bestand trägt Koordinaten, und acht zusätzliche Orte verlängerten dort die Liste so,
+dass die Ortssuche-Zustände eine unter der sticky Werkzeugleiste weggescrollte Zeile
+als „verdeckt" meldeten (Fehlbefund, kein App-Fehler — derselbe Mechanismus wie bei
+`ortsliste-zonen`); `legeKartenMarkerBestandAn()` legt ihn nur an, wenn
+er noch fehlt. Der Bestand (`KARTE_MARKER_BESTAND`, Namen „Mk-…") liegt in zwei
+Reihen auf einem Breitengrad im Abstand von 0,0006° Länge — bei Zoom 17 sind das
+56px, also **überlappende Namen bei nicht überlappenden Trefferflächen**
+(Verdeckungsprüfung bleibt anwendbar) —, mit sehr langen Namen, „10,0", einem Ort
+ohne Bewertung, einem nur mit Zeit bewerteten Ort und einem Paar, dessen Vorrang
+mit dem Gewichtungs-Szenario kippt. `stelleKartenMarkerAbstandEin()` zoomt per
+Mausrad, bis der Abstand der Paar-Marker 48–70px beträgt (Zoom 17); die Maus wird
+dafür vor jeder Messung in eine neutrale Ecke geparkt, damit `:hover` keinen Namen
+aufklappt, den die Messung mitmisst. `pruefeKartenMarker()` (je Breite aus
+`BREITEN`, frische Seite, eigener Bestand) prüft Eigenschaften: Notentext,
+„Punkt statt Zahl" und zugänglicher Name jedes Markers sind gleich dem Wert der
+Ortszeile (Liste nach Gesamtnote sortiert, derselbe Wert, ADR-0037 Punkt 7) — vor
+**und** nach einem Szenariowechsel; „10,0" läuft nicht über den Kreis; keine zwei
+**sichtbaren** Namen überlappen sich, kein sichtbarer Name liegt auf Scheibe/Punkt
+eines anderen Markers (im Ausgangsausschnitt, verdichtet, nach Szenariowechsel
+und herangezoomt); verdichtet ist von zwei kollidierenden Namen der des höher
+bewerteten Orts sichtbar, der andere nicht, der Kreis des ausgeblendeten Namens
+bleibt antippbar (`elementFromPoint`); Namen haben `pointer-events: none` und
+`aria-hidden`; ein langer Name ist auf 120px gekürzt; Hover und Tastaturfokus
+zeigen den ausgeblendeten Namen, der Fokus verdrängt den höher bewerteten; ein
+Szenariowechsel **bei geöffneter Karte** (Container nachweislich nicht neu
+aufgebaut) ändert Zahl und Vorrang sofort; bei „Eigene" (nur Ambiente) steht ein
+nur mit Zeit bewerteter Ort als Punkt „… keine Gesamtnote bei dieser Gewichtung",
+der unbewertete als „… keine Gesamtnote"; Heranzoomen (Abstand > 130px) zeigt
+wieder beide Namen. Vorbedingungen sind Teil der Zusicherung (Etiketten des Paars
+überlappen, ihre Körper nicht; Ausgangszustand des Szenario-Paars; Karte nicht
+neu aufgebaut). **`pruefeUeberlauf()` bekommt eine benannte
+Ausnahme** (ADR-0023 Punkt 7): Ein Element, das von seinem nächsten Vorfahren mit
+`overflow-x: hidden|clip` horizontal abgeschnitten wird, der selbst vollständig im
+Bildschirm liegt, ragt nicht „aus dem Bildschirm" — das trifft strukturell die
+Leaflet-Kacheln, die über den Kartencontainer hinausreichen (erster Lauf: 27 Befunde
+`img.leaflet-tile … ragt 97px über den linken Bildschirmrand hinaus`). Eine
+Gegenprobe an synthetischem DOM belegt, dass ein Element aus einem **nicht**
+abschneidenden Container (Muster der Koordinatenzeile) und ein Abschneider, der
+selbst zu breit ist, weiterhin Befunde bleiben. Weil die Etiketten nach `moveend`/`zoomend`, Props- und
+Fokusänderung neu berechnet werden, misst der Test die **gerenderten** Rechtecke
+(`getBoundingClientRect` von Etikett und Körper, das Etikett bleibt auch
+ausgeblendet im Layout, nur `opacity`). **Nebenbefund mitgelöst:**
+`.karte-wrapper` bildet jetzt einen eigenen Stapelkontext (`isolation: isolate`):
+Leaflets Bedienelemente und Quellenangabe (z-index 800/1000) lagen sonst bei 320px
+über der festen Tab-Leiste und fingen deren Klicks ab; der Klick auf „Daten" in
+`pruefeKartenausschnittBleibtErhalten()` ist deshalb wieder ein echter
+Playwright-Klick (fängt ihn etwas ab, endet er nach 5s mit „Timeout"). **Rot-Nachweis**
+(ADR-0027 Punkt 8; je eine kompilierbare Mutation, gekürzte temporäre
+Smoke-Kopie, danach Quelle und Kopie zurückgesetzt): Kollisionsausblendung
+entfernt (alle Namen sichtbar) → 22 Befunde „die Namen von … überlappen sich";
+Vorrang umgekehrt → „von zwei kollidierenden Namen fehlt der des höher bewerteten
+Orts", „… bleibt trotz Kollision sichtbar", „nach dem Szenariowechsel kippt der
+Vorrang nicht"; Notentext mit Punkt statt Komma → 30 Befunde „zeigt im Kreis „10.0"
+statt … „10,0""; Inhalt bestehender Marker nicht nachgeführt → „nach dem
+Szenariowechsel zeigt Aenderung „8,0" statt „8,7"" und der Ohne-Gewicht-Fall;
+`pointer-events: none` vom Etikett entfernt → „der Name von … fängt Zeigerereignisse
+ab"; Zweig „ohne Gewicht" im zugänglichen Namen vertauscht → vier Befunde zum
+Namen; Neuberechnung beim Fokus entfernt → „der Name des fokussierten Markers ist
+ausgeblendet"; `isolation: isolate` entfernt → „telefon-320/kartenausschnitt:
+unerwarteter Abbruch — locator.click: Timeout 5000ms exceeded". **Unbelegt:** der
+**ausgewählte** Marker (Größe 48px/Ring 4px, Punkt 24px mit Außenring, Etikett
+immer sichtbar) — `Kartenflaeche.vue` hat dafür die Prop `ausgewaehlteOrtId`, aber
+`Ortebereich.vue` setzt sie erst mit PO-2026-11-24-005 (Schnellansicht), im
+Browser ist der Zustand bis dahin nicht erzeugbar; die Abnahme des Kriteriums „über
+Größe und Ringstärke erkennbar" gehört nach -005. Ebenso ungeprüft: dass die
+Markerpositionen bei Hover/Auswahl über benachbarten Markern liegen (`z-index`).
+Nur Chromium.

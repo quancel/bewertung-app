@@ -11,7 +11,7 @@
  * nie bei reinem Pan/Zoom des Nutzers (das ruft diese Funktion gar nicht
  * erst auf).
  */
-import type { KartenOrt } from '../model/karte.types'
+import type { KartenOrtBasis } from '../model/karte.types'
 
 export interface KartenKoordinate {
   breite: number
@@ -23,7 +23,7 @@ export type Kartenausschnitt =
   | { art: 'einzel'; mittelpunkt: KartenKoordinate }
   | { art: 'bounds'; suedwesten: KartenKoordinate; nordosten: KartenKoordinate }
 
-export function berechneKartenausschnitt(orte: readonly KartenOrt[]): Kartenausschnitt {
+export function berechneKartenausschnitt(orte: readonly KartenOrtBasis[]): Kartenausschnitt {
   if (orte.length === 0) return { art: 'leer' }
 
   if (orte.length === 1) {
@@ -61,7 +61,7 @@ export interface Kartengrenzen {
  * gestellt (ja) oder auf die Marker eingepasst wird (nein). Die Ränder
  * zählen als innerhalb. Ohne Marker: nein.
  */
-export function liegtMarkerImAusschnitt(orte: readonly KartenOrt[], grenzen: Kartengrenzen): boolean {
+export function liegtMarkerImAusschnitt(orte: readonly KartenOrtBasis[], grenzen: Kartengrenzen): boolean {
   return orte.some(
     (ort) =>
       ort.breite >= grenzen.suedwesten.breite &&
@@ -77,7 +77,7 @@ export function liegtMarkerImAusschnitt(orte: readonly KartenOrt[], grenzen: Kar
  * nur Inhalte eines Markers (Name, Note, Koordinate bei gleicher ID), bleibt
  * die Kennung gleich und die Karte passt nicht neu ein.
  */
-export function bildeMengenKennung(orte: readonly KartenOrt[]): string {
+export function bildeMengenKennung(orte: readonly KartenOrtBasis[]): string {
   return orte
     .map((ort) => ort.id)
     .sort()

@@ -8,15 +8,39 @@
  * Werte strukturell kompatibel zusammen, ohne dass `karte` den Quelltyp
  * kennen muss.
  *
- * Nur die drei Felder, die diese Fläche tatsächlich braucht: eine Kennung
+ * Die Felder, die diese Fläche tatsächlich braucht: eine Kennung
  * zum Navigieren, eine Bezeichnung zum Beschriften, und die beiden
  * Koordinaten — hier bewusst NICHT nullable, weil ein `KartenOrt` per
  * Definition bereits die Ausgabe der Koordinaten-Filterung ist
  * (`lib/koordinatenFilter.ts`).
  */
-export interface KartenOrt {
+export interface KartenOrtBasis {
   id: string
   bezeichnung: string
   breite: number
   laenge: number
 }
+
+/**
+ * Warum ein Marker keine Gesamtnote zeigt (PO-2026-11-24-004, ADR-0037):
+ * `unbewertet` = keine Achse hat einen Wert, `ohne-gewicht` = es gibt Werte,
+ * aber bei der gewählten Gewichtung zählt keiner davon. Nur Beschriftung —
+ * der Punkt sieht in beiden Fällen gleich aus.
+ */
+export type KartenOrtOhneNoteGrund = 'unbewertet' | 'ohne-gewicht'
+
+/**
+ * Nur primitive Felder zur Note: `karte` rechnet und formatiert nichts
+ * (ADR-0037 Punkt 7) — `Ortebereich.vue` liefert denselben Wert wie die
+ * Ortszeile fertig formatiert.
+ */
+export interface KartenOrtNote {
+  /** Fertig formatierter Notentext („8,7"), `null` ohne Gesamtnote. */
+  notentext: string | null
+  /** Ungerundeter Wert nur für den Vorrang bei Etikett-Kollisionen. */
+  rohwert: number | null
+  /** Grund ohne Note; `null`, wenn eine Note vorliegt. */
+  ohneNoteGrund: KartenOrtOhneNoteGrund | null
+}
+
+export interface KartenOrt extends KartenOrtBasis, KartenOrtNote {}

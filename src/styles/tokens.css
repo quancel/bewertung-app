@@ -128,4 +128,19 @@
      Listen-Spaltenbreite oben, einheitlich über alle Breiten (die
      Kartenansicht hat kein eigenes @container-Layout für die Höhe). */
   --karte-hoehe: 480px;
+  /* Kartenmarker (PO-2026-11-24-004, design-conventions.md „Karte: Marker,
+     Namen, Ausschnitt"). `L.divIcon` braucht Trefferfläche und Anker als Zahl
+     in JS (`useLeafletKarte.ts`, Konstante MARKER_TREFFERFLAECHE); die übrigen
+     Maße liest nur CSS, die Kollision misst die gerenderten Rechtecke. */
+  --karte-marker-scheibe: 40px;
+  --karte-marker-scheibe-gewaehlt: 48px;
+  --karte-marker-ring: 3px;
+  --karte-marker-ring-gewaehlt: 4px;
+  --karte-marker-punkt: 16px;
+  --karte-marker-punkt-gewaehlt: 24px;
+  --karte-marker-aussenring: 3px;
+  --karte-marker-treffer: 44px;
+  --karte-marker-etikett: 120px;
+  --karte-marker-etikett-gewaehlt: 240px;
+  --karte-marker-etikett-polster: 2px 6px;
 }

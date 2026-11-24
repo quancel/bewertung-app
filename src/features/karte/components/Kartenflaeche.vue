@@ -35,6 +35,10 @@ const props = defineProps<{
    * `null`/`undefined`, wenn kein Fokus zu übernehmen ist (z. B. erster
    * Aufbau der Kartenansicht). */
   fokussierterOrtId?: string | null
+  /** Ort-ID des ausgewählten Markers (größere Scheibe, stärkerer Ring, Etikett
+   * immer sichtbar, PO-2026-11-24-004). `Ortebereich.vue` setzt sie erst ab
+   * PO-2026-11-24-005 (Schnellansicht), bis dahin `null`/`undefined`. */
+  ausgewaehlteOrtId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -50,6 +54,7 @@ const containerRef = ref<HTMLDivElement | null>(null)
 // `useLeafletKarte` beobachtet `props.orte` selbst per `watch` (Constraint
 // DATENAUSWAHL, „Marker werden aus den Props nachgeführt").
 const orteRef = computed(() => props.orte)
+const ausgewaehlteOrtIdRef = computed(() => props.ausgewaehlteOrtId ?? null)
 
 const { online } = useNetzzustand()
 
@@ -58,6 +63,7 @@ const { fokussiereMarker } = useLeafletKarte(
   orteRef,
   (ortId) => emit('ort-ausgewaehlt', ortId),
   online,
+  ausgewaehlteOrtIdRef,
 )
 
 function uebernehmeFokusWunsch(): void {
@@ -96,6 +102,10 @@ watch(() => props.fokussierterOrtId, uebernehmeFokusWunsch)
 <style scoped>
 .karte-wrapper {
   position: relative;
+  /* Eigener Stapelkontext: Leaflets Bedienelemente und Quellenangabe tragen
+     z-index 800/1000 und lägen sonst über der festen Tab-Leiste, wenn die
+     Karte unter sie reicht (320px) — und finge dort deren Klicks ab. */
+  isolation: isolate;
   width: 100%;
   height: var(--karte-hoehe);
 }
@@ -137,51 +147,120 @@ watch(() => props.fokussierterOrtId, uebernehmeFokusWunsch)
   border: none;
 }
 
+/* Marker (PO-2026-11-24-004, design-conventions.md „Karte: Marker, Namen,
+   Ausschnitt"): Trefferfläche = Token `--karte-marker-treffer` (Größe setzt
+   `useLeafletKarte.ts` per `iconSize`), darin zentriert Scheibe mit Note oder
+   Punkt ohne Note. `--marker-koerper` ist der Durchmesser des Körpers im
+   aktuellen Zustand und positioniert das Etikett darüber. Keine Zonenfarbe;
+   Akzent nur für Ring bzw. Punkt. */
 .karte-marker {
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  --marker-koerper: var(--karte-marker-punkt);
 }
 
-.karte-marker__punkt {
-  display: block;
-  width: 16px;
-  height: 16px;
+.karte-marker--gewaehlt {
+  --marker-koerper: var(--karte-marker-punkt-gewaehlt);
+}
+
+.karte-marker--mit-note {
+  --marker-koerper: var(--karte-marker-scheibe);
+}
+
+.karte-marker--mit-note.karte-marker--gewaehlt {
+  --marker-koerper: var(--karte-marker-scheibe-gewaehlt);
+}
+
+.karte-marker__koerper {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--marker-koerper);
+  height: var(--marker-koerper);
   border-radius: 50%;
-  /* Einziger Verwendungszweck von --color-accent-500 (design-concept.md,
-     ADR-0018 Punkt 4). */
-  background-color: var(--color-accent-500);
-  border: 2px solid var(--surface);
   box-shadow: 0 1px 3px rgb(0 0 0 / 35%);
 }
 
-.karte-marker__label {
-  position: absolute;
-  top: -8px;
-  left: 20px;
-  padding: 2px var(--space-8);
-  border-radius: var(--radius-8);
+/* Weiße Schrift auf Akzent erreicht nur ≈ 4,1:1 — deshalb Scheibe in
+   `--surface` mit Akzent-Ring und `--text` als Zahl. */
+.karte-marker__scheibe {
+  border: var(--karte-marker-ring) solid var(--color-accent-500);
   background-color: var(--surface);
   color: var(--text);
-  font-size: var(--font-size-12);
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--duration-120) var(--ease-out);
+  font-size: var(--font-size-14);
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Im Fokus sind Fokusring UND Beschriftung gemeinsam sichtbar
-   (design_notes) — der Fokusring selbst kommt unverändert aus der
-   projektweiten `:focus-visible`-Regel in base.css. */
+.karte-marker--gewaehlt .karte-marker__scheibe {
+  border-width: var(--karte-marker-ring-gewaehlt);
+}
+
+/* Einziger Verwendungszweck von --color-accent-500 neben dem Ring
+   (design-concept.md, ADR-0018 Punkt 4). */
+.karte-marker__punkt {
+  background-color: var(--color-accent-500);
+}
+
+.karte-marker--gewaehlt .karte-marker__punkt {
+  box-shadow:
+    0 0 0 var(--karte-marker-aussenring) var(--surface),
+    0 1px 3px rgb(0 0 0 / 35%);
+}
+
+/* Namensetikett: bleibt IMMER im Layout (nur `opacity` blendet es aus), damit
+   die Kollisionsprüfung sein gerendertes Rechteck messen kann.
+   `pointer-events: none` — ein Etikett verdeckt nie ein Tippziel. */
+.karte-marker__label {
+  position: absolute;
+  bottom: calc(50% + var(--marker-koerper) / 2 + var(--space-4));
+  left: 50%;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: var(--karte-marker-etikett);
+  padding: var(--karte-marker-etikett-polster);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-8);
+  background-color: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--text);
+  font-size: var(--font-size-14);
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  opacity: 1;
+  pointer-events: none;
+  transform: translateX(calc(-50% + var(--karte-marker-etikett-versatz, 0px)));
+  transition: opacity var(--duration-180) var(--ease-out);
+}
+
+.karte-marker__label--aus {
+  opacity: 0;
+}
+
+/* Hover, Tastaturfokus oder Auswahl: volle Breite bis 240px, bis 2 Zeilen,
+   immer sichtbar. Der Fokusring selbst kommt aus der projektweiten
+   `:focus-visible`-Regel in base.css. */
 .karte-marker:hover .karte-marker__label,
-.karte-marker:focus-visible .karte-marker__label {
+.karte-marker--vorrang .karte-marker__label {
+  display: -webkit-box;
+  max-width: var(--karte-marker-etikett-gewaehlt);
+  overflow-wrap: anywhere;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   opacity: 1;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .karte-marker__label {
-    transition-duration: 0.01ms;
-  }
+.karte-marker:hover,
+.karte-marker--vorrang {
+  z-index: 10000 !important;
 }
 </style>
