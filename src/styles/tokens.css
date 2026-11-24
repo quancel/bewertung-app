@@ -92,8 +92,12 @@
      KEINE Elevation-Tokens — anders als eine Sheet-/Card-Elevation drücken
      sie eine fachliche Auszeichnung aus, nicht eine Ebene im Raum. Einziger
      Nutzer: `Ortszeile.vue`/`ZonenLegende.vue`. */
-  --shadow-hervorhebung-schwach: 0 1px 4px 0 rgb(26 31 29 / 8%);
-  --shadow-hervorhebung-stark: 0 3px 10px 1px rgb(26 31 29 / 16%);
+  /* PO-2026-11-24-007: je ein 1px-Hairline-Layer (Spread, kein Versatz — die
+     Kante macht die Zeile erkennbar, ohne sie anzuheben) plus ein
+     Schattenlayer; beide bleiben schwächer als der Sheet-Schatten
+     (`Sheet.vue`: 0 -4px 24px / 12%). */
+  --shadow-hervorhebung-schwach: 0 0 0 1px rgb(26 31 29 / 10%), 0 2px 6px 0 rgb(26 31 29 / 12%);
+  --shadow-hervorhebung-stark: 0 0 0 1px rgb(26 31 29 / 16%), 0 4px 10px 1px rgb(26 31 29 / 18%);
 
   /* Motion */
   --duration-120: 120ms;

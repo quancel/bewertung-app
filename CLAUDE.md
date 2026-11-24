@@ -471,9 +471,9 @@ Abschottung, sondern nur dafür, dass nie genug Inhalt vorlag.
 
 Ab PO-2026-11-24-006 (ADR-0036, Bildvorschau im Vollbild) kommt eine weitere
 Gruppe harter Zusicherungen dazu (`pruefeBildvorschau()`, `scripts/smoke.mjs`
-ab Zeile 1636, je Breite aus `BREITEN` in einem eigenen Kontext mit
-`hasTouch`; dazu die Ansicht `bildvorschau` in `ANSICHTEN`, Zeile 367, mit drei
-im Browser erzeugten PNGs hoch/quer/hoch, `legeOrtMitBildernAn()` Zeile 751).
+ab Zeile 2010, je Breite aus `BREITEN` in einem eigenen Kontext mit
+`hasTouch`; dazu die Ansicht `bildvorschau` in `ANSICHTEN`, Zeile 372, mit drei
+im Browser erzeugten PNGs hoch/quer/hoch, `legeOrtMitBildernAn()` Zeile 797).
 Geprüft werden Eigenschaften: Öffnen legt **genau einen** Verlaufseintrag mit
 unveränderter Adresse an, Blättern keinen; jedes Bild ist vollständig sichtbar
 (im Ansichtsfenster, nicht von einem Button geschnitten); Pfeiltaste,
@@ -516,11 +516,11 @@ Ansichten und eine harte Zusicherung dazu. `ortsliste-gewichtung-hinweis`,
 373–375) zeigen die drei Einstiege je mit dem **längsten** Szenarionamen
 („Fokus Preis-Leistung") und laufen so durch Verdeckung, Überlauf und
 Button-Umbruch bei allen `BREITEN`. Neu ist die optionale Ansichts-Eigenschaft
-`aufraeumen` (Zeile 2551): Die Gewichtung ist persistiert und würde sonst für
+`aufraeumen` (Zeile 2816): Die Gewichtung ist persistiert und würde sonst für
 den Rest des Laufs gelten und Noten und Zonen späterer Ansichten verschieben;
-`setzeGewichtungZurueck` (Zeile 874) stellt Ausgewogen wieder her. Die harte
+`setzeGewichtungZurueck` (Zeile 906) stellt Ausgewogen wieder her. Die harte
 Zusicherung `pruefeGewichtungWirktUeberallUndUeberstehtNeuladen` (ab Zeile
-2034, nur bei 1280px, eigener Bestand auf frischer Seite) prüft Eigenschaften:
+2280, nur bei 1280px, eigener Bestand auf frischer Seite) prüft Eigenschaften:
 Das Prüfbeispiel (Fokus Geschmack, Geschmack 10, Ambiente 6 → „8,7", bei
 Ausgewogen „8,0") zeigt Zeile **und** Detail **sofort** und nach einem
 Neuladen; die Reihenfolge nach Gesamtnote kippt von B-vor-A zu A-vor-B (das
@@ -600,21 +600,21 @@ netzabhängiger Zustand? In `BREITEN` bzw. `ORTSSUCHE_ZUSTAENDE` (alle oben in
 
 Ab PO-2026-11-24-002 (ADR-0037, eigene Gewichte mit vier Reglern) kommen eine
 Ansicht, zwei harte Zusicherungen und eine Erweiterung einer bestehenden
-dazu. Die Ansicht `gewichtung-eigene` (`scripts/smoke.mjs` Zeile 381) zeigt das
+dazu. Die Ansicht `gewichtung-eigene` (`scripts/smoke.mjs` Zeile 386) zeigt das
 Sheet mit offenem Block „Eigene" im **widersprüchlichsten** Zustand: Eine Achse
 „zählt nicht", die letzte trägt „100 % · muss zählen", und die Statuszeile
 steht nach einem abgefangenen Versuch — bei allen `BREITEN` durch Verdeckung,
-Überlauf und Button-Umbruch. `setzeGewichtungZurueck` (Zeile 874) stellt für
+Überlauf und Button-Umbruch. `setzeGewichtungZurueck` (Zeile 906) stellt für
 **alle** Gewichtungs-Ansichten jetzt auch die **eigenen** Gewichte auf 1:1:1:1
 zurück: Sie überstehen die Wahl eines festen Szenarios (das ist Absicht,
 ADR-0037 Punkt 2) und würden sonst für die nächste „Eigene"-Vorbereitung bei
 einer anderen Breite stehen bleiben. Die Erweiterung: `pruefeReglerGreifbarkeit`
-(Zeile 2534) läuft nicht mehr über den Ansichtsnamen `ortsdetail`, sondern über
+(Zeile 1275) läuft nicht mehr über den Ansichtsnamen `ortsdetail`, sondern über
 die **benannte Bedingung** „die Ansicht enthält einen `input[type="range"]`" —
 dadurch deckt sie die Gewichtsregler im Sheet ohne weiteres Zutun mit ab, und
 jeder künftige Regler ebenso. Die Befundzeile benennt einen Regler ohne `id`
 über sein `aria-label`. Die harte Zusicherung
-`pruefeEigeneGewichteUndEndgruppen` (ab Zeile 2229, nur bei 1280px, eigener
+`pruefeEigeneGewichteUndEndgruppen` (ab Zeile 2475, nur bei 1280px, eigener
 Browser-Kontext = frische IndexedDB, eigener Bestand mit drei Orten)
 prüft Eigenschaften: Die Erstbelegung ist 1:1:1:1 und das Sheet **bleibt bei
 „Eigene" offen**; mit Ambiente 9 / Zeit 1 / Geschmack 10 / Preis-Leistung 1
@@ -634,7 +634,7 @@ bisherigen Wert zurück, die letzte Achse über 0 bleibt bei „0" auf „1" (Ze
 „100 % · muss zählen", Regler `min="1"`, Statuszeile `role="status"` bis zur
 nächsten Änderung, auch Pos1 am Regler bleibt bei 1, danach darf die vorher
 „letzte" Achse auf 0). Die zweite Zusicherung
-`pruefeGewichtsreglerCommitWaehrendZiehens` (ab Zeile 2420, nur bei 1280px)
+`pruefeGewichtsreglerCommitWaehrendZiehens` (ab Zeile 2666, nur bei 1280px)
 hält die Maustaste am Regler der Zeile „Zeit" gedrückt und prüft **vor** dem
 Loslassen, dass das Zahlenfeld denselben Wert zeigt, der Anteil stimmt und die
 Gesamtnote in der Liste dahinter sich geändert hat (Vorbedingung: der Regler
@@ -668,3 +668,63 @@ ADR-0029) und das Reveal des Blocks sind auf WebKit ungeprüft. Die
 Bildschirmfotos `.smoke/*-gewichtung-eigene.png` wurden je Breite angesehen
 (Sheet scrollt intern, Zeilen bei 320/390px gestapelt, bei 1280px einzeilig,
 Regler und Zahlenfeld sichtbar).
+
+Ab PO-2026-11-24-007 (prägnantere Zonen, ADR-0034/0037, Nutzerentscheidung:
+Plakette und 1px-Hairline sind zulässig) kommen eine Ansicht, drei harte
+Zusicherungen und eine bewusste Messung dazu. Die Ansicht `ortsliste-keine-treffer`
+(`scripts/smoke.mjs` Zeile 367, `bereiteOrtslisteKeineTrefferVor()` Zeile 738,
+`aufraeumen` setzt den Tag-Filter zurück) erzeugt den Null-Treffer-Zustand der
+Liste (zwei Orte, Tag-Filter UND auf beide) — er hat eine **eigene**
+Kopfzeile mit Legenden-Auslöser neben der der Master-Detail-Liste. Die Tags
+heißen bewusst nur `ka`/`kb`: Lange Tag-Namen blieben im Bestand und ließen die
+Filter-Pillen in allen späteren Ansichten aus dem Bildschirm ragen (ein erster
+Lauf meldete 23 solcher Befunde, durch meinen Rauchtest erzeugt, nicht durch die
+App). `pruefeLegendenAusloeser()` (Zeile 1628) läuft auf **jeder** Ansicht über
+die benannte Bedingung „Listen-Kopfzeile mit Legende" und prüft, dass der
+Auslöser **gerenderten, nicht leeren Text** zeigt (`innerText`, nicht
+`aria-label`), das Label den sichtbaren Text enthält, kein Icon darin steckt,
+≥ 44 × 44 px groß ist, nicht aus dem Bildschirm ragt und ab `lg` die Kopfzeile
+**einzeilig** bleibt; die Vorbedingung („beide Kopfzeilen-Varianten wurden je
+Breite wirklich untersucht", Zähler `legendenGesehen`) steht in der Zusicherung
+selbst. `pruefeZonenPlakette()` (Zeile 1684, auf `ortsliste-zonen`, alle
+`BREITEN`) prüft Eigenschaften: Eine Zone hat eine Plakettenfläche, eine Zeile
+ohne Zone keine (damit ist 8,0 von „kein Wert in einer Zone" eindeutig
+unterscheidbar); Zahl auf Fläche ≥ 4,5:1; Höhe und Padding der Zahl sind in
+Zeilen mit und ohne Zone gleich (die Zeilenhöhe springt nicht), rechte Kanten
+fluchten; die fünf Flächen werden streng dunkler; ein Hervorhebungs-Schatten trägt einen
+`0px 0px 0px 1px`-Hairline **und** einen Schattenlayer, eine Zeile ohne
+Hervorhebung keinen; **Zeilenabstand ≥ 8px** — das war die Auflage der
+Design-Konvention („Zeilenabstände ≥ `--space-8`"), die `Ortebereich.vue` mit
+`gap: var(--space-4)` verletzte; der Wert steht jetzt auf `--space-8`.
+`pruefeBalkenfuellungInZonenfarbe()` (Zeile 1760, nur 1280px) sortiert nach
+Ambiente und prüft, dass die Füllung bei einem Wert in einer Zone der
+Plakettenfläche entspricht (flach), bei einem Wert unter 8 weder Zonenfüllung
+noch Fläche hat und dass der Balken im **Ortsdetail** keine Zonenfarbe trägt
+(der Hook `--intensitaetsbalken-fuellung-farbe` ist kein Prop und darf nicht
+lecken). Kontrast (Zahl ≥ 4,5:1, Fläche ≥ 3:1 gegen `neutral-0`/`neutral-50`/
+`primary-50`, L* streng monoton mit Schritt ≥ 7) und die Schatten-Tokens
+(Hairline + Schattenlayer, schwächer als der Sheet-Schatten) liegen in
+`src/styles/zonenfarben-kontrast.spec.ts` (Vitest, billigste Ebene).
+**Messung der 360px-Schwelle** (Auftrag: bei 360–368px messen, nur bei Bedarf
+anheben): Die einzeilige Kopfzeile (h1 51 + Legende 74 + „Ort hinzufügen" 175 +
+2 × 16 Gap = 332px) passt bei Containerbreite 360 bis 368 mit 28px Reserve und
+ohne horizontalen Überlauf; die Schwelle bleibt bei 360px. **Rot-Nachweis**
+(ADR-0027 Punkt 8; je eine **kompilierbare** Mutation gegen einen Differenz-
+lauf der Ansichten `ortsliste-zonen`/`ortsliste-keine-treffer`, danach
+Quelle zurückgesetzt, jeweils Exit 1): Text im Auslöser entfernt → „zeigt
+keinen Text" an beiden Kopfzeilen bei allen Breiten; Plakettenfläche entfernt →
+„Zone ohne Plakettenfläche" und Graustufen-Befunde; Padding nur noch in der
+Zone → „unterschiedliche Höhen (32, 24px)" und „unterschiedliches Padding";
+Hairline aus `--shadow-hervorhebung-schwach` entfernt → „Hervorhebung ohne
+1px-Hairline"; Balken-Hook entfernt → „Füllung … ist keine Zonenfarbe";
+`gap` zurück auf `--space-4` → „Zeilenabstand 4.0px < 8px"; Hook global auf
+`body` gesetzt → „Wert unter 8 hat Zonenfüllung" und „Balken im Ortsdetail
+trägt Zonenfarbe"; `--color-zone-9` aufgehellt → „Zone 3 ist nicht dunkler
+als Zone 2" und „nur 3.96:1 Kontrast"; Legende im Null-Treffer-Zweig
+entfernt → „Listen-Kopfzeile hat keinen Legenden-Auslöser" (nur dort);
+`flex-wrap` plus Auslöser mit `flex-basis: 100%` → „Kopfzeile ist ab lg nicht
+einzeilig". Auch hier: nur Chromium, die Graustufen-Aussage gilt für die
+berechnete Luminanz, nicht für ein Foto — die Bildschirmfotos
+`.smoke/*-ortsliste-zonen.png` und `*-ortsliste-legende.png` (alle drei
+Breiten) wurden angesehen und gehen zur Graustufen-Begutachtung an den
+`ux-ui-designer`.

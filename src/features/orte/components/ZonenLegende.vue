@@ -12,47 +12,51 @@
  * Detail-Liste und der Null-Treffer-Zustand) — nicht im Kopf der
  * Kartenansicht (dort gibt es keine Zeilen, also nichts zu erklären).
  */
-import { ref } from 'vue'
-import IconInfo from '../../../shared/ui/icons/IconInfo.vue'
+import { computed, ref } from 'vue'
+import { formatiereGesamtnote } from '../../../shared/lib/gesamtnote'
 import Sheet from '../../../shared/ui/Sheet.vue'
 import TextButton from '../../../shared/ui/TextButton.vue'
 import { GESCHMACK_NAME, PREIS_LEISTUNG_NAME, ZONEN } from '../lib/zonen'
 
-defineProps<{
+const props = defineProps<{
   /** Name des aktiven Gewichtungs-Szenarios, `null` bei Ausgewogen
    * (PO-2026-11-24-001): Der Erklärsatz nennt ihn nur bei Abweichung. */
   gewichtungName?: string | null
 }>()
 
 const offen = ref(false)
+
+/** „ (Fokus Geschmack)" bei abweichender Gewichtung, sonst leer. */
+const gewichtungZusatz = computed(() => (props.gewichtungName ? ` (${props.gewichtungName})` : ''))
 </script>
 
 <template>
-  <button
+  <!-- Beschrifteter Auslöser (PO-2026-11-24-007): sichtbarer Text „Legende",
+       kein Icon — ein Icon ohne Text wurde nicht als Legende erkannt.
+       `aria-label` enthält den sichtbaren Text (WCAG 2.5.3). -->
+  <TextButton
     type="button"
     class="zonen-legende__knopf"
-    aria-label="Zonenfarben und Hervorhebungen erklären"
+    aria-label="Legende der Zonenfarben und Hervorhebungen"
     aria-haspopup="dialog"
     @click="offen = true"
   >
-    <IconInfo :size="20" />
-  </button>
+    Legende
+  </TextButton>
 
   <Sheet
     :offen="offen"
-    label="Zonenfarben und Hervorhebungen erklären"
+    label="Legende der Zonenfarben und Hervorhebungen"
     @schliessen="offen = false"
   >
     <h2 class="zonen-legende__titel">
       Zonenfarben und Hervorhebungen
     </h2>
     <p class="zonen-legende__erklaerung">
-      Der angezeigte Wert einer Zeile färbt sich ab 8,0 in fünf Stufen; hohe
-      Werte bei Geschmack oder Preis-Leistung bekommen zusätzlich einen
-      Schatten.
-      <template v-if="gewichtungName">
-        Die Gesamtnote ist nach der Gewichtung „{{ gewichtungName }}“ berechnet.
-      </template>
+      Gefärbt wird der angezeigte Wert: die Gesamtnote{{ gewichtungZusatz }} bzw. der
+      Wert der Achse, nach der du sortierst.
+      Ab 8,0 färbt er sich in fünf Stufen; hohe Werte bei Geschmack oder
+      Preis-Leistung bekommen zusätzlich einen Schatten.
     </p>
 
     <ul class="zonen-legende__zonen">
@@ -60,11 +64,18 @@ const offen = ref(false)
         v-for="zone in ZONEN"
         :key="zone.schluessel"
         class="zonen-legende__zone"
+        :style="{ '--zonen-legende-zonenfarbe': `var(${zone.tokenName})` }"
       >
+        <span class="zonen-legende__plakette">{{ formatiereGesamtnote(zone.untergrenzeZehntel) }}</span>
         <span
-          class="zonen-legende__farbfeld"
-          :style="{ backgroundColor: `var(${zone.tokenName})` }"
-        />
+          class="zonen-legende__spur"
+          aria-hidden="true"
+        >
+          <span
+            class="zonen-legende__fuellung"
+            :style="{ width: `${zone.untergrenzeZehntel}%` }"
+          />
+        </span>
         <span>{{ zone.beschriftung }}</span>
       </li>
     </ul>
@@ -90,23 +101,15 @@ const offen = ref(false)
 </template>
 
 <style scoped>
-.zonen-legende__knopf {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
+/* Doppelte Klasse statt einer: gleiche Spezifität wie `.text-button` aus
+   `TextButton.vue` hinge sonst von der Reihenfolge im Bundle ab. */
+.text-button.zonen-legende__knopf {
   flex-shrink: 0;
-  border: none;
-  border-radius: var(--radius-8);
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.zonen-legende__knopf:hover {
-  background-color: var(--surface-muted);
-  color: var(--text);
+  min-width: 44px;
+  padding: var(--space-8);
+  font-size: var(--font-size-14);
+  /* Der Text bricht nie innerhalb des Buttons um (pruefeButtonTextUmbruch). */
+  white-space: nowrap;
 }
 
 .zonen-legende__titel {
@@ -135,13 +138,37 @@ const offen = ref(false)
   font-size: var(--font-size-14);
 }
 
-.zonen-legende__farbfeld {
+/* Plakette, Balken und Schatten wie in `Ortszeile.vue`: dieselben Tokens
+   (Zonenfarbe kommt als Custom Property aus der ZONEN-Tabelle), keine Kopie
+   der Farbwerte. */
+.zonen-legende__plakette {
   flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  /* 4px liegt nicht in der Radius-Skala (tokens.css: 8/12/16/full) — lokaler
-     Wert mit Verweis statt eines neuen Tokens (Constraint LEGENDE). */
-  border-radius: 4px;
+  min-width: 48px;
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-8);
+  background-color: var(--zonen-legende-zonenfarbe);
+  color: var(--color-neutral-0);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.zonen-legende__spur {
+  display: inline-block;
+  width: 64px;
+  height: 8px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background-color: var(--surface);
+  overflow: hidden;
+}
+
+.zonen-legende__fuellung {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background-color: var(--zonen-legende-zonenfarbe);
 }
 
 .zonen-legende__vorschauen {
@@ -153,7 +180,7 @@ const offen = ref(false)
 .zonen-legende__vorschau {
   flex: 1;
   padding: var(--space-8) var(--space-12);
-  border-radius: var(--radius-8);
+  border-radius: var(--radius-12);
   background-color: var(--surface);
   color: var(--text);
   font-size: var(--font-size-14);

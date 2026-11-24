@@ -360,6 +360,11 @@ const ANSICHTEN = [
   // hinter einem offenen modalen Dialog ab (der Rest der Seite liegt unter
   // dem `.sheet-backdrop` und wäre sonst fälschlich „verdeckt").
   { name: 'ortsliste-legende', pfad: '/orte', vorbereiten: oeffneZonenLegende },
+  // PO-2026-11-24-007: die ZWEITE Listen-Kopfzeile mit Legenden-Auslöser — der
+  // Null-Treffer-Zustand (Tag-Filter UND ohne Treffer, Detail geschlossen). Er
+  // rendert die Kopfzeile eigenständig, außerhalb von `.master-detail`.
+  // `aufraeumen` setzt den Filter zurück (er bliebe sonst für spätere Ansichten aktiv).
+  { name: 'ortsliste-keine-treffer', pfad: '/orte', vorbereiten: bereiteOrtslisteKeineTrefferVor, aufraeumen: setzeTagFilterZurueck },
   // PO-2026-11-24-006: die geöffnete Bildvorschau (Vollbild-Dialog) mit drei
   // Bildern, hoch und quer, auf frischer Seite — läuft durch Verdeckung,
   // Überlauf und Button-Umbruch wie jede Ansicht. Die harten Zusicherungen
@@ -697,7 +702,7 @@ async function bereiteOrtslisteZonenVor(seite) {
 
 /**
  * PO-2026-09-27-003, Kriterium „Legende": öffnet das Zonenlegende-Sheet über
- * den Icon-only-Button in der Kopfzeile — kein echter Ortsbestand nötig, die
+ * den Text-Button „Legende" in der Kopfzeile — kein echter Ortsbestand nötig, die
  * Legende erklärt sich unabhängig davon.
  *
  * Setzt zuerst die Sortierung auf „Bezeichnung" zurück: `bereiteOrtslisteZonenVor`
@@ -722,6 +727,33 @@ async function oeffneZonenLegende(seite) {
 
   await seite.locator('.zonen-legende__knopf').click()
   await seite.waitForTimeout(300)
+}
+
+/**
+ * PO-2026-11-24-007: erzeugt den Null-Treffer-Zustand der Liste (`zeigeNurGefiltertLeer`,
+ * Detail geschlossen): zwei Orte mit je eigenem Tag, Tag-Filter UND auf beide —
+ * kein Ort trägt beide Tags. Dieser Zweig hat eine eigene Kopfzeile (mit
+ * Legenden-Auslöser) neben der der Master-Detail-Liste.
+ */
+async function bereiteOrtslisteKeineTrefferVor(seite) {
+  for (const kennung of ['a', 'b']) {
+    await legeOrtAnUndOeffneIhn(seite, `Rauchtest-Keine-Treffer-${kennung.toUpperCase()}`)
+    await seite.locator('.tag-eingabe__feld').fill(`k${kennung}`)
+    await seite.keyboard.press('Enter')
+    await seite.waitForTimeout(300)
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await seite.waitForTimeout(200)
+  }
+  await seite.locator('.tag-filterleiste__segment', { hasText: 'UND' }).click()
+  await seite.locator('.tag-filterleiste__pill', { hasText: /^\s*ka\s*$/ }).click()
+  await seite.locator('.tag-filterleiste__pill', { hasText: /^\s*kb\s*$/ }).click()
+  await seite.waitForTimeout(300)
+}
+
+async function setzeTagFilterZurueck(seite) {
+  const knopf = seite.locator('.tag-filterleiste__zuruecksetzen')
+  if ((await knopf.count()) > 0) await knopf.click()
+  await seite.waitForTimeout(200)
 }
 
 /** PO-2026-11-24-006: drei echte PNGs (hoch, quer, hoch) — im Browser über
@@ -1579,6 +1611,220 @@ async function pruefeAusgewaehlteZeileSchattenUndName(seite, befunde) {
   }
   await seite.screenshot({ path: `${FOTOS}/desktop-1280-ortsliste-zonen-ausgewaehlt.png` })
   console.log('  ortsliste-zonen/ausgewaehlte-zeile — Auswahlkante + Accessible Name je Hervorhebungs-Kombination geprüft')
+}
+
+/**
+ * PO-2026-11-24-007, harte Zusicherung: Der Auslöser der Legende zeigt einen
+ * SICHTBAREN, NICHT LEEREN Text (ein Icon ohne Text wurde vom Nutzer nicht als
+ * Legende erkannt). Benannte Bedingung: JEDE Listen-Kopfzeile mit Legende
+ * (`.ortebereich__kopf--mit-legende`) in der Ansicht. Geprüft wird der
+ * gerenderte Text (`innerText`, nicht `aria-label`), die Trefferfläche
+ * (>= 44px) und — ab `lg`, wo die Listen-Spalte 368px Inhaltsbreite hat — dass
+ * die Kopfzeile einzeilig bleibt (Überschrift, Legende, „Ort hinzufügen" auf
+ * einer Mittellinie). Liefert zusätzlich, welche Varianten gesehen wurden
+ * (`inMasterDetail`/`standalone`), damit der Aufrufer prüfen kann, dass BEIDE
+ * Kopfzeilen je Breite wirklich untersucht wurden.
+ */
+function pruefeLegendenAusloeser() {
+  const befunde = []
+  const gesehen = { inMasterDetail: 0, standalone: 0 }
+  for (const kopf of document.querySelectorAll('.ortebereich__kopf--mit-legende')) {
+    const kasten = kopf.getBoundingClientRect()
+    if (kasten.width === 0 || kasten.height === 0) continue
+    gesehen[kopf.closest('.master-detail') ? 'inMasterDetail' : 'standalone'] += 1
+    const knopf = kopf.querySelector('.zonen-legende__knopf')
+    if (!knopf) {
+      befunde.push('Listen-Kopfzeile hat keinen Legenden-Auslöser')
+      continue
+    }
+    const stil = getComputedStyle(knopf)
+    const k = knopf.getBoundingClientRect()
+    const text = knopf.innerText.trim()
+    if (stil.visibility === 'hidden' || stil.display === 'none' || k.width === 0 || k.height === 0) {
+      befunde.push('Legenden-Auslöser ist nicht sichtbar')
+    }
+    if (text === '') befunde.push('Legenden-Auslöser zeigt keinen Text (Icon ohne Beschriftung)')
+    const label = (knopf.getAttribute('aria-label') || '').toLowerCase()
+    if (text !== '' && !label.includes(text.toLowerCase())) {
+      befunde.push(`Legenden-Auslöser: aria-label "${label}" enthält den sichtbaren Text "${text}" nicht`)
+    }
+    if (knopf.querySelector('svg, .icon')) befunde.push('Legenden-Auslöser enthält ein Icon (Konvention: Text ohne Icon)')
+    if (k.width < 44 - 0.5 || k.height < 44 - 0.5) {
+      befunde.push(`Legenden-Auslöser ist ${Math.round(k.width)}x${Math.round(k.height)}px groß (mindestens 44x44)`)
+    }
+    if (k.left < -0.5 || k.right > innerWidth + 0.5) befunde.push('Legenden-Auslöser ragt aus dem Bildschirm')
+    if (innerWidth >= 1024) {
+      const mitten = [...kopf.children].map((kind) => {
+        const r = kind.getBoundingClientRect()
+        return r.top + r.height / 2
+      })
+      if (Math.max(...mitten) - Math.min(...mitten) > 2) {
+        befunde.push('Kopfzeile ist ab lg nicht einzeilig (Überschrift, Legende und „Ort hinzufügen" auf verschiedenen Zeilen)')
+      }
+    }
+  }
+  return { befunde, gesehen }
+}
+
+/**
+ * PO-2026-11-24-007, harte Zusicherungen für die Zonen-Plakette und die
+ * Hervorhebungs-Schatten in der Gesamtnote-Sortierung (Daten aus
+ * `bereiteOrtslisteZonenVor`), als Eigenschaften je Zeile:
+ *  - Eine Zone zeigt die Zahl auf einer Plakette mit Zonenfarbe als Fläche und
+ *    heller Zahl (>= 4,5:1); ohne Zone ist die Fläche transparent — eine Zeile
+ *    der untersten Zone (8,0) ist damit von einer Zeile ohne Zone eindeutig
+ *    unterscheidbar.
+ *  - Die Zeilenhöhe hängt nicht an der Zone: gleiches Padding und gleiche
+ *    Höhe der Zahl mit und ohne Zone, rechte Kanten der Zahlen fluchten.
+ *  - Benachbarte Zonenflächen werden streng dunkler (Graustufen-Reihenfolge).
+ *  - Der Hervorhebungs-Schatten trägt einen 1px-Hairline-Layer (`0px 0px 0px 1px`)
+ *    plus Schattenlayer; Zeilen ohne Hervorhebung haben keinen.
+ *  - Zeilenabstand >= 8px (--space-8), damit der Schatten keine Nachbarzeile überdeckt.
+ */
+function pruefeZonenPlakette() {
+  const befunde = []
+  const zeilen = [...document.querySelectorAll('.ortszeile')].filter((zeile) => zeile.querySelector('.ortszeile__bezeichnung')?.textContent?.startsWith('Rauchtest-Zone-'))
+  const rgb = (text) => (text.match(/[\d.]+/g) || []).map(Number)
+  const luminanz = ([r, g, b]) => {
+    const k = (v) => {
+      const a = v / 255
+      return a <= 0.03928 ? a / 12.92 : ((a + 0.055) / 1.055) ** 2.4
+    }
+    return 0.2126 * k(r) + 0.7152 * k(g) + 0.0722 * k(b)
+  }
+  const kontrast = (a, b) => {
+    const [h, d] = [Math.max(luminanz(a), luminanz(b)), Math.min(luminanz(a), luminanz(b))]
+    return (h + 0.05) / (d + 0.05)
+  }
+  const ZONEN_ZEILEN = ['Rauchtest-Zone-8', 'Rauchtest-Zone-8-5', 'Rauchtest-Zone-9-Mit', 'Rauchtest-Zone-9-5', 'Rauchtest-Zone-10']
+  const flaechen = []
+  const hoehen = new Set()
+  const rechteKanten = []
+  const paddings = new Set()
+
+  for (const zeile of zeilen) {
+    const name = zeile.querySelector('.ortszeile__bezeichnung').textContent.trim()
+    const zahl = zeile.querySelector('.ortszeile__gesamtnote-wert')
+    const schatten = getComputedStyle(zeile).boxShadow
+    const hervorgehoben = /ortszeile--hervorhebung-/.test(zeile.className)
+    const hatHairline = /0px 0px 0px 1px/.test(schatten)
+    if (hervorgehoben && !hatHairline) befunde.push(`${name}: Hervorhebung ohne 1px-Hairline im box-shadow ("${schatten}")`)
+    if (hervorgehoben && schatten.split('rgba').length - 1 < 2) befunde.push(`${name}: Hervorhebung ohne zusätzlichen Schattenlayer ("${schatten}")`)
+    if (!hervorgehoben && !zeile.classList.contains('ortszeile--ausgewaehlt') && hatHairline) {
+      befunde.push(`${name}: Zeile ohne Hervorhebung trägt einen Hairline-Layer`)
+    }
+    if (!zahl) continue
+    const stil = getComputedStyle(zahl)
+    const flaeche = rgb(stil.backgroundColor)
+    const hatFlaeche = flaeche.length >= 3 && (flaeche.length < 4 || flaeche[3] > 0)
+    const hatZone = zeile.querySelector('.ortszeile__gesamtnote--zone') !== null
+    const kasten = zahl.getBoundingClientRect()
+    hoehen.add(Math.round(kasten.height))
+    rechteKanten.push(Math.round(kasten.right))
+    paddings.add(`${stil.paddingTop} ${stil.paddingRight} ${stil.paddingBottom} ${stil.paddingLeft}`)
+    if (hatZone !== hatFlaeche) befunde.push(`${name}: ${hatZone ? 'Zone ohne Plakettenfläche' : 'Plakettenfläche ohne Zone'}`)
+    if (hatZone) {
+      const k = kontrast(rgb(stil.color).slice(0, 3), flaeche.slice(0, 3))
+      if (k < 4.5) befunde.push(`${name}: Zahl auf Plakette hat nur ${k.toFixed(2)}:1 Kontrast`)
+      // Längstes passendes Präfix: „Rauchtest-Zone-8" ist auch Präfix von „…-8-5".
+      const index = ZONEN_ZEILEN.reduce(
+        (bester, praefix, i) => (name.startsWith(praefix) && (bester < 0 || praefix.length > ZONEN_ZEILEN[bester].length) ? i : bester),
+        -1,
+      )
+      if (index >= 0) flaechen[index] = luminanz(flaeche.slice(0, 3))
+      if (stil.borderLeftWidth !== '0px') befunde.push(`${name}: Zahl trägt noch einen Rand (${stil.borderLeftWidth})`)
+    }
+  }
+  if (flaechen.filter((wert) => wert !== undefined).length !== 5) befunde.push('nicht alle fünf Zonenzeilen gefunden')
+  for (let i = 1; i < flaechen.length; i += 1) {
+    if (!(flaechen[i] < flaechen[i - 1])) befunde.push(`Zone ${i + 1} ist nicht dunkler als Zone ${i} (Graustufen)`)
+  }
+  if (hoehen.size > 1) befunde.push(`Zahl hat je nach Zone unterschiedliche Höhen (${[...hoehen].join(', ')}px) — Zeilenhöhe springt`)
+  if (paddings.size > 1) befunde.push(`Zahl hat je nach Zone unterschiedliches Padding (${[...paddings].join(' | ')})`)
+  if (new Set(rechteKanten).size > 1) befunde.push(`rechte Kanten der Zahlen fluchten nicht (${[...new Set(rechteKanten)].join(', ')})`)
+
+  const alle = [...document.querySelectorAll('.ortebereich__liste > li')]
+  for (let i = 1; i < alle.length; i += 1) {
+    const luecke = alle[i].getBoundingClientRect().top - alle[i - 1].getBoundingClientRect().bottom
+    if (luecke < 8 - 0.5) befunde.push(`Zeilenabstand ${luecke.toFixed(1)}px < 8px (Schatten würde die Nachbarzeile überdecken)`)
+  }
+  return befunde
+}
+
+/**
+ * PO-2026-11-24-007, nur 1280px: Bei Sortierung nach einer Einzelachse
+ * (Ambiente) ist die Balkenfüllung bei einem Wert in einer Zone FLACH in
+ * Zonenfarbe (= Fläche der Plakette), bei einem Wert unter 8 bleibt die
+ * Tonleiter; im Ortsdetail wird KEINE Zonenfarbe sichtbar (Hook leckt nicht).
+ */
+async function pruefeBalkenfuellungInZonenfarbe(seite, befunde) {
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await seite.locator('.werkzeugleiste__chip').click()
+    await seite.waitForTimeout(200)
+    await seite.locator('.sortier-sheet__eintrag', { hasText: 'Ambiente' }).click()
+    await seite.waitForTimeout(300)
+    const messung = await seite.evaluate(() => {
+      const zonenFarben = ['8', '8-5', '9', '9-5', '10'].map((k) => {
+        const hex = getComputedStyle(document.documentElement).getPropertyValue(`--color-zone-${k}`).trim()
+        const n = Number.parseInt(hex.slice(1), 16)
+        return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
+      })
+      const zeilen = [...document.querySelectorAll('.ortszeile')]
+        .filter((zeile) => zeile.querySelector('.ortszeile__bezeichnung')?.textContent?.startsWith('Rauchtest-Zone-'))
+        .map((zeile) => ({
+          name: zeile.querySelector('.ortszeile__bezeichnung').textContent.trim(),
+          fuellung: getComputedStyle(zeile.querySelector('.intensitaetsbalken__fuellung') ?? zeile).backgroundColor,
+          hatBalken: zeile.querySelector('.intensitaetsbalken__fuellung') !== null,
+          flaeche: getComputedStyle(zeile.querySelector('.intensitaetsbalken__zahl') ?? zeile).backgroundColor,
+        }))
+      return { zonenFarben, zeilen }
+    })
+    const erwartetZone = ['Rauchtest-Zone-8', 'Rauchtest-Zone-8-5', 'Rauchtest-Zone-9-Mit', 'Rauchtest-Zone-9-5', 'Rauchtest-Zone-10']
+    let zoneGeprueft = 0
+    let ohneZoneGeprueft = 0
+    for (const zeile of messung.zeilen) {
+      if (!zeile.hatBalken) continue
+      if (erwartetZone.some((praefix) => zeile.name.startsWith(praefix))) {
+        zoneGeprueft += 1
+        if (!messung.zonenFarben.includes(zeile.fuellung)) befunde.push(`ortsliste-zonen/balken: ${zeile.name}: Füllung ${zeile.fuellung} ist keine Zonenfarbe`)
+        if (zeile.fuellung !== zeile.flaeche) befunde.push(`ortsliste-zonen/balken: ${zeile.name}: Füllung ${zeile.fuellung} != Plakette ${zeile.flaeche}`)
+      } else {
+        ohneZoneGeprueft += 1
+        if (messung.zonenFarben.includes(zeile.fuellung)) befunde.push(`ortsliste-zonen/balken: ${zeile.name}: Wert unter 8 hat Zonenfüllung`)
+        if (!/^rgba\(0, 0, 0, 0\)$|^transparent$/.test(zeile.flaeche)) befunde.push(`ortsliste-zonen/balken: ${zeile.name}: Wert unter 8 hat eine Plakettenfläche`)
+      }
+    }
+    if (zoneGeprueft !== 5 || ohneZoneGeprueft < 1) {
+      befunde.push(`ortsliste-zonen/balken: Vorbedingung verfehlt (${zoneGeprueft} Zonenzeilen, ${ohneZoneGeprueft} ohne Zone)`)
+    }
+
+    // Außerhalb der Ortsliste: der Balken im Ortsdetail trägt keine Zonenfarbe.
+    await seite.getByRole('link', { name: /Rauchtest-Zone-8(\s|$)/ }).first().click()
+    await seite.waitForTimeout(300)
+    const detail = await seite.evaluate(() => {
+      const zonenFarben = ['8', '8-5', '9', '9-5', '10'].map((k) => {
+        const hex = getComputedStyle(document.documentElement).getPropertyValue(`--color-zone-${k}`).trim()
+        const n = Number.parseInt(hex.slice(1), 16)
+        return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
+      })
+      const fuellungen = [...document.querySelectorAll('.bewertungsachse .intensitaetsbalken__fuellung')].map((el) => getComputedStyle(el).backgroundColor)
+      return { zonenFarben, fuellungen }
+    })
+    if (detail.fuellungen.length === 0) befunde.push('ortsdetail/balken: Vorbedingung verfehlt (kein Intensitätsbalken im Ortsdetail gefunden)')
+    for (const farbe of detail.fuellungen) {
+      if (detail.zonenFarben.includes(farbe)) befunde.push(`ortsdetail/balken: Balken im Ortsdetail trägt Zonenfarbe ${farbe}`)
+    }
+
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await seite.locator('.werkzeugleiste__chip').click()
+    await seite.waitForTimeout(200)
+    await seite.locator('.sortier-sheet__eintrag', { hasText: 'Gesamtnote' }).click()
+    await seite.waitForTimeout(300)
+    console.log('  ortsliste-zonen/balken — Balkenfüllung in Zonenfarbe (Einzelachse), Ortsdetail ohne Zonenfarbe geprüft')
+  } catch (fehler) {
+    befunde.push(`ortsliste-zonen/balken: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  }
 }
 
 /**
@@ -2490,6 +2736,7 @@ async function pruefeGewichtsreglerCommitWaehrendZiehens(browser, befunde) {
  *  (Zusicherung 2 — Laufzeitfehler — hängt an Listenern auf `seite`, die
  *  der Aufrufer vor dem Aufruf registriert). */
 async function pruefeAnsichtenBeiBreite(seite, breite, befunde) {
+  const legendenGesehen = { inMasterDetail: 0, standalone: 0 }
   for (const ansicht of ANSICHTEN) {
     await seite.goto(BASIS + ansicht.pfad, { waitUntil: 'networkidle' })
     if (ansicht.vorbereiten) await ansicht.vorbereiten(seite)
@@ -2539,6 +2786,21 @@ async function pruefeAnsichtenBeiBreite(seite, breite, befunde) {
       // dieselbe bereits geöffnete Ortsdetail-Seite und dieselbe BREITEN-Liste.
       await pruefeAbschlussKombination(seite, breite, befunde)
     }
+    // PO-2026-11-24-007: Legenden-Auslöser mit sichtbarem Text, benannte
+    // Bedingung „Listen-Kopfzeile mit Legende" (keine Ansichtsliste). Welche
+    // der beiden Kopfzeilen-Varianten je Breite wirklich untersucht wurde,
+    // sammelt `legendenGesehen` (Prüfung nach der Schleife).
+    {
+      const legende = await seite.evaluate(pruefeLegendenAusloeser)
+      legendenGesehen.inMasterDetail += legende.gesehen.inMasterDetail
+      legendenGesehen.standalone += legende.gesehen.standalone
+      for (const eintrag of legende.befunde) befunde.push(`${breite.name}/${ansicht.name}: ${eintrag}`)
+    }
+    if (ansicht.name === 'ortsliste-zonen') {
+      for (const eintrag of await seite.evaluate(pruefeZonenPlakette)) {
+        befunde.push(`${breite.name}/${ansicht.name}: ${eintrag}`)
+      }
+    }
     // PO-2026-09-27-003 (ADR-0034), nur bei 1280px (Handoff-Vorgabe): läuft
     // über denselben, bereits von `bereiteOrtslisteZonenVor` angelegten
     // Datensatz weiter, kein zweiter Durchlauf.
@@ -2548,7 +2810,16 @@ async function pruefeAnsichtenBeiBreite(seite, breite, befunde) {
 
     await seite.screenshot({ path: `${FOTOS}/${breite.name}-${ansicht.name}.png` })
     console.log(`  ${breite.name}/${ansicht.name} — geöffnet, Bildschirmfoto in ${FOTOS}/${breite.name}-${ansicht.name}.png`)
+    if (ansicht.name === 'ortsliste-zonen' && breite.width === 1280) {
+      await pruefeBalkenfuellungInZonenfarbe(seite, befunde)
+    }
     if (ansicht.aufraeumen) await ansicht.aufraeumen(seite)
+  }
+  if (legendenGesehen.inMasterDetail === 0) {
+    befunde.push(`${breite.name}: Listen-Kopfzeile der Master-Detail-Liste mit Legenden-Auslöser wurde nie untersucht`)
+  }
+  if (legendenGesehen.standalone === 0) {
+    befunde.push(`${breite.name}: Kopfzeile des Null-Treffer-Zustands mit Legenden-Auslöser wurde nie untersucht`)
   }
 }
 
@@ -4115,6 +4386,12 @@ async function main() {
   console.log('Achsen steht ohne Zahl und Zone in einer eigenen Endgruppe nach „ohne Bewertung";')
   console.log('7,95 (159/20) zeigt „8,0" MIT Zone; die letzte Achse über 0 bleibt auf 1 mit')
   console.log('Statuszeile; ein Gewichtsregler wirkt schon während des Ziehens (PO-2026-11-24-002).')
+  console.log('Zonen als Plakette (PO-2026-11-24-007): die Zahl steht in einer Zone auf einer Fläche in')
+  console.log('Zonenfarbe (Kontrast >= 4,5:1), die Zeilenhöhe hängt nicht an der Zone, benachbarte')
+  console.log('Zonen werden streng dunkler, die Balkenfüllung folgt bei einer Einzelachse der Zone')
+  console.log('(nur in der Ortsliste), die Hervorhebung trägt einen 1px-Hairline plus Schattenlayer,')
+  console.log('Zeilenabstand >= 8px. Der Legenden-Auslöser zeigt sichtbaren Text in beiden')
+  console.log('Listen-Kopfzeilen bei jeder Breite, ab lg bleibt die Kopfzeile einzeilig.')
   console.log('Zusicherungen über engine-abhängige Darstellung sind auf WebKit ungeprüft')
   console.log('(ADR-0029) — geprüft ist ausschließlich Chromium.')
 }

@@ -34,6 +34,14 @@ const fuellfarbe = computed(() => {
   const b = interpoliert(anteil, FUELLFARBE_LEER.b, FUELLFARBE_VOLL.b)
   return `rgb(${r} ${g} ${b})`
 })
+
+// Füllfarbe mit CSS-Hook (PO-2026-11-24-007): Ein Vorfahre kann
+// `--intensitaetsbalken-fuellung-farbe` setzen und die Tonleiter durch eine
+// flache Farbe ersetzen (nur die Ortsliste, bei einem Wert in einer Zone).
+// Ohne Hook gilt die interpolierte Farbe als `var()`-Fallback — Ortsdetail
+// und Schnellansicht bleiben unverändert. Kein Prop: die Komponente kennt
+// keine Zonen.
+const fuellfarbeMitHook = computed(() => `var(--intensitaetsbalken-fuellung-farbe, ${fuellfarbe.value})`)
 </script>
 
 <template>
@@ -51,7 +59,7 @@ const fuellfarbe = computed(() => {
     >
       <span
         class="intensitaetsbalken__fuellung"
-        :style="{ width: `${(wert / 10) * 100}%`, backgroundColor: fuellfarbe }"
+        :style="{ width: `${(wert / 10) * 100}%`, backgroundColor: fuellfarbeMitHook }"
       />
     </span>
     <span class="intensitaetsbalken__zahl">{{ wert }}</span>
@@ -84,6 +92,14 @@ const fuellfarbe = computed(() => {
 
 .intensitaetsbalken__zahl {
   font-size: var(--font-size-14);
+  /* Plakette um die Zahl (PO-2026-11-24-007): Defaults sind das bisherige
+     Aussehen (keine Fläche, kein Padding); `Ortszeile.vue` setzt die Hooks
+     lokal. */
+  padding: var(--intensitaetsbalken-zahl-padding, 0);
+  border-radius: var(--intensitaetsbalken-zahl-radius, 0);
+  background-color: var(--intensitaetsbalken-zahl-flaeche, transparent);
+  font-weight: var(--intensitaetsbalken-zahl-gewicht, inherit);
+  font-variant-numeric: var(--intensitaetsbalken-zahl-ziffern, inherit);
   /* Optionaler CSS-Hook (ADR-0034, design-conventions.md „Ortsliste:
      Zonenfarben und Hervorhebungs-Schatten"): Default unverändert überall
      außer dort, wo `Ortszeile.vue` die Custom Property lokal auf ihrem

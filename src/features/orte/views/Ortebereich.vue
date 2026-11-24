@@ -1519,7 +1519,11 @@ async function aufLoeschenBestaetigt(): Promise<void> {
 .ortebereich__liste {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  /* >= --space-8 (design-conventions.md „Ortsliste: Zonenfarben und
+     Hervorhebungs-Schatten", PO-2026-11-24-007): Der stärkere
+     Hervorhebungs-Schatten (4px Versatz, 10px Weichzeichnung) darf keine
+     Nachbarzeile überdecken. */
+  gap: var(--space-8);
 }
 
 /* Gruppe „ohne Wert" ans Ende (design-conventions.md „Listen: Sortieren,

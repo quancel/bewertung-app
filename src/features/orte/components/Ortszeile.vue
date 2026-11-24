@@ -104,7 +104,7 @@ const zone = computed(() => bestimmeZone(wertFuerZone.value))
 /** Lokale Custom Property als Inline-Style auf dem Wert-Slot (ADR-0034
  * Punkt 2): Tokenname kommt unverändert aus `ZONEN`, nie aus dem Schlüssel
  * zusammengebaut. `undefined` ohne Zone — der Slot bekommt dann auch nicht
- * die `--zone`-Modifier-Klasse (Template), Rahmen/Zahlenfarbe bleiben aus. */
+ * die `--zone`-Modifier-Klasse (Template), Plakette und Zonenfüllung bleiben aus. */
 const zonenStil = computed(() =>
   zone.value ? { '--ortszeile-zonenfarbe': `var(${zone.value.tokenName})` } : undefined,
 )
@@ -243,26 +243,27 @@ const hervorhebungsErgebnis = computed(() => bestimmeHervorhebung(props.ort.bewe
 
 .ortszeile__achsenwert {
   flex-shrink: 0;
+  /* Plakette um die Zahl (PO-2026-11-24-007): Das Padding steht in JEDER
+     Zeile, mit oder ohne Zone — dann ist die Zeilenhöhe gleich und die
+     rechte Kante aller Zahlen fluchtet. Ohne Zone bleibt die Fläche
+     transparent (Default des Hooks). */
+  --intensitaetsbalken-zahl-padding: var(--space-4) var(--space-8);
+  --intensitaetsbalken-zahl-radius: var(--radius-8);
 }
 
-/* Zonenfarbe (ADR-0034): Rahmen + Zahlenfarbe nur, wenn der Wert-Slot eine
-   Zone hat (Modifier-Klasse `--zone`, s. Skript) — Werte < 8, die Gruppe
-   „ohne Wert" und fehlende Bewertungen bekommen WEDER Rahmen NOCH
-   Zahlenfarbe (design-conventions.md). Die Farbe selbst kommt aus der
-   lokalen Custom Property `--ortszeile-zonenfarbe`, die die Komponente
-   inline auf genau diesem Slot setzt. */
-.ortszeile__achsenwert--zone,
-.ortszeile__gesamtnote--zone {
-  border-left: 2px solid var(--ortszeile-zonenfarbe);
-  padding-left: var(--space-8);
-}
-
-/* Nur der Achsenwert reicht die Zonenfarbe an den Intensitätsbalken weiter
-   (dessen eigener CSS-Hook, Intensitaetsbalken.vue) — die Balkenfüllung
-   selbst bleibt unverändert (design-conventions.md, bewusste Vereinfachung,
-   kein zweites Farbsystem am selben Balken). */
+/* Zonenfarbe (ADR-0034, PO-2026-11-24-007): Plakette in Zonenfarbe mit
+   heller Zahl, bei einer Einzelachse zusätzlich die Balkenfüllung flach in
+   Zonenfarbe (Hook, kein Prop). Nur mit Modifier `--zone` (s. Skript) —
+   Werte < 8, die Gruppe „ohne Wert" und fehlende Bewertungen bekommen
+   weder Plakette noch Zonenfüllung. Die Farbe selbst kommt aus der lokalen
+   Custom Property `--ortszeile-zonenfarbe`, die die Komponente inline auf
+   genau diesem Slot setzt. */
 .ortszeile__achsenwert--zone {
-  --intensitaetsbalken-zahl-farbe: var(--ortszeile-zonenfarbe);
+  --intensitaetsbalken-zahl-flaeche: var(--ortszeile-zonenfarbe);
+  --intensitaetsbalken-zahl-farbe: var(--color-neutral-0);
+  --intensitaetsbalken-zahl-gewicht: var(--font-weight-semibold);
+  --intensitaetsbalken-zahl-ziffern: tabular-nums;
+  --intensitaetsbalken-fuellung-farbe: var(--ortszeile-zonenfarbe);
 }
 
 .ortszeile__gesamtnote {
@@ -273,15 +274,21 @@ const hervorhebungsErgebnis = computed(() => bestimmeHervorhebung(props.ort.bewe
 }
 
 .ortszeile__gesamtnote-wert {
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-8);
   font-size: var(--font-size-16);
   font-weight: var(--font-weight-medium);
   color: var(--color-primary-700);
 }
 
-/* Bei einer Zone übernimmt NUR die Zahl die Zonenfarbe — der Zusatz „aus N
-   von 4 Achsen" bleibt --text-muted (design-conventions.md). */
+/* Bei einer Zone steht die Zahl auf einer Plakette in Zonenfarbe — der
+   Zusatz „aus N von 4 Achsen" bleibt --text-muted und steht NACH der
+   Plakette, nicht darin (design-conventions.md). */
 .ortszeile__gesamtnote--zone .ortszeile__gesamtnote-wert {
-  color: var(--ortszeile-zonenfarbe);
+  background-color: var(--ortszeile-zonenfarbe);
+  color: var(--color-neutral-0);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
 }
 
 .ortszeile__gesamtnote-zusatz {
