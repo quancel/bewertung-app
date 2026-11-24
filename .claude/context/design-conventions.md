@@ -258,7 +258,17 @@ dass der Button in eine zweite Zeile ging. Neu ergänzt: ein
 (ADR-0012, analog zu `Werkzeugleiste.vue`), keine Icon-only-Variante
 (design-concept.md „Ikonografie" verbietet Icon-only bei Primäraktionen).
 
-- **Zuletzt kuratiert**: 2026-09-28
+Eine siebzehnte Runde (2026-11-24, PO-2026-11-24-001…007, Entwurf der
+Design-Schleife) ergänzt vier Abschnitte: „Gewichtung der Gesamtnote",
+„Karte: Marker, Namen, Ausschnitt", „Karte: Quick-Look-Sheet", „Bildvorschau
+(Vollbild)" — und ersetzt unter „Ortsliste: Zonenfarben …" den Träger
+(Plakette statt Text+Rand), die Schattenwerte und die Legende
+(beschrifteter Auslöser statt Icon-only), weil der Nutzer die Zonen als
+schwer erkennbar und die Legende als nicht vorhanden meldete (PO-2026-11-24-007).
+Der Plakette-Eintrag ist bis zur Konzeptauslegung (design_open_questions)
+**vorläufig**.
+
+- **Zuletzt kuratiert**: 2026-11-24
 
 ## Zustände
 
@@ -931,45 +941,64 @@ nicht für Ortsdetail, Kartenansicht, Sheets oder andere Listen.
   spätere Feinjustage durch den `architekt`, ohne die Reihenfolge zu
   gefährden. Kein Rot/Orange/Gelb/reines Grün/Terrakotta verwendet.
 
-- **Visueller Träger: nur Zahltext + Rahmen, keine Flächentönung** — hält
-  die Kontrastrechnung einfach („Text ODER Text auf Zonenfläche" wird nicht
-  gebraucht, es bleibt bei „Text"). Der Wert-Slot einer Zeile mit Zone
-  (`.ortszeile__gesamtnote` bzw. der Wrapper um `Intensitaetsbalken` bei
-  Sortierung nach Einzelachse) bekommt: Zahlenfarbe = Zonenfarbe (ersetzt
-  `--color-primary-700` bei der Gesamtnote bzw. `--text` bei der
-  Achsenzahl) und zusätzlich `border-left: 2px solid <Zonenfarbe>` +
-  `padding-left: var(--space-8)` **auf dem Wert-Slot selbst**, nicht auf
-  der ganzen Zeile — das ist der „Rahmen"-Träger für das 3:1-Kriterium
-  (hier ohnehin weit überschritten, da dieselbe Farbe wie der Text). Kein
-  Flächenwash hinter der Zahl in dieser Runde — kann bei Bedarf später als
-  reines Zusatzsignal ergänzt werden, ist kein Blocker dieses Pakets.
-  - `Intensitaetsbalken.vue` bekommt dafür einen optionalen,
-    rückwärtskompatiblen CSS-Hook: `.intensitaetsbalken__zahl { color:
-    var(--intensitaetsbalken-zahl-farbe, var(--text)); }` — Default
-    unverändert überall außer dort, wo `Ortszeile.vue` die Custom Property
-    lokal auf ihrem Wrapper setzt. Kein sichtbarer Unterschied in
-    Ortsdetail oder einem künftigen dritten Nutzer der Komponente.
-  - **Kein Zonenfarben-Wechsel an der Balkenfüllung selbst** (bewusste
-    Vereinfachung): Die Füllung von `Intensitaetsbalken` bleibt die
-    bestehende Tonleiter neutral-100→primary-600, unverändert auch
-    innerhalb der Ortsliste. Die Zone drückt sich ausschließlich über Zahl
-    + Rahmen aus — ein zweites, unabhängiges Farbsystem am selben Balken
-    wäre doppelte Kodierung ohne Erkenntnisgewinn und ein Rückschritt
-    Richtung „Ampel" (design-concept.md).
+- **Visueller Träger: Zonen-Plakette um die Zahl** (PO-2026-11-24-007,
+  ersetzt „Zahltext + 2px-Rand", der nach Nutzerbefund zu schwach war; Zone 8
+  `#29707A` lag farblich zu nah an der Zahl ohne Zone `--color-primary-700`).
+  **Vorläufig**, bis die Konzeptauslegung „Text auf Zonenfläche" bestätigt ist
+  (Fallback unten). Die Zahl des Wert-Slots (`.ortszeile__gesamtnote-wert`
+  bzw. `.intensitaetsbalken__zahl` bei Sortierung nach Einzelachse) steht bei
+  einer Zone auf einer Plakette: Fläche = Zonenfarbe, Zahl `--color-neutral-0`,
+  Gewicht 600, `tabular-nums`, Radius `--radius-8`. Kontrast Zahl auf Fläche
+  5,7:1 bis 17,6:1 (Tabelle oben, „weiß"), Fläche gegen `neutral-0`/`neutral-50`/
+  `primary-50` ≥ 3:1. Graustufen: L* der Flächen ca. 43/33/24/17/9, Schritt
+  mindestens 7 — benachbarte Zonen bleiben ohne Farbe unterscheidbar.
+  - **Zeilenhöhe bleibt konstant**: Der Wert-Slot trägt in JEDER Zeile
+    `padding: var(--space-4) var(--space-8)` auf der Zahl, mit oder ohne Zone
+    (ohne Zone transparent, Zahl wie bisher `--color-primary-700` bzw.
+    `--text`). Kein Zeilenhöhen-Sprung, rechte Kante aller Zahlen fluchtet.
+  - **Balken in der Zone eingefärbt** (Nutzeridee, bei Sortierung nach
+    Einzelachse): Die Füllung von `Intensitaetsbalken` ist bei einer Zone
+    **flach** in der Zonenfarbe statt der Tonleiter, nur in der Ortsliste;
+    Füllbreite unverändert `wert/10`. Ersetzt die frühere Vereinfachung
+    „Balkenfüllung bleibt Tonleiter". Gegenüber Spur `--surface` 3:1 erfüllt.
+    Werte < 8 behalten die Tonleiter. Der Zonenwechsel bei 8,0 ist dadurch
+    zusätzlich als Farbsprung der Füllung sichtbar.
+  - Der alte `border-left: 2px` samt `padding-left` am Wert-Slot **entfällt**
+    (Plakette übernimmt die Rolle des Rahmens). Der Zusatz „aus N von 4
+    Achsen" bleibt `--text-muted`, steht NACH der Plakette, nicht darin.
+  - `Intensitaetsbalken.vue`: rückwärtskompatible CSS-Hooks nach dem Muster
+    des bestehenden `--intensitaetsbalken-zahl-farbe` (weitere:
+    `-zahl-flaeche`, `-zahl-padding`, `-zahl-radius`, `-zahl-gewicht`,
+    `-fuellung`); Default unverändert überall außer in der Ortsliste. Ob
+    Hooks oder Prop, entscheidet der `architekt`.
+  - **Fallback, falls „Text auf Zonenfläche" als Flächentönung gelesen
+    wird** (design_open_questions): Zahl in Zonenfarbe + 10px-Punkt vor der
+    Zahl in Zonenfarbe + Balkenfüllung in Zonenfarbe; Rand entfällt nicht.
   - Zonenzuordnung folgt den Grenzen der Tabelle oben, angewendet auf den
-    jeweils angezeigten Wert (Gesamtnote oder sortierte Achse). Werte < 8,
-    die Gruppe „ohne Wert" und fehlende Bewertungen bekommen keinen der
-    beiden Träger.
+    jeweils angezeigten Wert (Gesamtnote — nach Gewichtung, siehe „Gewichtung
+    der Gesamtnote" — oder sortierte Achse). Werte < 8, die Gruppe „ohne
+    Wert" und fehlende Bewertungen bekommen weder Plakette noch Zonenfüllung.
+  - **Nicht angefasst, bewusst**: Sortier-Sheet, Karte, Ortsdetail und jedes
+    andere Sheet bleiben ohne Zonenfarbe (Konzept „Ausnahme Ortsliste").
+    „Sortierpunkte" = Wert-Slot der Ortszeile (Annahme, Nutzer offen).
 
 - **Hervorhebungs-Schatten, zwei Stufen, feste Achsenzuordnung** (Reihen-
   folge nach `ACHSEN_KRITERIEN`: Geschmack steht vor Preis-Leistung):
-  - **Schwach → Geschmack ≥ 9**: `0 1px 4px 0 rgb(26 31 29 / 8%)`
-  - **Stark → Preis-Leistung ≥ 9**: `0 3px 10px 1px rgb(26 31 29 / 16%)`
-  - Beide auf `--color-neutral-900`-Basis (`rgb(26 31 29 / …)`), kein
-    Zonenton, keine Warn-/Fehler-/Akzentfarbe. Deutlich schwächer als der
-    Sheet-Schatten (`0 -4px 24px rgb(0 0 0 / 12%)`, `Sheet.vue`): visuelles
-    Gewicht (Blur × Deckkraft) ca. 0,3 (schwach) bzw. 1,6 (stark) gegen 2,9
-    beim Sheet.
+  - **Schwach → Geschmack ≥ 9** (2026-11-24, prägnanter): zwei Layer
+    `0 0 0 1px rgb(26 31 29 / 10%), 0 2px 6px 0 rgb(26 31 29 / 12%)`
+  - **Stark → Preis-Leistung ≥ 9** (2026-11-24, prägnanter): zwei Layer
+    `0 0 0 1px rgb(26 31 29 / 16%), 0 4px 10px 1px rgb(26 31 29 / 18%)`
+  - Neu ist der 1px-Hairline-Layer: Ein 8-%-Schatten auf weißem Grund war kaum
+    sichtbar; die Kante macht die Zeile erkennbar, ohne das Gewicht des
+    Schattens zu erhöhen. Beide auf `--color-neutral-900`-Basis
+    (`rgb(26 31 29 / …)`), kein Zonenton, keine Warn-/Fehler-/Akzentfarbe.
+    Weiterhin deutlich schwächer als der Sheet-Schatten (`0 -4px 24px
+    rgb(0 0 0 / 12%)`, `Sheet.vue`): Blur × Deckkraft des Schattenlayers ca.
+    0,7 (schwach) bzw. 1,8 (stark) gegen 2,9 beim Sheet (stark ≈ 62 %). Die
+    Tokens `--shadow-hervorhebung-schwach/-stark` bekommen diese Werte. Die
+    Zeilenabstände der Liste müssen ≥ `--space-8` bleiben, damit der
+    stärkere Schatten keine Nachbarzeile überdeckt (Rauchtest-Bildschirmfoto
+    prüft das).
   - **Beide Achsen ≥ 9**: beide Layer gemeinsam in derselben `box-shadow`-
     Deklaration (schwach- und stark-Layer kommagetrennt nebeneinander) —
     kein dritter, eigens gemischter Wert. Da beide Layer denselben Farbton
@@ -1014,10 +1043,16 @@ nicht für Ortsdetail, Kartenansicht, Sheets oder andere Listen.
   - Erscheint unabhängig davon, ob die auslösende Achse in der Zeile
     sichtbar ist (z. B. bei Sortierung nach Ambiente).
 
-- **Legende**: Icon-only Button (neues `IconInfo.vue`, Lucide `info`,
-  Outline, 20px — analog zu den bestehenden Icon-Komponenten in
-  `shared/ui/icons/`), 44×44 Trefferfläche, `aria-label="Zonenfarben und
-  Hervorhebungen erklären"`, `aria-haspopup="dialog"`. **Ort**: in
+- **Legende** (2026-11-24, PO-2026-11-24-007: **beschrifteter Auslöser statt
+  Icon-only** — der Nutzer hielt die Legende für nicht vorhanden, ein Icon
+  ohne Text wurde nicht als solche erkannt): Text-Button mit sichtbarem Text
+  **„Legende"** (`TextButton`-Optik, `--color-primary-700`, 14px, ohne Icon,
+  mind. 44px hoch und breit, horizontales Padding `--space-8`),
+  `aria-label="Legende der Zonenfarben und Hervorhebungen"` (enthält den
+  sichtbaren Text), `aria-haspopup="dialog"`. Kein Icon, weil Icon + Text
+  die einzeilige Kopfzeile in der 368px-Listen-Spalte sprengt (h1 ~56 + Legende
+  ~70 + „Ort hinzufügen" ~195 + 2×16 Gap ≈ 353px; mit Icon ≈ 377px). `IconInfo`
+  entfällt hier. **Ort**: in
   `.ortebereich__kopf`, zwischen `<h1>Orte</h1>` und dem „Ort
   hinzufügen"-Button — nur in den beiden Listen-Kopfzeilen (Master-Detail-
   Liste und der Null-Treffer-Zustand), **nicht** im Kopf der Kartenansicht
@@ -1066,12 +1101,19 @@ nicht für Ortsdetail, Kartenansicht, Sheets oder andere Listen.
       „Ikonografie": „kein Icon ohne Label bei Primäraktionen". Der Button
       bleibt in jeder Breite mit sichtbarem Text.
   - **Öffnet die bestehende `Sheet.vue`-Chrome** (wie das
-    Sortierungs-Sheet), kein neues Popover-Muster. Inhalt: ein kurzer
-    erklärender Satz ohne Bewertungs-Rhetorik, danach eine Liste der fünf
-    Zonen (Farbfeld 16×16px, Radius 4px + Wertebereich-Text wie in der
-    Tabelle oben) und darunter die zwei Hervorhebungen (kleine
-    Vorschau-Kachel mit dem jeweiligen Schatten auf `--surface` + Text
-    „Geschmack ab 9" / „Preis-Leistung ab 9").
+    Sortierungs-Sheet), kein neues Popover-Muster. Inhalt (2026-11-24: zeigt
+    jetzt die Zeile, wie sie erscheint): ein kurzer erklärender Satz ohne
+    Bewertungs-Rhetorik, der benennt, WAS gefärbt wird — „Gefärbt wird der
+    angezeigte Wert: die Gesamtnote ({Gewichtung}) bzw. der Wert der Achse,
+    nach der du sortierst." ({Gewichtung} = Name des aktiven Szenarios, bei
+    „Ausgewogen" entfällt die Klammer). Danach fünf Zonenzeilen, je:
+    Plakette mit der Untergrenze als Beispielzahl („8,0", „8,5" …), ein
+    64px-Balken mit Füllung in der Zonenfarbe auf der Untergrenze, Text mit
+    Wertebereich wie in der Tabelle oben. Darunter zwei Hervorhebungs-Kacheln
+    (Radius `--radius-12` wie die Zeile, Schatten aus denselben Tokens wie die
+    Zeile, Text „Geschmack ab 9" / „Preis-Leistung ab 9"). Plakette, Balken und
+    Schatten nutzen dieselben Tokens/Klassen wie `Ortszeile.vue`, keine
+    Kopie der Farbwerte.
   - Tastatur/Escape/Backdrop-Klick zum Schließen kommen unverändert aus
     `Sheet.vue` — kein Zusatzaufwand.
 
@@ -1143,8 +1185,9 @@ nicht für Ortsdetail, Kartenansicht, Sheets oder andere Listen.
 - Fehlende Kacheln: einheitliche `--color-neutral-100`-Fläche, keine
   kaputten Bild-Icons. Kein Fehler-Rot, kein Alarm-Icon, kein
   „Wiederholen" als Primäraktion.
-- Marker bleiben ohne Kacheln vorhanden, farbig (`--color-accent-500`,
-  einziger Verwendungszweck) und anklickbar; die Karte friert nie ein.
+- Marker bleiben ohne Kacheln vorhanden, in `--color-accent-500` (Ring bzw.
+  Punkt, einziger Verwendungszweck; Optik siehe „Karte: Marker, Namen,
+  Ausschnitt") und anklickbar; die Karte friert nie ein.
   Per Tastatur erreichbar (Tab/Enter), im Fokus zusätzlich eine sichtbare
   Beschriftung (Bezeichnung), nicht nur der Fokusring.
 - Orte ohne Koordinaten bekommen in der Liste **keine** eigene
@@ -1342,6 +1385,176 @@ nicht für Ortsdetail, Kartenansicht, Sheets oder andere Listen.
   Bilder-Raster) richten sich nach der Spaltenbreite, nicht nach der
   Viewport-Breite — sonst zeigt sich bei ~1024px Viewport ein Raster mit
   mehr Spalten, als in der schmaleren Detail-Spalte Platz haben.
+
+## Gewichtung der Gesamtnote (PO-2026-11-24-001/-002)
+
+Gerätezustand (ADR-0006), kein Bestandsfeld. Szenarien: Ausgewogen (Standard),
+Fokus Geschmack, Fokus Ambiente, Fokus Preis-Leistung, Fokus Zeit, Eigene.
+
+- **Ein Gewichtungs-Sheet** (`Sheet.vue`-Chrome), drei Einstiege, alle öffnen
+  dasselbe Sheet: (1) im Sortier-Sheet eine Zeile am Ende, abgesetzt durch
+  Gruppentitel „Gesamtnote": „Gewichtung: {Name}" mit Chevron — schließt das
+  Sortier-Sheet und öffnet das Gewichtungs-Sheet; (2) Ortsdetail, unter der
+  Gesamtnote ein Text-Button „Gewichtung: {Name}", immer sichtbar; (3) eine
+  Hinweiszeile zwischen Werkzeugleiste und Liste/Karte, **nur wenn nicht
+  Ausgewogen**: „Gesamtnote nach Gewichtung „{Name}" · Ändern", 14px
+  `--text-muted`, Text-Button „Ändern", scrollt mit (nicht sticky), kostet
+  nichts in der Werkzeugleiste. Das ist die Antwort auf „aktives Szenario
+  erkennbar": bei Ausgewogen (Standard) schweigt die Liste, jede Abweichung
+  steht sichtbar über Liste UND Karte.
+- **Inhalt**: Titel „Gewichtung der Gesamtnote", ein Satz „Bestimmt, wie
+  stark jede Achse in die Gesamtnote eingeht. Gilt für Liste, Detail und
+  Karte.", danach sechs Zeilen (Name 16px + Sekundärzeile 14px `--text-muted`:
+  „Alle Achsen zählen gleich" / „Geschmack zählt doppelt" … / „Du legst die
+  Gewichte selbst fest"), je mind. 48px hoch, Button-Liste wie das Sortier-Sheet
+  (`aria-pressed`, aktive Zeile `--color-primary-50` + Haken-Icon 20px, nicht
+  nur Fläche). Wirkt sofort; **schließt bei festen Szenarien** (240ms, wie das
+  Sortier-Sheet), **bleibt bei „Eigene" offen**.
+- **„Eigene"**: Unter der Zeile klappt (180ms ease-out, Reveal) ein Block mit
+  vier Zeilen auf. Zeile = Achsenname + Anteil (14px `--text-muted`, „33 %",
+  bei Gewicht 0 der Text „zählt nicht") + Regler (Bahn/Thumb wie „Regler-Bahn
+  und -Thumb", immer „gesetzter" Thumb, 0–10, Schritt 1) + Zahlenfeld 64px
+  (ganzzahlig, klemmt 0–10, committet auf jedes `input`, kein Enter nötig).
+  Unter 400px Container-Breite: Name+Anteil+Zahlenfeld oben, Regler darunter
+  über die volle Breite; ab 400px einzeilig (Name 112px · Regler flex · Zahl
+  64px). Zahlenfeld leer → beim Verlassen zurück auf den bisherigen Wert (ein
+  Gewicht ist nie „nicht gesetzt"). Das Sheet scrollt intern (max 90vh).
+- **Letztes Gewicht über 0**: Die einzige Achse mit Gewicht > 0 trägt statt
+  des Anteils „100 % · muss zählen", ihr Regler hat `min=1`, das Zahlenfeld
+  klemmt auf 1. Ein Versuch, sie auf 0 zu setzen, lässt den Wert auf 1 stehen
+  und zeigt unter dem Block eine Statuszeile (`role="status"`, 14px
+  `--text`): „Mindestens eine Achse muss zählen." Sie bleibt bis zur nächsten
+  Gewichtsänderung stehen (kein Timer, wie „Rückkehr-Markierung").
+- **Ort ohne Gesamtnote wegen Gewicht 0** ist NICHT derselbe Zustand wie „noch
+  nicht bewertet" (Grundsatz „Zustände"). Sortierung nach Gesamtnote: zwei
+  getrennte Endgruppen, je 32px Abstand + gemutete Überschrift: zuerst „{n}
+  Orte ohne Bewertung in Gesamtnote", dann „{n} Orte ohne Gesamtnote bei
+  dieser Gewichtung"; leere Gruppe entfällt. Ortsdetail: statt „Noch nicht
+  bewertet" der Text „Keine Gesamtnote bei dieser Gewichtung" + Zusatz „Die
+  bewerteten Achsen zählen mit Gewicht 0." (14px `--text-muted`). Karte:
+  Marker wie ohne Note, zugänglicher Name „…, keine Gesamtnote bei dieser
+  Gewichtung".
+
+## Karte: Marker, Namen, Ausschnitt (PO-2026-11-24-003/-004)
+
+- **Marker mit Note** (ersetzt die bisherige reine Pin-Optik): Scheibe Ø 40px,
+  Füllung `--surface`, 3px Ring `--color-accent-500`, Note als Zahl mit Komma,
+  14px, Gewicht 600, `tabular-nums`, `--text`. Begründung: Weiße Schrift auf
+  `accent-500` erreicht nur ≈ 4,1:1 (< 4,5:1), deshalb keine Füllung in
+  Akzent; „10,0" (≈ 30px) passt in die 34px Innenfläche. Trefferfläche 44×44
+  (transparent). Keine Zonenfarbe (Konzept).
+- **Marker ohne Note**: ausgefüllter Punkt Ø 16px `--color-accent-500`, ohne
+  Zahl und ohne „–", Trefferfläche 44×44.
+- **Ausgewählt** (offenes Quick-Look): Scheibe Ø 48px, Ring 4px — Größe und
+  Ringstärke tragen, nicht nur Farbe. Ohne Note: Punkt Ø 24px mit 3px
+  `--surface`-Außenring.
+- **Namensetikett** über dem Marker: 4px Abstand, Pille `--surface` (92 %
+  Deckkraft), 1px `--border`, Radius `--radius-8`, Padding 2px 6px, 14px 500
+  `--text`, einzeilig, max. 120px mit Auslassungszeichen, `pointer-events:
+  none` (verdeckt nie die Bedienung), `aria-hidden` (der Marker trägt den Namen).
+  Bei Hover/Tastaturfokus/Auswahl: volle Breite bis 240px, bis 2 Zeilen, immer
+  sichtbar. Hält 8px Abstand zum Kartenrand (verschiebt sich horizontal).
+- **Kollisionsregel**: Rechteck des Etiketts (+4px Rand) überlappt ein
+  Etikett mit Vorrang oder die Scheibe/den Punkt eines anderen Markers → das
+  Etikett entfällt. Vorrang: ausgewählt/fokussiert, dann höhere Gesamtnote
+  (ungerundet), ohne Note zuletzt, bei Gleichstand Bezeichnung alphabetisch
+  (`de`, ohne Groß/Klein), dann Id. Greedy in dieser Reihenfolge. Neu
+  berechnet nach `moveend`/`zoomend`, Filter-, Gewichtungs- und Bestandswechsel
+  (nicht während des Ziehens). Ein-/Ausblenden nur `opacity`, 180ms; unter
+  reduzierter Bewegung unverändert (es ist kein Bewegungseffekt).
+- **Zugänglicher Name**: „{Bezeichnung}, Gesamtnote {x,y}" bzw. „{Bezeichnung},
+  keine Gesamtnote" — unabhängig davon, ob das Etikett sichtbar ist.
+- **Ausschnitt in der Sitzung merken**: ohne sichtbare Rückmeldung, ohne
+  Animation (kein Hinweis, kein Übergang); der Ausschnitt wird beim Aufbau der
+  Karte als Startansicht gesetzt (kein sichtbares Einpassen mit anschließendem
+  Sprung). Fokusrückgabe auf den Marker ohne Verschieben (`preventScroll`).
+  Neu einpassen weiterhin bei Änderung des Tag-Filters in der Kartenansicht.
+
+## Karte: Quick-Look-Sheet (PO-2026-11-24-005)
+
+Eigene, **nicht modale** Komponente (nicht `Sheet.vue`: kein Backdrop, die Karte
+bleibt bedienbar, sonst wäre „Tipp auf anderen Marker wechselt den Inhalt"
+unmöglich). `role="dialog"`, **ohne** `aria-modal`, `aria-label` „Schnellansicht:
+{Bezeichnung}".
+
+- **Lage**: unten im Kartenbereich, über der Bottom-Tab-Leiste (die bleibt
+  sichtbar). Bis `md` volle Breite, ab `md` max. 480px, linksbündig mit 16px
+  Rand. **Bottom-Sheet in jeder Breite, kein Seitenpanel** (die drei Zustände
+  bleiben dadurch in jeder Breite gültig). Radius 16px oben, Schatten wie
+  `Sheet.vue`. Leaflet-Bedienelemente und Attribution unten rücken um die
+  aktuelle Sheet-Höhe nach oben (CSS-Variable), die Quellenangabe bleibt
+  sichtbar.
+- **Zustände** (Höhe vom Karten-Bereich H): eingeklappt 80px (Griff + Zeile
+  Bezeichnung links, Gesamtnote rechts, „×"), halb 50 % von H (min 280px),
+  voll H − 56px (ein Streifen Karte bleibt). Einrasten nach Loslassen:
+  nächstgelegene Höhe; Wischtempo > 0,5px/ms schnappt in Wischrichtung.
+  Settle 240ms ease-out; reduzierte Bewegung: Sprung. Ziehen nur am Griff und
+  an der Kopfzeile, nie im scrollenden Inhalt (`overscroll-behavior:
+  contain`).
+- **Ohne Geste**: Der Griff ist ein Button (44px hoch über die volle Breite,
+  sichtbarer Balken 36×4px) mit `aria-label` „Größe der Schnellansicht ändern,
+  aktuell {eingeklappt|halb|voll}"; Enter/Leertaste/Tipp = nächstgrößerer
+  Zustand, aus „voll" zurück auf „halb"; Pfeil hoch/runter = einen Zustand
+  größer/kleiner. „×" (44×44, `aria-label` „Schnellansicht schließen") und Esc
+  schließen. Tipp auf leere Karte schließt **nicht**.
+- **Inhalt** (nur lesend), Reihenfolge: Kopf (Bezeichnung als `<h2>` 20px 600,
+  Gesamtnote 16px 600 rechts, ohne Zonenfarbe) → Bildstreifen (nur mit
+  Bildern) → Anfangsnotiz → Adresse (14px `--text-muted`) → Tags
+  (neutrale Pillen) → vier Achsen (Name, Zahl + Intensitätsbalken oder „Noch
+  nicht bewertet", Kommentar). Halb: Anfangsnotiz und jeder Kommentar auf 2
+  Zeilen geklemmt (Auslassungszeichen), der Inhalt scrollt; voll: alles
+  vollständig, `overflow-wrap: anywhere`. Fußzeile (halb/voll, fest unten,
+  56px): **„Bearbeiten" als Sekundär-Button** (Rahmen, nicht Primär: die
+  Primäraktion der Karten-Ansicht ist „Ort hinzufügen", „max. eine pro
+  Ansicht").
+- **Bildstreifen**: horizontal scrollend, Kacheln 96×72px (4:3, Radius 12px,
+  `object-fit: cover`), Gap 8px, `scroll-snap-type: x proximity`, Reihenfolge
+  wie das Raster, Kachel = Button „Bild {n} von {m} vergrößern". Kein Bild →
+  Abschnitt entfällt ganz (kein Platzhalter, keine Lücke).
+- **Öffnen/Wechsel**: Slide-up 240ms ease-out auf „halb" (reduzierte
+  Bewegung: Fade 180ms). Wechsel auf einen anderen Marker: Inhalt springt,
+  Zustand bleibt, Adresse per `replace` (kein zusätzlicher Verlaufseintrag).
+  Liegt der Marker unter der Sheet-Oberkante, verschiebt die Karte minimal
+  (`panBy`, 240ms, 24px Abstand über der Oberkante, nie Zoom) — eine
+  Rückkehr per Zurück verschiebt nicht erneut. Fokus: beim Öffnen und Wechsel
+  auf die `<h2>` (`tabindex="-1"`), beim Schließen zurück auf den Marker.
+- **Adresse/Verlauf**: Öffnen = `push` mit `ort=<id>`, Schließen entfernt ihn;
+  Zurück schließt. Die Größe steht nicht in der Adresse. Direktaufruf/Neuladen
+  mit gültiger Id öffnet auf „halb". **Unbekannte oder nicht sichtbare Id: Karte
+  ohne Sheet, kein Hinweis**, der Parameter wird per `replace` entfernt (kein
+  toter Verlaufseintrag; anders als „Adresse ohne Ziel", weil die Seite selbst
+  gültig ist). Fällt der Ort durch eine Filteränderung aus der Karte, schließt
+  das Sheet (Slide 240ms), der Fokus bleibt, wo er war.
+- **Überdeckung**: Marker, deren Mittelpunkt unter einem offenen Sheet liegt,
+  werden `inert` (aus Tab-Folge und Zeigerereignissen), sobald sie nach
+  `moveend`/Zustandswechsel wieder darüber liegen, wieder aktiv. Vorschlag
+  für den `architekt`: Verdeckungsprüfung nimmt `inert`-Elemente als benannte
+  Bedingung aus (ADR-0023 Punkt 7), keine ID-/Klassenliste.
+
+## Bildvorschau (Vollbild) (PO-2026-11-24-006)
+
+- **Modaler Vollbild-Dialog** (`role="dialog"`, `aria-modal="true"`), Fläche
+  `--color-neutral-900` deckend (kein Durchscheinen). Aufbau von oben nach unten:
+  Kopfleiste 56px (rechts „×" 44×44, `aria-label` „Vorschau schließen"),
+  Bildfläche (Rest, `object-fit: contain`, nie beschnitten, nie von
+  Bedienelementen überdeckt), Fußleiste 64px + `env(safe-area-inset-bottom)`
+  mit „‹", „{n} von {m}" (14px, weiß, `aria-live="polite"`) und „›". Die
+  Pfeile stehen **nicht** über dem Bild. Bedienelemente: 44×44, Icon
+  `--color-neutral-0`, Fläche transparent, Fokusring **weiß** (2px, Offset 2px;
+  die Standardfarbe erreicht auf Dunkelgrau keine 3:1 — dialoglokale
+  Ausnahme der Farbe, nicht der Stärke).
+- **Blättern**: Pfeile, Pfeiltasten links/rechts, horizontales Wischen
+  (≥ 48px Weg oder > 0,5px/ms). Jeder Wechsel ist ein **Sprung**, kein
+  Finger-Folgen, keine Slide-Animation (einheitlich mit „Sprung, keine
+  Zustandsanimation"). **Kein Umbruch** an den Enden: am ersten/letzten Bild
+  ist der jeweilige Pfeil `aria-disabled` mit 40 % Deckkraft (Fokusring bleibt).
+  Ein Bild: Fußleiste, Pfeile und Zähler entfallen.
+- **Schließen**: „×", Esc, System-Zurück (Verlaufseintrag ohne eigene Adresse,
+  Blättern erzeugt keine). Fokus beim Öffnen auf „×", danach gefangen (Tab
+  zirkuliert ×, ‹, ›); beim Schließen auf die Kachel des zuletzt gezeigten
+  Bildes. Kein Löschen, keine Zoomgeste. Aus dem Quick-Look geöffnet: genau
+  gleich, Fokus zurück auf die Streifen-Kachel. Alt-Text „Bild {n} von {m} von
+  {Bezeichnung}". Öffnen/Schließen: Fade 180ms.
 
 ## Tokens & Spacing
 
