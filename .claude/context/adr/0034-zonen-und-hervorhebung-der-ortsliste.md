@@ -1,7 +1,11 @@
 # ADR-0034: Zonen und Hervorhebungen der Ortsliste — reine Funktionen in `features/orte/lib/`, die Zone wird am ungerundeten Wert bestimmt (Präzisierung von ADR-0008 Punkt 6, Anwendung von ADR-0007 Punkt 6/7)
 
-- **Status**: accepted
+- **Status**: accepted (Punkt 3/4 superseded by ADR-0037)
 - **Datum**: 2026-09-27
+- **Abgelöst**: Punkt 3 und 4 durch ADR-0037 Punkt 5 (2026-11-24). Mit
+  eigenen Gewichten stimmt die Zone am Rohwert nicht mehr strukturell mit
+  der Anzeige überein. Anzeige und Zone lesen jetzt denselben
+  ganzzahligen Zehntelwert. Punkt 1, 2 und 5 gelten unverändert.
 - **Bounded Context(s)**: `orte`, `bewertungen`
 - **task_id**: `PO-2026-09-27-003`
 

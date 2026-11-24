@@ -6,7 +6,14 @@
 > Halte sie kompakt (Faustregel: < 100 Zeilen). Sie ist ein Register,
 > kein Design-Dokument — Details gehören in ADRs unter `adr/`.
 
-- **Stand**: 2026-09-27 (Einordnen PO-2026-09-27-004: keine neue
+- **Stand**: 2026-11-24 (Einordnen PO-2026-11-24-001…007): keine neue
+  Context-Grenze. Neu ist der Schlüssel `orte.gewichtung` (ADR-0037).
+  `karte` hält flüchtigen Leaflet-Zustand für die Sitzung (ADR-0038).
+  `medien` exportiert einen zweiten store-gebundenen Baustein
+  (`Bildstreifen.vue`), und eine zweite Adressform (`ort`) ist
+  eingefroren (ADR-0039). Die Bildvorschau legt einen Verlaufseintrag ohne
+  Adresse an (ADR-0036).
+  Davor 2026-09-27 (Einordnen PO-2026-09-27-004: keine neue
   Context-Grenze, keine neue Beziehung. `bewertungen` ist der zweite Nutzer
   der exponierten Abhol-Methode, ADR-0035.)
   Davor 2026-09-27 (Einordnen PO-2026-09-27-003: keine neue
@@ -122,7 +129,11 @@ vollständiges Sequenzdiagramm.
   `src/shared/lib/` und als Darstellungsbaustein in `src/shared/ui/` — nicht
   im besitzenden Feature. **Ausnahme**: Eine Darstellungsregel, die nur die
   Ortsliste kennt (Zonen, Hervorhebungs-Schatten), liegt in
-  `features/orte/lib/` (ADR-0034).
+  `features/orte/lib/` (ADR-0034). Die **Gewichtung** der Gesamtnote ist
+  eine Anzeigeeinstellung von `orte` (`orte.gewichtung`, in
+  `useOrteStore`). `berechneGesamtnote` verlangt die Gewichte als
+  Pflichtparameter. Anzeige und Zone lesen denselben Zehntelwert
+  (ADR-0037).
 - **`karte` liefert Darstellung, `orte` liefert die Daten** (ADR-0019 ab
   -006): `karte` fasst **keinen** Store an, kennt `persistence/` nicht und
   importiert nichts aus `orte`. `features/orte/views/Ortebereich.vue` bindet
@@ -132,14 +143,24 @@ vollständiges Sequenzdiagramm.
   nichts, auch nicht `OrtDatensatz`: Eine Formatänderung berührt die Karte
   nicht. Das Nachtragen von Koordinaten läuft unverändert über die
   Ort-Bearbeitung in `orte`. Die Ortssuche (-008) liegt aus eigenen Gründen in
-  `orte` (ADR-0020 Punkt 1), nicht wegen einer Importrichtung.
+  `orte` (ADR-0020 Punkt 1), nicht wegen einer Importrichtung. Ab
+  PO-2026-11-24 gilt außerdem:
+  - Den Kartenausschnitt der Sitzung hält `karte` selbst als
+    nicht-reaktive Modulvariable, nicht als Store (ADR-0038).
+  - Die Schnellansicht (`?ort=`) ist eine Komponente in `orte`.
+    `karte` bekommt nur Darstellungsgrößen über Props (ausgewählte ID,
+    verdeckte Höhe, `panBy`-Auslöser) und importiert weder `orte` noch
+    `medien` (ADR-0039).
 - **`medien` (-005) hat als einziger Feature-Context einen eigenen Object
   Store und deshalb einen eigenen Pinia-Store** (ADR-0016). Er importiert
   **nichts** aus `features/orte/` — nur unter dieser Bedingung darf
   `Ortebereich.vue` umgekehrt seinen `Bilderbereich.vue` importieren, obwohl
   der einen Store anfasst (Präzisierung von ADR-0013 Punkt 3, das den
-  Zyklus meint, nicht das Wort „Store"). Der Ort-Datensatz kennt seine Bilder
-  nicht; die Zuordnung ist der Index `ortId` im Store `bilder`.
+  Zyklus meint, nicht das Wort „Store"). Seit ADR-0039 gilt das für genau
+  zwei Bausteine, `Bilderbereich.vue` und `Bildstreifen.vue`. Die
+  Bildvorschau (Vollbild) gehört `medien` und schließt über einen
+  Verlaufseintrag ohne eigene Adresse (ADR-0036). Der Ort-Datensatz kennt
+  seine Bilder nicht; die Zuordnung ist der Index `ortId` im Store `bilder`.
 - **`datensicherung` arbeitet auf dem gesamten Bestand über
   `src/persistence/`**, nicht über die einzelnen Feature-Stores. Sonst wäre
   eine vollständige Sicherung von der Ladereihenfolge der Features abhängig.
@@ -156,10 +177,11 @@ vollständiges Sequenzdiagramm.
   Zugriffsweg `src/persistence/einstellungen-repository.ts` existiert noch
   nicht und entsteht dort — generisch (Wert zu einem Schlüssel), ohne
   Kenntnis einzelner Einstellungen (ADR-0009 Punkt 4). Schlüssel:
-  `orte.sortierung` (-003), `orte.tagfilter` (-004). Beide gehören dem
-  Context `orte`, auch der zweite: Zuständig ist, wem die konfigurierte
+  `orte.sortierung` (-003), `orte.tagfilter` (-004), ab PO-2026-11-24-001
+  `orte.gewichtung` (ADR-0037). Alle gehören dem Context `orte`, auch der
+  zweite und dritte: Zuständig ist, wem die konfigurierte
   **Ansicht** gehört, nicht wem die gefilterten Daten gehören (ADR-0009).
-  Es bleibt bei diesen zwei Schlüsseln: Der bedingt sichtbare
+  Weitere Schlüssel gibt es nicht. Der bedingt sichtbare
   Koordinaten-Abschnitt aus -005 ist **keine** Anzeigeeinstellung, sondern
   eine flüchtige, an die Ort-ID gebundene Kennung in `Ortebereich.vue`
   (ADR-0025).
@@ -246,14 +268,18 @@ ein Netzwechsel nichts aus.
   Bereichsnavigation, **kein** neuer Routen-Eintrag. Der Query-Parameter ist
   ab Auslieferung eingefroren wie ein Pfad. In der Kartenansicht entfällt
   `MasterDetail.vue`; Werkzeugleiste und Karte stehen über die volle
-  Inhaltsbreite. Ein Marker-Klick führt nach `/orte/:ortId` (push), es gibt
-  keine zweite Detailansicht und keinen zweiten Auswahl-Zustand.
+  Inhaltsbreite. Ab PO-2026-11-24-005 öffnet ein Marker-Klick die nur
+  lesende Schnellansicht unter der **zweiten eingefrorenen Adressform**
+  `/orte?ansicht=karte&ort=<id>` (push, Wechsel per `replace`). Ins
+  Ortsdetail führt „Bearbeiten". Die Auswahl steht nur in der Adresse,
+  einen zweiten Auswahl-Zustand gibt es nicht (ADR-0039).
 - **Die Karte folgt dem Tag-Filter** (`orteGefiltert`), eingeschränkt auf
   Orte mit beiden Koordinaten (Nutzerentscheidung 2026-09-10). Die
   **Sortierung bleibt ohne Wirkung** — Marker haben keine Reihenfolge.
-- **Kein persistierter Kartenausschnitt** (ADR-0019 Punkt 6): Zoom und
-  Mittelpunkt sind flüchtig, der Startausschnitt ergibt sich aus den
-  vorhandenen Markern. Ein gespeicherter Ausschnitt wäre eine
+- **Kein persistierter Kartenausschnitt, aber einer für die Sitzung**
+  (ADR-0038). Zoom und Mitte überdauern Detail, Liste und `/daten`, aber
+  nicht das Neuladen. Liegt kein Marker im gemerkten Ausschnitt, wird
+  eingepasst. Ein über das Neuladen gespeicherter Ausschnitt wäre eine
   Anzeigeeinstellung nach ADR-0006/0009 und braucht ein eigenes ADR.
 - **Mehrere gleichzeitig geöffnete Tabs werden bewusst nicht abgefangen**
   (Nutzerentscheidung 2026-09-08, GESETZT). Nach ADR-0005 gewinnt der zuletzt

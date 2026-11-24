@@ -7,7 +7,12 @@
 > nicht hierhin.
 
 - **Modus**: `vorgegeben` (Greenfield, ADR-0002)
-- **Zuletzt geprüft**: 2026-09-28, Nachpflege zu PO-2026-09-27-003 (nach
+- **Zuletzt geprüft**: 2026-11-24, Einordnen PO-2026-11-24-001…007.
+  Hinzugekommen sind: gewichtete Gesamtnote mit Pflichtparameter und
+  gemeinsamem Zehntelwert (ADR-0037), Adressform `ort` (ADR-0039),
+  Verlaufseintrag ohne Adresse (ADR-0036), Sitzungszustand in `karte`
+  (ADR-0038), `[inert]`-Ausnahme mit Gegen-Zusicherung und Marker-Tokens.
+  Davor 2026-09-28, Nachpflege zu PO-2026-09-27-003 (nach
   der Abnahme): `container-type` sitzt auf einem Vorfahren. Das `clip`-Muster
   bleibt lokal, es gibt kein globales Utility. Rauchtest-Ansichten
   hinterlassen keine verstellten Einstellungen. Davor 2026-09-28, Rückläufer
@@ -108,7 +113,10 @@ src/
      seinerseits den `orte`-Store oder `persistence/` anfasst, Zustand über
      Aufrufe hält oder aus dem importierenden Context zurückimportiert.
      `medien` darf seinen **eigenen** Store anfassen, solange es nichts aus
-     `orte` importiert (ADR-0016 P9/10).
+     `orte` importiert (ADR-0016 P9/10). Store-gebundene Exporte gibt es
+     genau zwei, `Bilderbereich.vue` und `Bildstreifen.vue` (ADR-0039 P6).
+     Ein dritter braucht ein ADR. `karte` importiert aus keinem Feature,
+     auch nicht aus `medien`.
   3. `datensicherung` darf nach einem Import `useOrteStore`/`useMedienStore`
      **zum Neuladen** anstoßen — nur das, ohne Rückrichtung (ADR-0017 P9).
 
@@ -129,6 +137,14 @@ src/
   Das gilt für Ableitungen mit zwei Nutzern. Eine Darstellungsregel, die
   **nur die Ortsliste** kennt, liegt in `features/orte/lib/`. Beispiel ist
   `zonen.ts` (ADR-0034).
+- **Gesamtnote nur über `berechneGesamtnote(bewertungen, gewichte)`**
+  (ADR-0037). Die Gewichte sind ein Pflichtparameter ohne Default, Quelle
+  ist `useOrteStore` (`orte.gewichtung`). Das Ergebnis unterscheidet `wert`
+  (`roh`, `zehntel`), `unbewertet` und `ohne-gewicht`, also kein
+  `number | null`. **Anzeige und Zone lesen `zehntel`** (ganzzahlig,
+  `Math.round(10 · Zähler / Nenner)`). **Sortierung, Gleichstand und
+  Vorrang lesen `roh`.** Komponenten und `karte` rechnen nicht selbst,
+  sie bekommen das Ergebnis bzw. primitive Felder von `Ortebereich.vue`.
 - **`model/*.types.ts` importiert nichts** und enthält nur den Anteil seines
   Contexts; `persistence/schema.ts` setzt daraus `OrtDatensatz` zusammen. Ein
   Import von `persistence/` dorthin dreht die Richtung um und ist ein Fehler.
@@ -180,8 +196,8 @@ src/
   jedes Mal ein neues Array. Soll eine Wirkung nur bei **Inhalts**änderung
   eintreten, vergleicht der Watcher selbst (stabile Kennung der Menge).
   Offene Stelle: `features/karte/composables/useLeafletKarte.ts` ruft
-  `wendeKartenausschnittAn()` bei jeder Neuberechnung — das nächste Paket an
-  der Karte korrigiert das mit.
+  `wendeKartenausschnittAn()` bei jeder Neuberechnung. PO-2026-11-24-003
+  korrigiert das (Vergleich über die ID-Menge, ADR-0038 P5).
 - **Ein `watch`, der das DOM misst oder liest** (`scrollHeight`,
   `getBoundingClientRect`, `offsetHeight`, `feld.value` …), läuft mit
   `{ flush: 'post' }`, nicht mit dem Vue-Standard `pre`. Template-Bindungen,
@@ -201,7 +217,16 @@ src/
     ist der Zonenschlüssel, das Komma wird zum Bindestrich. Die Namen tragen
     ihre Bedeutung wie `--color-primary-*`, deshalb gibt es keinen Alias in
     `semantic.css`. Die Zuordnung Zone → Tokenname steht wörtlich und genau
-    einmal in `features/orte/lib/zonen.ts` (ADR-0034 P2).
+    einmal in `features/orte/lib/zonen.ts` (ADR-0034 P2). Die Zone
+    vergleicht ganzzahlige Zehntel (ADR-0037 P5).
+  - **Kartenmarker** (ab PO-2026-11-24-004): Maße als Tokens mit Präfix
+    `--karte-marker-*` in `tokens.css`, analog `--karte-hoehe`. Das sind
+    Scheibe 40/48px, Ring 3/4px, Punkt 16/24px, Außenring 3px,
+    Trefferfläche 44px und die Etikettbreite 120/240px. `L.divIcon` braucht
+    `iconSize`/`iconAnchor` als Zahl in JS, dort steht eine benannte
+    Konstante mit Tokennamen im Kommentar. Farben nur semantisch
+    (`--surface`, `--color-accent-500`, `--text`, `--border`), keine
+    Zonenfarbe.
   - **Hervorhebungs-Schatten**: `--shadow-hervorhebung-schwach` und
     `--shadow-hervorhebung-stark`, Farbbasis `--color-neutral-900`, im
     Kommentar genannt. Das sind **keine** Elevation-Tokens. Die sechs
@@ -247,7 +272,11 @@ src/
   `Kartenflaeche.vue` wird asynchron eingebunden (`defineAsyncComponent`), da
   die Karte an der Startroute hängt. Karteninstanz in `shallowRef`, beim
   Unmount `map.remove()`. Marker als `L.divIcon`; ihre Styles nicht in
-  `<style scoped>` (Leaflet-DOM trägt kein `data-v-`).
+  `<style scoped>` (Leaflet-DOM trägt kein `data-v-`). Den Ausschnitt für
+  die Sitzung hält ein nicht-reaktives Modul in `karte/composables/`, mit
+  Mitte und Zoom, ohne Ort-Daten und ohne Store (ADR-0038). Bestehende
+  Marker werden bei Inhaltsänderung aktualisiert (Note, Name, Label) statt
+  nur verschoben.
 - **`app/dev/`** ist Dev-Werkzeug: Routen nur unter `import.meta.env.DEV`,
   importiert nichts aus `features/`. `Tokenschau.vue` **bleibt dauerhaft**.
 
@@ -281,6 +310,18 @@ src/
   Die Ansicht leitet sich allein daraus ab — kein Store-Flag, keine
   Anzeigeeinstellung. Unbekannter/fehlender Wert = Standardansicht **ohne**
   `replace`. Parametername und -wert sind ab Auslieferung eingefroren.
+- **Eingefrorene Query-Parameter**: `ansicht` (Wert `karte`, ADR-0019) und
+  `ort` (Ort-ID, nur zusammen mit `ansicht=karte`, ADR-0039). Bei `ort`
+  gilt: Öffnen ist `push`, Wechsel ist `replace`, Schließen ist
+  `back()`, wenn `history.state.back` gesetzt ist, sonst `replace`. Eine
+  unbekannte oder nicht sichtbare ID wird **erst nach dem Laden des
+  Stores** per `replace` entfernt. Das ist die einzige Ausnahme von „ohne
+  `replace`".
+- **Modaler Zustand, der über Zurück schließen soll, bekommt einen
+  Verlaufseintrag ohne eigene Adresse** (ADR-0036), keinen neuen
+  Query-Parameter. Er wird über den Router angelegt, nie über rohes
+  `history.pushState`. Eine Vorwärts-Navigation oder ein Neuladen öffnet
+  ihn nie, und `scrollBehavior` scrollt bei gleicher `fullPath` nicht.
 
 ## Layout und Breitenlogik (ADR-0010/0011/0012)
 
@@ -514,7 +555,9 @@ src/
   Voreinstellung und Prüffunktion zusammen in
   `features/<context>/model/ansicht.ts`; der Zustand lebt im Store des
   Contexts, dem die **konfigurierte Ansicht** gehört. Schlüssel mit
-  Context-Präfix (`orte.sortierung`). Fehlt eine, gilt die Voreinstellung —
+  Context-Präfix (`orte.sortierung`, `orte.tagfilter`, `orte.gewichtung`).
+  Eine Wertform wird additiv erweitert. Die Prüffunktion akzeptiert den
+  älteren Stand und füllt fehlende Teile mit der Voreinstellung. Fehlt eine, gilt die Voreinstellung —
   ohne Meldung; ein fehlgeschlagenes Schreiben bricht nichts ab.
 - **Export/Import**: Bestand als Einheit in `persistence/bestand-repository.ts`
   (lesen, ersetzen, ergänzen — je eine Transaktion, ausdrückliches Ergebnis).
@@ -640,7 +683,12 @@ src/
 - **Neue Ansicht, neue Breite, neuer Zustand?** In die zentralen Listen oben
   in `scripts/smoke.mjs` eintragen — sonst prüft sie niemand. Ausnahmen von
   einer Zusicherung stehen als **benannte Bedingung** (Bauform), nie als
-  Liste von IDs oder Klassennamen.
+  Liste von IDs oder Klassennamen. Ab PO-2026-11-24-005 überspringt
+  `pruefeVerdeckung()` Elemente in einem `[inert]`-Teilbaum (ADR-0039 P7).
+  Diese Ausnahme gilt nur zusammen mit einer harten Gegen-Zusicherung:
+  Genau die überdeckten Elemente sind `inert`. Eine nicht modale
+  Überlagerung ist **nicht** `position: fixed`, sonst verschluckt die
+  Ausnahme „fixierte Chrome" ihre Befunde.
 - **Die Ansichten aus `ANSICHTEN` teilen sich Seite, Bestand und persistierte
   Einstellungen** (Sortierung, Filter). Das gilt über die gesamte Laufzeit.
   Eine Vorbereitung, die eine Einstellung verstellt, stellt sie wieder

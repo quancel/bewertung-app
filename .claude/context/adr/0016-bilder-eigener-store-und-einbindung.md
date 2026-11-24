@@ -4,6 +4,9 @@
 - **Datum**: 2026-09-10
 - **Bounded Context(s)**: `medien`, `orte`, `datensicherung`, `app-shell`
 - **task_id**: `PO-2026-09-07-005`
+- **Erweitert durch**: ADR-0039 Punkt 6 (2026-11-24). Punkt 10 erlaubt
+  genau **zwei** store-gebundene Exporte, `Bilderbereich.vue` und
+  `Bildstreifen.vue`. Die Bedingung aus Punkt 9 bleibt unverändert.
 
 ## Kontext
 

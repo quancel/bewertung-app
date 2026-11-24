@@ -5,6 +5,16 @@
   „Revision" am Ende)
 - **Bounded Context(s)**: `karte`, `orte`, `app-shell`
 - **task_id**: `PO-2026-09-07-006`
+- **Teilweise abgelöst/präzisiert (2026-11-24)**:
+  - Punkt 6 und 11, soweit sie den Kartenausschnitt betreffen, durch
+    ADR-0038: Der Ausschnitt bleibt für die Sitzung erhalten.
+  - Punkt 8 präzisiert durch ADR-0038 Punkt 2: flüchtiger Leaflet-Zustand
+    als Modulvariable ist erlaubt.
+  - Punkt 6, soweit er den Marker-Klick betrifft, durch ADR-0039: Der
+    Marker öffnet die Schnellansicht `?ort=`.
+  - Punkt 2 erweitert durch ADR-0039 Punkt 1/2: zweite eingefrorene
+    Adressform `ort`, und eine unbekannte ID wird per `replace` entfernt.
+  - Der Rest gilt unverändert.
 
 ## Nutzerentscheidungen vom 2026-09-10 (gesetzt, nicht abgeleitet)
 

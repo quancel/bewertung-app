@@ -13,7 +13,28 @@
 > Eine Zeile pro ADR. Keine Zusammenfassung des Inhalts — der Titel muss
 > reichen, um zu entscheiden, ob das ADR relevant ist.
 
-**Stand: 2026-09-28 (Rückläufer PO-2026-09-27-003)** — fünfunddreißig ADRs,
+**Stand: 2026-11-24 (Einordnen PO-2026-11-24-001…007)**: neununddreißig
+ADRs. Neu sind die folgenden vier.
+- **0036**: Verlaufseintrag ohne eigene Adresse für die Bildvorschau
+  (-006). Präzisiert ADR-0011 Punkt 4.
+- **0037**: Gewichtete Gesamtnote (-001/-002). Die Gewichtung ist eine
+  Anzeigeeinstellung von `orte` (`orte.gewichtung`), die Gewichte sind
+  Pflichtparameter der reinen Berechnung, Anzeige und Zone lesen einen
+  gemeinsamen ganzzahligen Zehntelwert. Damit sind **ADR-0034 Punkt 3/4
+  abgelöst**, und ADR-0007 Punkt 6 ist präzisiert.
+- **0038**: Kartenausschnitt in der Sitzung als Modulvariable in `karte`
+  (-003). Löst ADR-0019 Punkt 6/11 für den Ausschnitt ab und präzisiert
+  Punkt 8.
+- **0039**: Schnellansicht (-005). Neue eingefrorene Adressform `ort`,
+  Komponente in `orte`, keine Kopplung `karte` → `medien`, ein zweiter
+  store-gebundener Export aus `medien` (ADR-0016 Punkt 10) und `[inert]`
+  als benannte Ausnahme mit Gegen-Zusicherung (ADR-0023 Punkt 7). Löst
+  ADR-0019 Punkt 6 für den Marker-Klick ab.
+
+-004 (Marker-Tokens) und -007 (Plakette, Balken-Hook) haben kein ADR
+bekommen. Beide sind eine Anwendung bestehender Konventionen.
+
+Davor **Stand: 2026-09-28 (Rückläufer PO-2026-09-27-003)** — fünfunddreißig ADRs,
 kein neues. **0011** hat einen **Nachtrag zu Punkt 6** bekommen: Ab `lg` ist
 jede Master-Detail-Spalte ein abgeschlossener Scroll-Bereich. Die Zeilenspur
 ist `minmax(0, 1fr)`, die Spalten bekommen `min-height: 0` und
@@ -173,23 +194,23 @@ PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
 | [0004](0004-indexeddb-als-geraetespeicher.md) | IndexedDB als Gerätespeicher; Bestandsstruktur und Trennung von IDB-Version und SCHEMA_VERSION | orte, bewertungen, tags, medien, datensicherung, app-shell | accepted | 2026-09-08 |
 | [0005](0005-schreibmodell-bei-inline-autosave.md) | Schreibmodell bei Inline-Autosave — vollständiger Datensatz aus dem Speicher, ohne Entprellung | orte, bewertungen, tags, medien, app-shell | accepted (Punkt 2/5 und Risikoaussage präzisiert durch 0031) | 2026-09-08 |
 | [0006](0006-anzeigeeinstellungen-getrennt-vom-bestand.md) | Anzeigeeinstellungen sind Gerätezustand, nicht Bestandsinhalt | orte, tags, datensicherung, app-shell | accepted | 2026-09-08 |
-| [0007](0007-achsenwert-modell-null-statt-null.md) | Achsenwert-Modell — „nicht bewertet" ist ein ausdrücklich gespeichertes `null`, die Gesamtnote wird nie gespeichert | bewertungen, orte, datensicherung | accepted | 2026-09-08 |
+| [0007](0007-achsenwert-modell-null-statt-null.md) | Achsenwert-Modell — „nicht bewertet" ist ein ausdrücklich gespeichertes `null`, die Gesamtnote wird nie gespeichert | bewertungen, orte, datensicherung | accepted (Punkt 6 präzisiert durch 0037) | 2026-09-08 |
 | [0008](0008-feldbesitz-und-ableitungen-ueber-context-grenzen.md) | Feldbesitz und Ableitungen über Context-Grenzen im Ort-Datensatz | orte, bewertungen, tags, medien, datensicherung | accepted | 2026-09-08 |
 | [0009](0009-ansichtszustand-der-ortsliste.md) | Ansichtszustand der Ortsliste gehört dem Context `orte` — und Gerätezustand darf eine Voreinstellung haben | orte, tags, datensicherung | accepted | 2026-09-08 |
 | [0010](0010-app-rahmen-chrome-grenze-und-routenbesitz.md) | App-Rahmen — Grenze der Navigationschrome, Routenbesitz und eine Meldung an zwei Orten | app-shell, orte | accepted | 2026-09-08 |
-| [0011](0011-master-detail-als-geteilter-baustein.md) | Master-Detail als geteilter Baustein — ein Adressraum, eine Bereichsansicht | app-shell, orte, karte | accepted (Punkt 5 präzisiert durch 0032; Punkt 1/6 präzisiert durch 0033; Nachtrag zu Punkt 6: abgeschlossener Scroll-Bereich, 2026-09-28) | 2026-09-08 |
+| [0011](0011-master-detail-als-geteilter-baustein.md) | Master-Detail als geteilter Baustein — ein Adressraum, eine Bereichsansicht | app-shell, orte, karte | accepted (Punkt 5 präzisiert durch 0032; Punkt 1/6 präzisiert durch 0033; Nachtrag zu Punkt 6: abgeschlossener Scroll-Bereich, 2026-09-28; Punkt 4 präzisiert durch 0036) | 2026-09-08 |
 | [0012](0012-breitenlogik-am-container-statt-am-viewport.md) | Breitenabhängige Layouts richten sich nach ihrem Container, nicht nach dem Viewport | app-shell, orte, medien, karte, bewertungen, tags | accepted | 2026-09-08 |
 | [0013](0013-fremde-bausteine-in-den-ortsansichten.md) | Fremde Bausteine in den Ortsansichten — Import-Richtung und die Slot-Naht der Werkzeugleiste | orte, bewertungen, tags, medien | accepted | 2026-09-09 |
 | [0014](0014-tag-modell-abgeleitetes-vokabular.md) | Tag-Modell — Feld im Ort-Datensatz, abgeleitetes Vokabular, case-insensitive Identität | tags, orte, datensicherung | accepted | 2026-09-09 |
 | [0015](0015-offline-auslieferung-service-worker.md) | Offline-Auslieferung über einen generierten Service Worker; Update im Prompt-Modus | app-shell | accepted | 2026-09-10 |
-| [0016](0016-bilder-eigener-store-und-einbindung.md) | Bilder — eigener Object Store ohne Rückverweis im Ort, Verkleinerung beim Hinzufügen, Einbindung ins Ortsdetail | medien, orte, datensicherung, app-shell | accepted | 2026-09-10 |
+| [0016](0016-bilder-eigener-store-und-einbindung.md) | Bilder — eigener Object Store ohne Rückverweis im Ort, Verkleinerung beim Hinzufügen, Einbindung ins Ortsdetail | medien, orte, datensicherung, app-shell | accepted (Punkt 10 erweitert durch 0039) | 2026-09-10 |
 | [0017](0017-export-import-container-und-zusammenfuehrung.md) | Export-/Import-Container, Zusammenführungsregeln und der Bereich Daten | datensicherung, orte, medien, app-shell | accepted | 2026-09-10 |
 | [0018](0018-kartenbibliothek-und-tile-anbieter.md) | Kartenbibliothek Leaflet, OSM-Rasterkacheln als einziger Fremd-Host der Karte | karte, app-shell | accepted | 2026-09-10 |
-| [0019](0019-zuschnitt-des-bereichs-karte.md) | Die Karte ist eine zweite Ansicht des Bereichs Orte — Umschalter in der Werkzeugleiste, Adresse über den Query-Parameter `ansicht` | karte, orte, app-shell | accepted | 2026-09-11 |
+| [0019](0019-zuschnitt-des-bereichs-karte.md) | Die Karte ist eine zweite Ansicht des Bereichs Orte — Umschalter in der Werkzeugleiste, Adresse über den Query-Parameter `ansicht` | karte, orte, app-shell | accepted (Punkt 6/11 zum Ausschnitt abgelöst und Punkt 8 präzisiert durch 0038; Punkt 6 zum Marker-Klick abgelöst und Punkt 2 erweitert durch 0039) | 2026-09-11 |
 | [0020](0020-ortssuche-anbieter-und-abfragemodell.md) | Ortssuche — Photon als Geocoder, Suche beim Tippen, im Context `orte` statt `karte` | orte, karte, app-shell | accepted | 2026-09-11 |
 | [0021](0021-netzzustand-im-ui.md) | Netzzustand im UI — erlaubt an der netzabhängigen Bedienstelle, verboten in der Auslieferungsmechanik (Präzisierung von ADR-0015 Punkt 6) | app-shell, karte, orte | accepted | 2026-09-10 |
 | [0022](0022-reine-lib-funktionen-ueber-context-grenzen.md) | Reine `lib`-Funktionen über Context-Grenzen (Präzisierung von ADR-0013 Punkt 2/3) | orte, karte, bewertungen, tags, medien, datensicherung | accepted | 2026-09-11 |
-| [0023](0023-verifikationsebenen-vitest-und-rauchtest.md) | Verifikationsebenen — was Vitest prüft, was der Rauchtest prüft, und warum kein Browser-Test-Runner dazukommt | app-shell, orte, medien, datensicherung | accepted | 2026-09-12 |
+| [0023](0023-verifikationsebenen-vitest-und-rauchtest.md) | Verifikationsebenen — was Vitest prüft, was der Rauchtest prüft, und warum kein Browser-Test-Runner dazukommt | app-shell, orte, medien, datensicherung | accepted (Punkt 7 erweitert durch 0039) | 2026-09-12 |
 | [0024](0024-projektweite-interaktionsregeln-in-shared.md) | Projektweite Interaktionsregeln liegen einmal in `src/shared/`, und ein Paket darf sie über die Context-Grenze hinweg anbinden | orte, tags | accepted | 2026-09-12 |
 | [0025](0025-zustand-ueber-die-komponentengrenze-im-ortsdetail.md) | Zustand über die Komponentengrenze im Ortsdetail — Ortssuche meldet ihren wirksamen Zustand, die Sichtbarkeit rastet an der Ort-ID ein | orte | accepted (Punkt 3 präzisiert durch 0026) | 2026-09-12 |
 | [0026](0026-lebensdauer-der-sichtbarkeits-kennung.md) | Die Sichtbarkeits-Kennung gilt für die geöffnete Detailinstanz, nicht für die Ort-ID (Präzisierung von ADR-0025 Punkt 3) | orte | accepted | 2026-09-13 |
@@ -200,8 +221,12 @@ PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
 | [0031](0031-schreiben-beim-entladen-der-seite.md) | Schreiben beim Entladen der Seite — gehärteter Schreibweg, aber keine Zusicherung (Präzisierung von ADR-0005 Punkt 2/5; benannte Ausnahme zu ADR-0023 Punkt 2) | orte, tags, bewertungen, app-shell | accepted | 2026-09-26 |
 | [0032](0032-sichtbarkeit-auf-ihren-breitenbereich-begrenzen.md) | Breitenabhängige Sichtbarkeit wird auf ihren Breitenbereich begrenzt, nicht überschrieben (Präzisierung von ADR-0011 Punkt 5 und ADR-0028 Punkt 2) | app-shell, orte | accepted (Punkt 7 bestätigt 2026-09-27; Nachtrag zu Punkt 2: Build-Ziel, 2026-09-27) | 2026-09-27 |
 | [0033](0033-scroll-versatz-gehoert-dem-baustein-der-scrollt.md) | Den Scroll-Versatz einer Master-Detail-Spalte setzt der Baustein zurück, der sie scrollt — die Bereichsansicht löst nur aus (Präzisierung von ADR-0011 Punkt 1/6; zweite Art exponierter Methode neben ADR-0030 Punkt 3) | app-shell, orte | accepted | 2026-09-27 |
-| [0034](0034-zonen-und-hervorhebung-der-ortsliste.md) | Zonen und Hervorhebungen der Ortsliste — reine Funktionen in `features/orte/lib/`, Zone am ungerundeten Wert (Präzisierung von ADR-0008 Punkt 6, Anwendung von ADR-0007 Punkt 6/7) | orte, bewertungen | accepted | 2026-09-27 |
+| [0034](0034-zonen-und-hervorhebung-der-ortsliste.md) | Zonen und Hervorhebungen der Ortsliste — reine Funktionen in `features/orte/lib/`, Zone am ungerundeten Wert (Präzisierung von ADR-0008 Punkt 6, Anwendung von ADR-0007 Punkt 6/7) | orte, bewertungen | accepted (Punkt 3/4 superseded by ADR-0037) | 2026-09-27 |
 | [0035](0035-mehrere-entwurfsbesitzer-alle-abholen-einmal-schreiben.md) | Mehrere Entwurfsbesitzer im Ortsdetail — alle abholen, einmal schreiben; `Bewertungsachse.vue` als zweiter Nutzer von ADR-0030 (Präzisierung von ADR-0030 Punkt 4/8) | orte, bewertungen, tags | accepted | 2026-09-27 |
+| [0036](0036-verlaufseintrag-ohne-eigene-adresse.md) | Ein modaler Vollbild-Dialog bekommt einen Verlaufseintrag ohne eigene Adresse (Präzisierung von ADR-0011 Punkt 4 und ADR-0019 Punkt 2) | medien, orte, app-shell | accepted | 2026-11-24 |
+| [0037](0037-gewichtete-gesamtnote.md) | Gewichtete Gesamtnote — Gewichtung als Anzeigeeinstellung von `orte`, Pflichtparameter der reinen Berechnung, ein Rundungsschritt für Anzeige und Zone (löst ADR-0034 Punkt 3/4 ab, präzisiert ADR-0007 Punkt 6) | orte, bewertungen, karte | accepted | 2026-11-24 |
+| [0038](0038-kartenausschnitt-in-der-sitzung.md) | Kartenausschnitt bleibt für die Sitzung erhalten, als flüchtiger Modulzustand in `karte` (löst ADR-0019 Punkt 11 teilweise ab, präzisiert Punkt 6/8) | karte, orte | accepted | 2026-11-24 |
+| [0039](0039-schnellansicht-auf-der-karte.md) | Schnellansicht auf der Karte — eingefrorene Adressform `ort`, Komponente in `orte`, keine Kopplung `karte` → `medien`, `inert` als benannte Ausnahme (löst ADR-0019 Punkt 6 teilweise ab, erweitert ADR-0016 Punkt 10 und ADR-0023 Punkt 7) | orte, karte, medien, app-shell | accepted | 2026-11-24 |
 
 **Status-Werte** wörtlich wie im ADR selbst: `proposed` · `accepted` ·
 `superseded by ADR-NNNN`.

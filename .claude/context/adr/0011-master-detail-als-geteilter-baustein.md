@@ -14,6 +14,10 @@
   Punkt 1 kommt eine exponierte Methode `setzeDetailVersatzZurueck()`. Den
   Versatz aus Punkt 6 setzt der Baustein zurück, die Bereichsansicht löst
   das nur aus.
+- **Präzisiert durch**: ADR-0036 (2026-11-24) zu Punkt 4. Ein modaler
+  Vollbild-Dialog darf einen Verlaufseintrag **ohne eigene Adresse**
+  anlegen. Er ist keine Auswahl, die Adresse bleibt die einzige Quelle der
+  Auswahl.
 - **Nachtrag zu Punkt 6**: 2026-09-28, Rückläufer PO-2026-09-27-003. Ab `lg`
   ist jede Spalte ein abgeschlossener Scroll-Bereich. Siehe Abschnitt
   „Nachtrag zu Punkt 6". Die Entscheidung bleibt unverändert, kein

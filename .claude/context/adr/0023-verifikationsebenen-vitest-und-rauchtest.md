@@ -4,6 +4,9 @@
 - **Datum**: 2026-09-12
 - **Bounded Context(s)**: `app-shell`, `orte`, `medien`, `datensicherung` (projektweit)
 - **task_id**: `PO-2026-09-12-001` (Anlass), gilt ab `PO-2026-09-12-004` für den erweiterten Rauchtest
+- **Erweitert durch**: ADR-0039 Punkt 7 (2026-11-24). Zu Punkt 7 kommt
+  eine weitere benannte Ausnahme der Verdeckungsprüfung (`[inert]`). Sie
+  gilt nur zusammen mit einer harten Gegen-Zusicherung.
 
 ## Kontext
 

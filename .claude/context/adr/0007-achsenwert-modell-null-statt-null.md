@@ -4,6 +4,9 @@
 - **Datum**: 2026-09-08
 - **Bounded Context(s)**: `bewertungen`, `orte`, `datensicherung`
 - **task_id**: `PO-2026-09-07-002` (erste Formaterweiterung nach ADR-0003)
+- **Präzisiert durch**: ADR-0037 (2026-11-24) zu Punkt 6. Gerundet wird in
+  genau einem ganzzahligen Schritt (`zehntel`). Anzeige **und** Zone lesen
+  ihn, Sortierung und Vergleich bleiben am ungerundeten Wert.
 
 ## Kontext
 

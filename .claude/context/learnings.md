@@ -219,6 +219,13 @@
   das ursprüngliche Handoff-Objekt **wörtlich** mitgegeben. Beim Einordnen
   `acceptance_criteria` deshalb vollständig im Handoff lassen, nie nur auf ein
   ADR verweisen. (task_id: PO-2026-09-27-003)
+- [2026-11-24] orte/bewertungen: Ein ADR, das seine Korrektheit aus einer
+  **Wertemenge** ableitet (ADR-0034 P3: Nenner 1–4, deshalb keine
+  Zonengrenze im Rundungsfenster), nennt als Auslöser für eine Neuprüfung
+  jede Größe, die diese Menge bestimmt. ADR-0034 P4 nannte nur die
+  Ganzzahligkeit der Achsen, und die Gewichtung öffnete die Nenner bis 40.
+  Ein strukturelles Argument im Zweifel durch ein konstruktives ersetzen
+  (ein gemeinsamer Rundungsschritt). (task_id: PO-2026-11-24-002, ADR-0037)
 - [2026-09-11] orte/tags/karte: Leerzustände sind je **Filterstufe** zu
   zählen, nicht pauschal einer. Bestand leer · Filter ohne Treffer · gefiltert,
   aber nichts davon darstellbar (Orte ohne Koordinaten) sind drei verschiedene
