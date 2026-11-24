@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { berechneGesamtnote, formatiereGesamtnote } from '../../../shared/lib/gesamtnote'
 import type { Achse } from '../../bewertungen/model/bewertungen.types'
+import { GEWICHTUNG_SZENARIEN } from '../model/ansicht'
 import { GESCHMACK_NAME, PREIS_LEISTUNG_NAME, ZONEN, bestimmeHervorhebung, bestimmeZone } from './zonen'
 
 function achse(wert: number | null): Achse {
@@ -22,43 +23,59 @@ describe('bestimmeZone', () => {
   })
 
   it.each([
-    [7.99, null],
-    [8, '8'],
-    [8.49, '8'],
-    [8.5, '8-5'],
-    [9, '9'],
-    [9.5, '9-5'],
-    [9.99, '9-5'],
-    [10, '10'],
-  ] as const)('Wert %s -> Zone %s', (wert, erwarteterSchluessel) => {
-    expect(bestimmeZone(wert)?.schluessel ?? null).toBe(erwarteterSchluessel)
+    [79, null],
+    [80, '8'],
+    [84, '8'],
+    [85, '8-5'],
+    [90, '9'],
+    [95, '9-5'],
+    [99, '9-5'],
+    [100, '10'],
+  ] as const)('%s Zehntel -> Zone %s', (zehntel, erwarteterSchluessel) => {
+    expect(bestimmeZone(zehntel)?.schluessel ?? null).toBe(erwarteterSchluessel)
   })
 })
 
-describe('Zone des Rohwerts = Zone des angezeigten Werts (ADR-0034 Punkt 3)', () => {
+describe('Zone nach dem angezeigten Wert (ADR-0037 Punkt 5, löst ADR-0034 Punkt 3 ab)', () => {
   // 12 Werte je Achse: 0-10 (elf ganze Zahlen, ADR-0007 Punkt 7) plus `null`.
   const ACHSENWERTE: ReadonlyArray<number | null> = [null, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-  it('stimmt für alle 12^4 Achsenkombinationen überein', () => {
-    let geprueft = 0
-    for (const a of ACHSENWERTE) {
-      for (const b of ACHSENWERTE) {
-        for (const c of ACHSENWERTE) {
-          for (const d of ACHSENWERTE) {
-            const rohwert = berechneGesamtnote(bewertungen(a, b, c, d))
-            if (rohwert === null) continue
-            // Zurücklesen des formatierten Strings ist NUR in diesem Test
-            // erlaubt (ADR-0034 Punkt 3), nie im Produktionscode.
-            const angezeigterWert = Number(formatiereGesamtnote(rohwert).replace(',', '.'))
-            expect(bestimmeZone(angezeigterWert)).toEqual(bestimmeZone(rohwert))
-            geprueft += 1
+  // Zurücklesen des formatierten Strings ist NUR in diesen Tests erlaubt
+  // (ADR-0037 Punkt 5), nie im Produktionscode.
+  function angezeigterWertInZehnteln(zehntel: number): number {
+    return Math.round(Number(formatiereGesamtnote(zehntel).replace(',', '.')) * 10)
+  }
+
+  it.each(GEWICHTUNG_SZENARIEN.map((eintrag) => [eintrag.name, eintrag.gewichte] as const))(
+    'Szenario %s: Zone(angezeigter Wert) = Zone(zehntel) für alle 12^4 Achsenkombinationen',
+    (_name, gewichte) => {
+      let geprueft = 0
+      for (const a of ACHSENWERTE) {
+        for (const b of ACHSENWERTE) {
+          for (const c of ACHSENWERTE) {
+            for (const d of ACHSENWERTE) {
+              const ergebnis = berechneGesamtnote(bewertungen(a, b, c, d), gewichte)
+              if (ergebnis.art !== 'wert') continue
+              expect(bestimmeZone(angezeigterWertInZehnteln(ergebnis.zehntel))).toEqual(bestimmeZone(ergebnis.zehntel))
+              // Nie ein angezeigter Wert >= 8,0 ohne Zone und nie eine Zone ohne angezeigte 8,0.
+              expect(angezeigterWertInZehnteln(ergebnis.zehntel) >= 80).toBe(bestimmeZone(ergebnis.zehntel) !== null)
+              geprueft += 1
+            }
           }
         }
       }
-    }
-    // Sicherstellen, dass die Schleife tatsächlich (fast) alle 12^4
-    // Kombinationen durchlaufen hat (nur alle-null wird übersprungen).
-    expect(geprueft).toBe(12 ** 4 - 1)
+      expect(geprueft).toBe(12 ** 4 - 1)
+    },
+  )
+
+  it('Grenzfall 159/20 = 7,95 zeigt „8,0" UND bekommt Zone 8 (nicht „8,0" ohne Zone)', () => {
+    const gewichte = { ambiente: 9, zeit: 1, geschmack: 10, preisLeistung: 0 }
+    const ergebnis = berechneGesamtnote(bewertungen(8, 7, 8, null), gewichte)
+    expect(ergebnis.art).toBe('wert')
+    if (ergebnis.art !== 'wert') return
+    expect(ergebnis.roh < 8).toBe(true)
+    expect(formatiereGesamtnote(ergebnis.zehntel)).toBe('8,0')
+    expect(bestimmeZone(ergebnis.zehntel)?.schluessel).toBe('8')
   })
 })
 
@@ -114,7 +131,7 @@ describe('bestimmeHervorhebung', () => {
 describe('ZONEN', () => {
   it('hat genau fünf Einträge, aufsteigend sortiert, mit wörtlichem Tokennamen', () => {
     expect(ZONEN).toHaveLength(5)
-    const untergrenzen = ZONEN.map((zone) => zone.untergrenze)
+    const untergrenzen = ZONEN.map((zone) => zone.untergrenzeZehntel)
     expect(untergrenzen).toEqual([...untergrenzen].sort((a, b) => a - b))
     for (const zone of ZONEN) {
       expect(zone.tokenName.startsWith('--color-zone-')).toBe(true)

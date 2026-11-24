@@ -18,6 +18,12 @@ import Sheet from '../../../shared/ui/Sheet.vue'
 import TextButton from '../../../shared/ui/TextButton.vue'
 import { GESCHMACK_NAME, PREIS_LEISTUNG_NAME, ZONEN } from '../lib/zonen'
 
+defineProps<{
+  /** Name des aktiven Gewichtungs-Szenarios, `null` bei Ausgewogen
+   * (PO-2026-11-24-001): Der Erklärsatz nennt ihn nur bei Abweichung. */
+  gewichtungName?: string | null
+}>()
+
 const offen = ref(false)
 </script>
 
@@ -44,6 +50,9 @@ const offen = ref(false)
       Der angezeigte Wert einer Zeile färbt sich ab 8,0 in fünf Stufen; hohe
       Werte bei Geschmack oder Preis-Leistung bekommen zusätzlich einen
       Schatten.
+      <template v-if="gewichtungName">
+        Die Gesamtnote ist nach der Gewichtung „{{ gewichtungName }}“ berechnet.
+      </template>
     </p>
 
     <ul class="zonen-legende__zonen">

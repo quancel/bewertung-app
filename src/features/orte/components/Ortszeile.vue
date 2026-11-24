@@ -31,16 +31,20 @@
  * Zonenfarbe + Hervorhebungs-Schatten (PO-2026-09-27-003, ADR-0034,
  * design-concept.md „Ausnahme Ortsliste"): reine Anzeigeregel, die Logik
  * lebt in `features/orte/lib/zonen.ts` — diese Komponente bindet nur noch
- * an. Die Zone hängt am UNGERUNDETEN Wert, den der Wert-Slot GERADE zeigt
- * (Achsenwert oder Gesamtnote, je nachdem welcher Zweig rendert), nie am
- * formatierten String (ADR-0007 Punkt 6). Der Hervorhebungs-Schatten liest
+ * an. Die Zone hängt am ganzzahligen `zehntel` des Werts, den der Wert-Slot
+ * GERADE zeigt (Achsenwert x 10 oder Gesamtnote, je nachdem welcher Zweig
+ * rendert), nie am formatierten String (ADR-0037 Punkt 5). Der Hervorhebungs-Schatten liest
  * dagegen unabhängig davon direkt Geschmack/Preis-Leistung aus
  * `ort.bewertungen` und gilt deshalb auch in der Gruppe „ohne Wert"
  * (`zeigeWert=false`).
  */
 import { computed } from 'vue'
 import type { OrtDatensatz } from '../../../persistence/schema'
-import { berechneGesamtnote, formatiereGesamtnote, zaehleAusgefuellteAchsen } from '../../../shared/lib/gesamtnote'
+import {
+  formatiereGesamtnote,
+  zaehleAusgefuellteAchsen,
+  type GesamtnoteErgebnis,
+} from '../../../shared/lib/gesamtnote'
 import Intensitaetsbalken from '../../../shared/ui/Intensitaetsbalken.vue'
 import { bestimmeHervorhebung, bestimmeZone } from '../lib/zonen'
 import { ACHSEN_KRITERIEN, type AchsenKriterium, type SortierKriterium } from '../model/ansicht'
@@ -48,6 +52,10 @@ import { ACHSEN_KRITERIEN, type AchsenKriterium, type SortierKriterium } from '.
 const props = withDefaults(
   defineProps<{
     ort: OrtDatensatz
+    /** Fertiges, gewichtetes Ergebnis von `Ortebereich.vue` (ADR-0037 Punkt
+     * 7): diese Komponente rechnet nicht selbst — dieselbe Zahl wie im
+     * Detail, in der Sortierung und (ab -004) auf der Karte. */
+    gesamtnote: GesamtnoteErgebnis
     ausgewaehlt?: boolean
     /** Aktuelles Sortierkriterium der Liste (ADR-0009) — steuert, ob die
      * Gesamtnote oder eine einzelne Achse gezeigt wird. */
@@ -63,9 +71,6 @@ function istAchsenKriterium(kriterium: SortierKriterium): kriterium is AchsenKri
   return (ACHSEN_KRITERIEN as readonly string[]).includes(kriterium)
 }
 
-// Reine Ableitung aus shared/lib/ (ADR-0008 Punkt 6) — kein Import aus
-// features/bewertungen/.
-const gesamtnote = computed(() => berechneGesamtnote(props.ort.bewertungen))
 const ausgefuellteAchsen = computed(() => zaehleAusgefuellteAchsen(props.ort.bewertungen))
 
 // Nur bei einer Einzelachse als Kriterium gesetzt; in der Gruppe „mit Wert"
@@ -79,14 +84,18 @@ const achsenWert = computed(() =>
 // beides bleibt die Sekundärzeile ganz weg (s. Template unten).
 const sekundaerzeile = computed(() => props.ort.anfangsnotiz || props.ort.adresse)
 
-/** Der UNGERUNDETE Wert, den der Wert-Slot GERADE zeigt (ADR-0034 Punkt 3):
- * Achsenwert, wenn dieser Zweig rendert, sonst die Gesamtnote, wenn jener
- * rendert — `null`, wenn keiner der beiden einen Wert zeigt (Gruppe „ohne
- * Wert" oder fehlende Bewertung). Spiegelt exakt die v-if/v-else-if-Bedingung
- * im Template. */
+/** Gesamtnote in Zehnteln, `null` ohne Wert — der Wert, den Anzeige UND Zone
+ * lesen (ADR-0037 Punkt 5). */
+const gesamtnoteZehntel = computed(() => (props.gesamtnote.art === 'wert' ? props.gesamtnote.zehntel : null))
+
+/** Der Wert in ZEHNTELN, den der Wert-Slot GERADE zeigt (ADR-0037 Punkt 5):
+ * Achsenwert x 10, wenn dieser Zweig rendert, sonst `zehntel` der
+ * Gesamtnote, wenn jener rendert — `null`, wenn keiner der beiden einen Wert
+ * zeigt (Gruppe „ohne Wert" oder fehlende Bewertung). Spiegelt exakt die
+ * v-if/v-else-if-Bedingung im Template. */
 const wertFuerZone = computed(() => {
-  if (props.zeigeWert && achsenWert.value !== null) return achsenWert.value
-  if (props.zeigeWert && gesamtnote.value !== null) return gesamtnote.value
+  if (props.zeigeWert && achsenWert.value !== null) return achsenWert.value * 10
+  if (props.zeigeWert && gesamtnoteZehntel.value !== null) return gesamtnoteZehntel.value
   return null
 })
 
@@ -129,12 +138,12 @@ const hervorhebungsErgebnis = computed(() => bestimmeHervorhebung(props.ort.bewe
         <Intensitaetsbalken :wert="achsenWert" />
       </span>
       <span
-        v-else-if="zeigeWert && gesamtnote !== null"
+        v-else-if="zeigeWert && gesamtnoteZehntel !== null"
         class="ortszeile__gesamtnote"
         :class="{ 'ortszeile__gesamtnote--zone': zone }"
         :style="zonenStil"
       >
-        <span class="ortszeile__gesamtnote-wert">{{ formatiereGesamtnote(gesamtnote) }}</span>
+        <span class="ortszeile__gesamtnote-wert">{{ formatiereGesamtnote(gesamtnoteZehntel as number) }}</span>
         <span
           v-if="ausgefuellteAchsen < 4"
           class="ortszeile__gesamtnote-zusatz"

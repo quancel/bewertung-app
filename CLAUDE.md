@@ -510,6 +510,53 @@ ohne sie, `schliesse()` lässt dann den Eintrag stehen — durch die
 rot gelaufen). Auch hier gilt: nur Chromium, Touch ist CDP-emuliert — echtes
 iOS-/Android-System-Zurück bleibt nur manuell prüfbar.
 
+Ab PO-2026-11-24-001 (ADR-0037, Gewichtung der Gesamtnote) kommen drei neue
+Ansichten und eine harte Zusicherung dazu. `ortsliste-gewichtung-hinweis`,
+`ortsdetail-gewichtung` und `gewichtung-sheet` (`scripts/smoke.mjs` Zeilen
+373–375) zeigen die drei Einstiege je mit dem **längsten** Szenarionamen
+(„Fokus Preis-Leistung") und laufen so durch Verdeckung, Überlauf und
+Button-Umbruch bei allen `BREITEN`. Neu ist die optionale Ansichts-Eigenschaft
+`aufraeumen` (Zeile 2177): Die Gewichtung ist persistiert und würde sonst für
+den Rest des Laufs gelten und Noten und Zonen späterer Ansichten verschieben;
+`setzeGewichtungZurueck` (Zeile 835) stellt Ausgewogen wieder her. Die harte
+Zusicherung `pruefeGewichtungWirktUeberallUndUeberstehtNeuladen` (ab Zeile
+1983, nur bei 1280px, eigener Bestand auf frischer Seite) prüft Eigenschaften:
+Das Prüfbeispiel (Fokus Geschmack, Geschmack 10, Ambiente 6 → „8,7", bei
+Ausgewogen „8,0") zeigt Zeile **und** Detail **sofort** und nach einem
+Neuladen; die Reihenfolge nach Gesamtnote kippt von B-vor-A zu A-vor-B (das
+ist die Vorbedingung, dass „die Sortierung folgt" nicht zufällig stimmt);
+jede Zeile mit angezeigtem Wert ab 8,0 trägt eine Zone, keine darunter; A
+trägt bei „8,7" `--color-zone-8-5`, bei „8,0" `--color-zone-8`; der
+Hervorhebungs-Schatten bleibt unberührt; die Hinweiszeile steht nur bei
+Abweichung von Ausgewogen; alle drei Einstiege öffnen dasselbe Sheet, die
+aktive Zeile trägt `aria-pressed="true"`. Eine Bauform ist Absicht: Der
+Button im Ortsdetail wird gemessen, **nachdem** das Fenster per `scrollTo(0, 0)`
+in die Ausgangslage zurückgesetzt ist — Playwrights Klick scrollt selbst, und
+ein dabei hinter die feste Kopfzeile des Details gerutschtes Element ist ein
+Fehlbefund der Verdeckungsprüfung (zuerst gemessen: `#ortsdetail-adresse` und
+der Button „verdeckt von div.ortsdetail__kopf", auch bei 1280px, sobald
+stattdessen mittig gescrollt wurde). Die Grenze `159/20 = 7,95` (Anzeige
+„8,0", Zone nur über `zehntel` richtig) ist im Rauchtest **nicht**
+beobachtbar, weil die fünf festen Szenarien nur Nenner bis 5 erzeugen und
+dort jede Rundung auf ein Zehntel exakt ist; sie wird in Vitest
+(`gesamtnote.spec.ts`, `zonen.spec.ts`) erschöpfend über 12⁴ × 5 Szenarien
+und als konstruierter Fall belegt und wird mit -002 (eigene Gewichte) im
+Rauchtest relevant. **Rot-Nachweis** (ADR-0027 Punkt 8, je eine kompilierbare
+Mutation, danach Quelle zurückgesetzt, `npm run smoke` Exit 1): `gewichte`
+im Store ignoriert das Szenario → „Reihenfolge … statt …", „zeigt 8,0 statt
+8,7", falsche Zone, Detail ≠ Zeile (sofort und nach Neuladen); gespeicherte
+Gewichtung unter falschem Schlüssel gelesen → alle „nach-neuladen"-Befunde
+(Hinweiszeile fehlt, Detail-Button „Ausgewogen", `aria-pressed` falsch);
+Detail rechnet mit 1:1:1:1 → „Detail zeigt 8,0, die Zeile 8,7"; `zehntel`
+in `Ortszeile.vue` aus abgeschnittenem Rohwert → falsche Zahl und Zone in
+allen Zuständen. Vitest-Mutation (Rundung `Math.floor(10·Z/N)` statt
+halbe Zehntel auf): fünf rote Tests, darunter der erschöpfende
+Ausgewogen-Vergleich. Unbelegt: eine Mutation, die nur die Hinweiszeile
+unbedingt zeigt (durch die Prüfung „Hinweiszeile sichtbar, obwohl
+Ausgewogen" abgedeckt, aber nicht gesondert rot gelaufen). Auch hier: nur
+Chromium; die Darstellung des Reglers und der Haken-Maske ist auf WebKit
+ungeprüft.
+
 **Der Lead führt ihn aus, bevor er ein Paket als erledigt meldet** — nicht
 statt der Unit-Tests, sondern zusätzlich. Typecheck, Lint und Vitest
 prüfen, ob Code zusammenpasst; der Rauchtest prüft, ob das Ergebnis

@@ -9,9 +9,9 @@
  * dort entstünde der Fehler. Ein Ort mit dem Wert 0 gehört nie in die
  * Gruppe „ohne Wert" (design-conventions.md, „Listen").
  *
- * Sortiert und verglichen wird auf der ungerundeten Gesamtnote
- * (`berechneGesamtnote`, ADR-0007 Punkt 6) — der gerundete Anzeigewert wird
- * nie zurückgelesen oder verglichen.
+ * Sortiert und verglichen wird auf der ungerundeten, GEWICHTETEN Gesamtnote
+ * (`berechneGesamtnote(…, gewichte).roh`, ADR-0007 Punkt 6, ADR-0037 Punkt
+ * 5/7) — `zehntel` und der gerundete Anzeigewert werden nie verglichen.
  *
  * Gleichstand (ADR-0009 Punkt 10): zuerst das gewählte Kriterium, dann
  * Bezeichnung über `Intl.Collator('de')`, dann die ID — der Tie-Break
@@ -24,7 +24,7 @@
  */
 import type { OrtDatensatz } from '../../persistence/schema'
 import { ACHSEN_KRITERIEN, type OrteSortierung, type SortierKriterium } from '../../features/orte/model/ansicht'
-import { berechneGesamtnote } from './gesamtnote'
+import { berechneGesamtnote, type AchsenGewichte } from './gesamtnote'
 
 export interface SortierErgebnis {
   /** Orte mit einem Wert für das gewählte Kriterium, sortiert. */
@@ -45,15 +45,22 @@ function istAchsenKriterium(
 
 /** `null`, wenn das Kriterium für diesen Ort keinen Wert hat — nur bei
  * Gesamtnote/Achse möglich, sonst nie. */
-function numerischerWert(ort: OrtDatensatz, kriterium: SortierKriterium): number | null {
-  if (kriterium === 'gesamtnote') return berechneGesamtnote(ort.bewertungen)
+function numerischerWert(
+  ort: OrtDatensatz,
+  kriterium: SortierKriterium,
+  gewichte: AchsenGewichte,
+): number | null {
+  if (kriterium === 'gesamtnote') {
+    const ergebnis = berechneGesamtnote(ort.bewertungen, gewichte)
+    return ergebnis.art === 'wert' ? ergebnis.roh : null
+  }
   if (istAchsenKriterium(kriterium)) return ort.bewertungen[kriterium].wert
   return null
 }
 
-function hatWert(ort: OrtDatensatz, kriterium: SortierKriterium): boolean {
+function hatWert(ort: OrtDatensatz, kriterium: SortierKriterium, gewichte: AchsenGewichte): boolean {
   if (kriterium === 'bezeichnung' || kriterium === 'geaendertAm') return true
-  return numerischerWert(ort, kriterium) !== null
+  return numerischerWert(ort, kriterium, gewichte) !== null
 }
 
 /** Deterministischer Tie-Break, unabhängig von der Sortierrichtung. */
@@ -63,29 +70,38 @@ function vergleicheGleichstand(a: OrtDatensatz, b: OrtDatensatz): number {
   return a.id.localeCompare(b.id)
 }
 
-function vergleicheHauptkriterium(a: OrtDatensatz, b: OrtDatensatz, kriterium: SortierKriterium): number {
+function vergleicheHauptkriterium(
+  a: OrtDatensatz,
+  b: OrtDatensatz,
+  kriterium: SortierKriterium,
+  gewichte: AchsenGewichte,
+): number {
   if (kriterium === 'bezeichnung') return bezeichnungsVergleicher.compare(a.bezeichnung, b.bezeichnung)
   if (kriterium === 'geaendertAm') return a.geaendertAm.localeCompare(b.geaendertAm)
   // Gesamtnote/Achse: `mitWert` hat laut `hatWert` bereits nur Orte mit
   // einem Wert für dieses Kriterium — kein erneuter Null-Fallback nötig.
-  const wertA = numerischerWert(a, kriterium) as number
-  const wertB = numerischerWert(b, kriterium) as number
+  const wertA = numerischerWert(a, kriterium, gewichte) as number
+  const wertB = numerischerWert(b, kriterium, gewichte) as number
   return wertA - wertB
 }
 
-export function sortiereOrte(orte: readonly OrtDatensatz[], sortierung: OrteSortierung): SortierErgebnis {
+export function sortiereOrte(
+  orte: readonly OrtDatensatz[],
+  sortierung: OrteSortierung,
+  gewichte: AchsenGewichte,
+): SortierErgebnis {
   const { kriterium, richtung } = sortierung
   const richtungsfaktor = richtung === 'aufsteigend' ? 1 : -1
 
   const mitWert: OrtDatensatz[] = []
   const ohneWert: OrtDatensatz[] = []
   for (const ort of orte) {
-    if (hatWert(ort, kriterium)) mitWert.push(ort)
+    if (hatWert(ort, kriterium, gewichte)) mitWert.push(ort)
     else ohneWert.push(ort)
   }
 
   mitWert.sort((a, b) => {
-    const hauptvergleich = vergleicheHauptkriterium(a, b, kriterium) * richtungsfaktor
+    const hauptvergleich = vergleicheHauptkriterium(a, b, kriterium, gewichte) * richtungsfaktor
     return hauptvergleich !== 0 ? hauptvergleich : vergleicheGleichstand(a, b)
   })
   ohneWert.sort(vergleicheGleichstand)

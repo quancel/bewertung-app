@@ -3,6 +3,9 @@ import { sortiereOrte } from './sortierung'
 import type { OrtDatensatz } from '../../persistence/schema'
 import type { OrteSortierung } from '../../features/orte/model/ansicht'
 
+const AUSGEWOGEN = { ambiente: 1, zeit: 1, geschmack: 1, preisLeistung: 1 }
+const FOKUS_GESCHMACK = { ambiente: 1, zeit: 1, geschmack: 2, preisLeistung: 1 }
+
 function ort(teil: Partial<OrtDatensatz> & { id: string; bezeichnung: string }): OrtDatensatz {
   return {
     adresse: null,
@@ -30,7 +33,7 @@ describe('sortiereOrte', () => {
     ]
     const sortierung: OrteSortierung = { kriterium: 'bezeichnung', richtung: 'aufsteigend' }
 
-    const ergebnis = sortiereOrte(orte, sortierung)
+    const ergebnis = sortiereOrte(orte, sortierung, AUSGEWOGEN)
 
     expect(ergebnis.mitWert.map((o) => o.id)).toEqual(['2', '1', '3'])
     expect(ergebnis.ohneWert).toEqual([])
@@ -43,7 +46,7 @@ describe('sortiereOrte', () => {
     ]
     const sortierung: OrteSortierung = { kriterium: 'bezeichnung', richtung: 'absteigend' }
 
-    const ergebnis = sortiereOrte(orte, sortierung)
+    const ergebnis = sortiereOrte(orte, sortierung, AUSGEWOGEN)
 
     expect(ergebnis.mitWert.map((o) => o.id)).toEqual(['2', '1'])
   })
@@ -56,7 +59,7 @@ describe('sortiereOrte', () => {
     ]
     const sortierung: OrteSortierung = { kriterium: 'geaendertAm', richtung: 'absteigend' }
 
-    const ergebnis = sortiereOrte(orte, sortierung)
+    const ergebnis = sortiereOrte(orte, sortierung, AUSGEWOGEN)
 
     expect(ergebnis.mitWert.map((o) => o.id)).toEqual(['2', '3', '1'])
     expect(ergebnis.ohneWert).toEqual([])
@@ -70,7 +73,7 @@ describe('sortiereOrte', () => {
     ]
     const sortierung: OrteSortierung = { kriterium: 'gesamtnote', richtung: 'absteigend' }
 
-    const ergebnis = sortiereOrte(orte, sortierung)
+    const ergebnis = sortiereOrte(orte, sortierung, AUSGEWOGEN)
 
     expect(ergebnis.mitWert.map((o) => o.id)).toEqual(['1', '3'])
     expect(ergebnis.ohneWert.map((o) => o.id)).toEqual(['2'])
@@ -91,7 +94,7 @@ describe('sortiereOrte', () => {
     ]
     const sortierung: OrteSortierung = { kriterium: 'gesamtnote', richtung: 'absteigend' }
 
-    const ergebnis = sortiereOrte(orte, sortierung)
+    const ergebnis = sortiereOrte(orte, sortierung, AUSGEWOGEN)
 
     expect(ergebnis.mitWert.map((o) => o.id)).toEqual(['eine-achse', 'vier-achsen'])
   })
@@ -104,7 +107,7 @@ describe('sortiereOrte', () => {
     ]
     const sortierung: OrteSortierung = { kriterium: 'ambiente', richtung: 'aufsteigend' }
 
-    const ergebnis = sortiereOrte(orte, sortierung)
+    const ergebnis = sortiereOrte(orte, sortierung, AUSGEWOGEN)
 
     expect(ergebnis.mitWert.map((o) => o.id)).toEqual(['null-wert', 'hoch'])
     expect(ergebnis.ohneWert.map((o) => o.id)).toEqual(['null'])
@@ -116,13 +119,13 @@ describe('sortiereOrte', () => {
       ort({ id: '2', bezeichnung: 'B', bewertungen: bewertungen({ zeit: 8, geschmack: 3 }) }),
     ]
 
-    const nachZeit = sortiereOrte(orte, { kriterium: 'zeit', richtung: 'aufsteigend' })
+    const nachZeit = sortiereOrte(orte, { kriterium: 'zeit', richtung: 'aufsteigend' }, AUSGEWOGEN)
     expect(nachZeit.mitWert.map((o) => o.id)).toEqual(['1', '2'])
 
-    const nachGeschmack = sortiereOrte(orte, { kriterium: 'geschmack', richtung: 'aufsteigend' })
+    const nachGeschmack = sortiereOrte(orte, { kriterium: 'geschmack', richtung: 'aufsteigend' }, AUSGEWOGEN)
     expect(nachGeschmack.mitWert.map((o) => o.id)).toEqual(['2', '1'])
 
-    const nachPreisLeistung = sortiereOrte(orte, { kriterium: 'preisLeistung', richtung: 'aufsteigend' })
+    const nachPreisLeistung = sortiereOrte(orte, { kriterium: 'preisLeistung', richtung: 'aufsteigend' }, AUSGEWOGEN)
     expect(nachPreisLeistung.ohneWert.map((o) => o.id)).toEqual(['1', '2'])
   })
 
@@ -133,7 +136,7 @@ describe('sortiereOrte', () => {
     ]
     const sortierung: OrteSortierung = { kriterium: 'ambiente', richtung: 'aufsteigend' }
 
-    const ergebnis = sortiereOrte(orte, sortierung)
+    const ergebnis = sortiereOrte(orte, sortierung, AUSGEWOGEN)
 
     expect(ergebnis.mitWert.map((o) => o.id)).toEqual(['a', 'b'])
   })
@@ -145,9 +148,38 @@ describe('sortiereOrte', () => {
     ]
     const sortierung: OrteSortierung = { kriterium: 'ambiente', richtung: 'aufsteigend' }
 
-    const ergebnis = sortiereOrte(orte, sortierung)
+    const ergebnis = sortiereOrte(orte, sortierung, AUSGEWOGEN)
 
     expect(ergebnis.mitWert.map((o) => o.id)).toEqual(['a-id', 'z-id'])
+  })
+
+  it('sortiert die Gesamtnote nach den übergebenen Gewichten (Szenariowechsel ändert die Reihenfolge)', () => {
+    const orte = [
+      ort({ id: 'geschmack', bezeichnung: 'Geschmack', bewertungen: bewertungen({ ambiente: 5, zeit: 5, geschmack: 10, preisLeistung: 5 }) }),
+      ort({ id: 'ambiente', bezeichnung: 'Ambiente', bewertungen: bewertungen({ ambiente: 9, zeit: 5, geschmack: 5, preisLeistung: 5 }) }),
+    ]
+    const sortierung: OrteSortierung = { kriterium: 'gesamtnote', richtung: 'absteigend' }
+
+    // Ausgewogen: 25/4 = 6,25 gegen 24/4 = 6 -> „geschmack" vorn.
+    expect(sortiereOrte(orte, sortierung, AUSGEWOGEN).mitWert.map((o) => o.id)).toEqual(['geschmack', 'ambiente'])
+    const fokusAmbiente = { ambiente: 3, zeit: 1, geschmack: 1, preisLeistung: 1 }
+    // Ambiente dreifach gewichtet: (15 + 5 + 10 + 5) / 6 = 5,83 gegen (27 + 5 + 5 + 5) / 6 = 7 -> „ambiente" vorn.
+    expect(sortiereOrte(orte, sortierung, fokusAmbiente).mitWert.map((o) => o.id)).toEqual(['ambiente', 'geschmack'])
+    // Fokus Geschmack: 35/5 = 7 gegen 29/5 = 5,8 -> „geschmack" vorn.
+    expect(sortiereOrte(orte, sortierung, FOKUS_GESCHMACK).mitWert.map((o) => o.id)).toEqual(['geschmack', 'ambiente'])
+  })
+
+  it('Reihenfolge liest den Rohwert, nicht das gerundete Zehntel (ADR-0037 Punkt 5)', () => {
+    // Beide zeigen „8,0" (zehntel 80), aber 7,95 liegt unter 8,00 — das
+    // Zehntel allein würde sie gleichsetzen und alphabetisch ordnen.
+    const gewichte = { ambiente: 9, zeit: 1, geschmack: 10, preisLeistung: 0 }
+    const orte = [
+      ort({ id: 'a-knapp', bezeichnung: 'A knapp', bewertungen: bewertungen({ ambiente: 8, zeit: 7, geschmack: 8 }) }),
+      ort({ id: 'z-genau', bezeichnung: 'Z genau', bewertungen: bewertungen({ ambiente: 8, zeit: 8, geschmack: 8 }) }),
+    ]
+    const sortierung: OrteSortierung = { kriterium: 'gesamtnote', richtung: 'absteigend' }
+
+    expect(sortiereOrte(orte, sortierung, gewichte).mitWert.map((o) => o.id)).toEqual(['z-genau', 'a-knapp'])
   })
 
   it('mutiert das übergebene Array nicht', () => {
@@ -157,7 +189,7 @@ describe('sortiereOrte', () => {
     ]
     const kopie = [...orte]
 
-    sortiereOrte(orte, { kriterium: 'bezeichnung', richtung: 'aufsteigend' })
+    sortiereOrte(orte, { kriterium: 'bezeichnung', richtung: 'aufsteigend' }, AUSGEWOGEN)
 
     expect(orte).toEqual(kopie)
   })

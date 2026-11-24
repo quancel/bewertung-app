@@ -17,20 +17,48 @@ export type Bewertungen = OrtDatensatz['bewertungen']
 const ACHSEN_SCHLUESSEL = ['ambiente', 'zeit', 'geschmack', 'preisLeistung'] as const
 
 /**
- * Ungewichteter Mittelwert der ausgefüllten Achsen — `null`, wenn keine
- * Achse ausgefüllt ist. Kein stiller Ersatzwert 0 (ADR-0007 Punkt 5/6):
- * gerechnet wird ungerundet, gerundet wird ausschließlich zur Anzeige in
- * `formatiereGesamtnote`.
+ * Gewicht je Achse (ADR-0037 Punkt 3). Der Typ steht hier, damit nichts aus
+ * `features/` importiert wird; `features/orte/model/ansicht.ts` bleibt
+ * importfrei und liefert eine strukturell kompatible Form.
  */
-export function berechneGesamtnote(bewertungen: Bewertungen): number | null {
-  const gesetzteWerte = ACHSEN_SCHLUESSEL.map((achse) => bewertungen[achse].wert).filter(
-    (wert): wert is number => wert !== null,
-  )
+export interface AchsenGewichte {
+  ambiente: number
+  zeit: number
+  geschmack: number
+  preisLeistung: number
+}
 
-  if (gesetzteWerte.length === 0) return null
+/**
+ * Ergebnis der Gesamtnote (ADR-0037 Punkt 4/5). `zehntel` ist der EINE
+ * Rundungsschritt, den Anzeige UND Zone lesen; `roh` ist der ungerundete
+ * Wert für Sortierung, Gleichstand und Marker-Vorrang (ADR-0007 Punkt 6).
+ * Die Art `ohne-gewicht` (Werte vorhanden, aber alle mit Gewicht 0) kommt
+ * mit PO-2026-11-24-002 additiv dazu.
+ */
+export type GesamtnoteErgebnis = { art: 'wert'; roh: number; zehntel: number } | { art: 'unbewertet' }
 
-  const summe = gesetzteWerte.reduce((akkumulator, wert) => akkumulator + wert, 0)
-  return summe / gesetzteWerte.length
+/**
+ * Gewichtete Gesamtnote: Summe(Gewicht x Wert) / Summe(Gewicht) über die
+ * Achsen mit Wert. `null` fällt samt Gewicht heraus, 0 ist ein Wert. Die
+ * Gewichte sind ein PFLICHTPARAMETER ohne Default (ADR-0037 Punkt 3): Ein
+ * Aufrufer ohne Gewichte kompiliert nicht. Gerundet wird genau einmal,
+ * ganzzahlig: `zehntel = round(10 x Zähler / Nenner)`, halbe Zehntel auf.
+ */
+export function berechneGesamtnote(bewertungen: Bewertungen, gewichte: AchsenGewichte): GesamtnoteErgebnis {
+  let zaehler = 0
+  let nenner = 0
+  for (const achse of ACHSEN_SCHLUESSEL) {
+    const wert = bewertungen[achse].wert
+    if (wert === null) continue
+    zaehler += gewichte[achse] * wert
+    nenner += gewichte[achse]
+  }
+
+  if (nenner <= 0) return { art: 'unbewertet' }
+
+  // Ganzzahliges Aufrunden halber Zehntel: floor((20 x Z + N) / (2 x N)).
+  const zehntel = Math.floor((20 * zaehler + nenner) / (2 * nenner))
+  return { art: 'wert', roh: zaehler / nenner, zehntel }
 }
 
 /** Anzahl der Achsen mit gesetztem Wert (0 zählt, `null` nicht). */
@@ -38,17 +66,12 @@ export function zaehleAusgefuellteAchsen(bewertungen: Bewertungen): number {
   return ACHSEN_SCHLUESSEL.filter((achse) => bewertungen[achse].wert !== null).length
 }
 
-const gesamtnoteFormatierer = new Intl.NumberFormat('de-DE', {
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-})
-
 /**
- * Formatiert eine bereits berechnete, ungerundete Gesamtnote auf genau eine
+ * Formatiert `zehntel` (ganzzahlig, ADR-0037 Punkt 5) auf genau eine
  * Nachkommastelle mit Komma — auch bei einem glatten Wert („8,0", nicht
- * „8"). Getrennt von `berechneGesamtnote`: Ein gerundeter Wert wird nie
- * zurückgelesen oder verglichen (ADR-0007 Punkt 6).
+ * „8"). Ein Einzelachsenwert geht als `wert x 10` hinein. Rein ganzzahlig
+ * gebaut, kein Rückweg von einem String.
  */
-export function formatiereGesamtnote(gesamtnote: number): string {
-  return gesamtnoteFormatierer.format(gesamtnote)
+export function formatiereGesamtnote(zehntel: number): string {
+  return `${Math.floor(zehntel / 10)},${zehntel % 10}`
 }

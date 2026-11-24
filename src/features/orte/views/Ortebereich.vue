@@ -112,6 +112,7 @@
  */
 import { computed, defineAsyncComponent, nextTick, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
+import type { OrtDatensatz } from '../../../persistence/schema'
 import PrimaerButton from '../../../shared/ui/PrimaerButton.vue'
 import TextButton from '../../../shared/ui/TextButton.vue'
 import MasterDetail from '../../../shared/ui/MasterDetail.vue'
@@ -121,9 +122,16 @@ import IconArrowLeft from '../../../shared/ui/icons/IconArrowLeft.vue'
 import IconKreuz from '../../../shared/ui/icons/IconKreuz.vue'
 import IconPapierkorb from '../../../shared/ui/icons/IconPapierkorb.vue'
 import Bewertungsachse from '../../bewertungen/components/Bewertungsachse.vue'
-import { berechneGesamtnote, formatiereGesamtnote, zaehleAusgefuellteAchsen } from '../../../shared/lib/gesamtnote'
+import {
+  berechneGesamtnote,
+  formatiereGesamtnote,
+  zaehleAusgefuellteAchsen,
+  type GesamtnoteErgebnis,
+} from '../../../shared/lib/gesamtnote'
 import { useAutosaveBeimVerlassen } from '../composables/useAutosaveBeimVerlassen'
 import AnfangsnotizFeld from '../components/AnfangsnotizFeld.vue'
+import GewichtungHinweis from '../components/GewichtungHinweis.vue'
+import GewichtungSheet from '../components/GewichtungSheet.vue'
 import OrtAnlegenSheet from '../components/OrtAnlegenSheet.vue'
 import OrtLoeschenDialog from '../components/OrtLoeschenDialog.vue'
 import Ortssuche from '../components/Ortssuche.vue'
@@ -134,7 +142,13 @@ import TagFilterleiste from '../../tags/components/TagFilterleiste.vue'
 import TagEingabe from '../../tags/components/TagEingabe.vue'
 import Bilderbereich from '../../medien/components/Bilderbereich.vue'
 import type { OrtssucheZustand, OrtsvorschlagWerte } from '../lib/geocoding'
-import { SORTIER_KRITERIUM_LABEL, type SortierKriterium, type TagVerknuepfung } from '../model/ansicht'
+import {
+  findeGewichtungsSzenario,
+  SORTIER_KRITERIUM_LABEL,
+  type GewichtungsSzenario,
+  type SortierKriterium,
+  type TagVerknuepfung,
+} from '../model/ansicht'
 import { leiteAnsichtAusAdresse } from '../lib/ansichtAusAdresse'
 import { filtereOrteMitKoordinaten } from '../../karte/lib/koordinatenFilter'
 import { bestimmeKartenLeerzustand } from '../../karte/lib/leerzustand'
@@ -291,7 +305,28 @@ function aufTagEntfernt(zielOrtId: string, tag: string): void {
   void store.persistiereOrt(zielOrtId)
 }
 
-const gesamtnote = computed(() => (ort.value ? berechneGesamtnote(ort.value.bewertungen) : null))
+// --- Gewichtung der Gesamtnote (PO-2026-11-24-001, ADR-0037) ---------------
+
+/** EINE Stelle, an der diese View eine Gesamtnote rechnet (ADR-0037 Punkt 7):
+ * Detail, Ortszeilen (Prop) und ab -004 die Kartenfelder gehen alle hierüber,
+ * mit den Gewichten aus `useOrteStore` — dadurch überall derselbe Wert. */
+function gesamtnoteVon(ortEintrag: OrtDatensatz): GesamtnoteErgebnis {
+  return berechneGesamtnote(ortEintrag.bewertungen, store.gewichte)
+}
+
+const gewichtungSheetOffen = ref(false)
+const gewichtungsSzenario = computed(() => findeGewichtungsSzenario(store.gewichtung.szenario))
+/** Hinweiszeile und Erklärsatz zeigen das Szenario nur bei Abweichung von
+ * Ausgewogen (design-conventions.md „Gewichtung der Gesamtnote"). */
+const abweichendesSzenarioName = computed(() =>
+  store.gewichtung.szenario === 'ausgewogen' ? null : gewichtungsSzenario.value.name,
+)
+
+function aufGewichtungGewaehlt(szenario: GewichtungsSzenario): void {
+  store.setzeGewichtungsSzenario(szenario)
+}
+
+const gesamtnote = computed<GesamtnoteErgebnis | null>(() => (ort.value ? gesamtnoteVon(ort.value) : null))
 const ausgefuellteAchsen = computed(() =>
   ort.value ? zaehleAusgefuellteAchsen(ort.value.bewertungen) : 0,
 )
@@ -722,7 +757,7 @@ async function aufLoeschenBestaetigt(): Promise<void> {
         <h1 class="ortebereich__kopf-titel">
           Orte
         </h1>
-        <ZonenLegende />
+        <ZonenLegende :gewichtung-name="abweichendesSzenarioName" />
         <PrimaerButton
           type="button"
           class="ortebereich__kopf-hinzufuegen"
@@ -739,9 +774,11 @@ async function aufLoeschenBestaetigt(): Promise<void> {
         :gesamt="store.orte.length"
         :ansicht="ansicht"
         :sichtbar-auf-karte="kartenOrte.length"
+        :gewichtung-name="gewichtungsSzenario.name"
         @kriterium-gewaehlt="aufKriteriumGewaehlt"
         @richtung-umschalten="aufRichtungUmgeschaltet"
         @ansicht-umschalten="aufAnsichtUmgeschaltet"
+        @gewichtung-oeffnen="gewichtungSheetOffen = true"
       >
         <template
           v-if="store.tagVokabular.length > 0"
@@ -757,6 +794,12 @@ async function aufLoeschenBestaetigt(): Promise<void> {
           />
         </template>
       </Werkzeugleiste>
+
+      <GewichtungHinweis
+        v-if="abweichendesSzenarioName"
+        :name="abweichendesSzenarioName"
+        @aendern="gewichtungSheetOffen = true"
+      />
 
       <div class="ortebereich__keine-treffer">
         <p class="ortebereich__keine-treffer-text">
@@ -797,9 +840,11 @@ async function aufLoeschenBestaetigt(): Promise<void> {
         :gesamt="store.orte.length"
         :ansicht="ansicht"
         :sichtbar-auf-karte="kartenOrte.length"
+        :gewichtung-name="gewichtungsSzenario.name"
         @kriterium-gewaehlt="aufKriteriumGewaehlt"
         @richtung-umschalten="aufRichtungUmgeschaltet"
         @ansicht-umschalten="aufAnsichtUmgeschaltet"
+        @gewichtung-oeffnen="gewichtungSheetOffen = true"
       >
         <template
           v-if="store.tagVokabular.length > 0"
@@ -815,6 +860,12 @@ async function aufLoeschenBestaetigt(): Promise<void> {
           />
         </template>
       </Werkzeugleiste>
+
+      <GewichtungHinweis
+        v-if="abweichendesSzenarioName"
+        :name="abweichendesSzenarioName"
+        @aendern="gewichtungSheetOffen = true"
+      />
 
       <!-- Dritter Kartenleerzustand (ADR-0019 Punkt 10c, design-conventions.md
            „Karte"): Filter lässt Orte übrig, aber keiner hat Koordinaten.
@@ -856,7 +907,7 @@ async function aufLoeschenBestaetigt(): Promise<void> {
             <h1 class="ortebereich__kopf-titel">
               Orte
             </h1>
-            <ZonenLegende />
+            <ZonenLegende :gewichtung-name="abweichendesSzenarioName" />
             <PrimaerButton
               type="button"
               class="ortebereich__kopf-hinzufuegen"
@@ -873,9 +924,11 @@ async function aufLoeschenBestaetigt(): Promise<void> {
             :gesamt="store.orte.length"
             :ansicht="ansicht"
             :sichtbar-auf-karte="kartenOrte.length"
+            :gewichtung-name="gewichtungsSzenario.name"
             @kriterium-gewaehlt="aufKriteriumGewaehlt"
             @richtung-umschalten="aufRichtungUmgeschaltet"
             @ansicht-umschalten="aufAnsichtUmgeschaltet"
+            @gewichtung-oeffnen="gewichtungSheetOffen = true"
           >
             <template
               v-if="store.tagVokabular.length > 0"
@@ -891,6 +944,12 @@ async function aufLoeschenBestaetigt(): Promise<void> {
               />
             </template>
           </Werkzeugleiste>
+
+          <GewichtungHinweis
+            v-if="abweichendesSzenarioName"
+            :name="abweichendesSzenarioName"
+            @aendern="gewichtungSheetOffen = true"
+          />
 
           <div
             v-if="keineTreffer"
@@ -918,6 +977,7 @@ async function aufLoeschenBestaetigt(): Promise<void> {
             >
               <Ortszeile
                 :ort="ortEintrag"
+                :gesamtnote="gesamtnoteVon(ortEintrag)"
                 :ausgewaehlt="ortEintrag.id === ortId"
                 :sortier-kriterium="store.sortierung.kriterium"
               />
@@ -934,6 +994,7 @@ async function aufLoeschenBestaetigt(): Promise<void> {
               >
                 <Ortszeile
                   :ort="ortEintrag"
+                  :gesamtnote="gesamtnoteVon(ortEintrag)"
                   :ausgewaehlt="ortEintrag.id === ortId"
                   :sortier-kriterium="store.sortierung.kriterium"
                   :zeige-wert="false"
@@ -1116,16 +1177,29 @@ async function aufLoeschenBestaetigt(): Promise<void> {
 
           <div class="ortsdetail__gesamtnote">
             <span
-              v-if="gesamtnote === null"
+              v-if="gesamtnote === null || gesamtnote.art !== 'wert'"
               class="ortsdetail__gesamtnote-leer"
             >Noch nicht bewertet</span>
             <template v-else>
-              <span class="ortsdetail__gesamtnote-wert">{{ formatiereGesamtnote(gesamtnote) }}</span>
+              <span class="ortsdetail__gesamtnote-wert">{{ formatiereGesamtnote(gesamtnote.zehntel) }}</span>
               <span
                 v-if="ausgefuellteAchsen < 4"
                 class="ortsdetail__gesamtnote-zusatz"
               >Ø aus {{ ausgefuellteAchsen }} von 4 Achsen</span>
             </template>
+          </div>
+          <!-- Einstieg 2 ins Gewichtungs-Sheet (design-conventions.md
+               „Gewichtung der Gesamtnote"): zeigt das aktive Szenario IMMER,
+               auch bei Ausgewogen. -->
+          <div class="ortsdetail__gewichtung">
+            <TextButton
+              type="button"
+              class="ortsdetail__gewichtung-knopf"
+              aria-haspopup="dialog"
+              @click="gewichtungSheetOffen = true"
+            >
+              Gewichtung: {{ gewichtungsSzenario.name }}
+            </TextButton>
           </div>
 
           <!-- `:key="ortId"` (ADR-0035 Punkt 5, analog zu `Ortssuche`/
@@ -1219,6 +1293,13 @@ async function aufLoeschenBestaetigt(): Promise<void> {
         </p>
       </template>
     </MasterDetail>
+
+    <GewichtungSheet
+      :offen="gewichtungSheetOffen"
+      :szenario="store.gewichtung.szenario"
+      @schliessen="gewichtungSheetOffen = false"
+      @szenario-gewaehlt="aufGewichtungGewaehlt"
+    />
 
     <OrtAnlegenSheet
       :offen="sheetOffen"
@@ -1587,6 +1668,13 @@ async function aufLoeschenBestaetigt(): Promise<void> {
   font-size: var(--font-size-24);
   font-weight: var(--font-weight-semibold);
   color: var(--color-primary-700);
+}
+
+/* Text-Button „Gewichtung: {Name}" unter der Gesamtnote: linksbündig auf der
+   Textkante (das Innen-Padding des Buttons wird ausgeglichen). */
+.ortsdetail__gewichtung {
+  margin-top: calc(var(--space-8) * -1);
+  margin-left: calc(var(--space-12) * -1);
 }
 
 .ortsdetail__gesamtnote-zusatz {

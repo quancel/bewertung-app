@@ -45,11 +45,16 @@ import {
   ortErfuelltTagfilter,
 } from '../../../shared/lib/tagfilter'
 import {
+  findeGewichtungsSzenario,
+  istGueltigeOrteGewichtung,
   istGueltigeOrteSortierung,
   istGueltigeTagfilterEinstellung,
+  ORTE_GEWICHTUNG_VOREINSTELLUNG,
   ORTE_SORTIERUNG_VOREINSTELLUNG,
   ORTE_TAGFILTER_VOREINSTELLUNG,
   SORTIER_ANFANGSRICHTUNG,
+  type GewichtungsSzenario,
+  type OrteGewichtung,
   type OrteSortierung,
   type OrteTagfilterEinstellung,
   type SortierKriterium,
@@ -62,6 +67,8 @@ const SORTIERUNG_SCHLUESSEL = 'orte.sortierung'
 /** Nur die Verknüpfung wird persistiert, nicht die aktive Tag-Auswahl
  * (ADR-0014 Punkt 8, Nutzerentscheidung 2026-09-09). */
 const TAGFILTER_SCHLUESSEL = 'orte.tagfilter'
+/** Gewichtung der Gesamtnote (PO-2026-11-24-001, ADR-0037): Gerätezustand. */
+const GEWICHTUNG_SCHLUESSEL = 'orte.gewichtung'
 
 export type OrtSchreibfehlerGrund = 'speicher_voll' | 'unbekannt'
 
@@ -89,6 +96,13 @@ export const useOrteStore = defineStore('orte', () => {
   const tagfilterEinstellung = ref<OrteTagfilterEinstellung>(ORTE_TAGFILTER_VOREINSTELLUNG)
   const tagAuswahlRoh = ref<string[]>([])
 
+  // Ansichtszustand „Gewichtung" (ADR-0037): startet mit Ausgewogen, bis
+  // `sicherstellenGeladen` einen gültigen gespeicherten Wert findet.
+  const gewichtung = ref<OrteGewichtung>(ORTE_GEWICHTUNG_VOREINSTELLUNG)
+  /** Die aktuellen Achsengewichte — einzige Quelle für `berechneGesamtnote`
+   * und `sortiereOrte` (ADR-0037 Punkt 7). */
+  const gewichte = computed(() => findeGewichtungsSzenario(gewichtung.value.szenario).gewichte)
+
   function ortNachId(id: string): OrtDatensatz | undefined {
     return orte.value.find((ort) => ort.id === id)
   }
@@ -101,10 +115,11 @@ export const useOrteStore = defineStore('orte', () => {
    * ADR-0009 Punkt 5): kein Fall für `OrtSchreibfehlerGrund`, keine Meldung. */
   async function sicherstellenGeladen(): Promise<void> {
     if (istGeladen.value) return
-    const [ergebnis, sortierungErgebnis, tagfilterErgebnis] = await Promise.all([
+    const [ergebnis, sortierungErgebnis, tagfilterErgebnis, gewichtungErgebnis] = await Promise.all([
       ladeAlleOrte(),
       ladeEinstellung(SORTIERUNG_SCHLUESSEL),
       ladeEinstellung(TAGFILTER_SCHLUESSEL),
+      ladeEinstellung(GEWICHTUNG_SCHLUESSEL),
     ])
     if (ergebnis.status === 'geladen') {
       orte.value = ergebnis.orte
@@ -119,6 +134,12 @@ export const useOrteStore = defineStore('orte', () => {
     if (tagfilterErgebnis.status === 'geladen' && istGueltigeTagfilterEinstellung(tagfilterErgebnis.wert)) {
       tagfilterEinstellung.value = tagfilterErgebnis.wert
     }
+    // Ungültig/fehlend: still Ausgewogen (ADR-0037 Punkt 2), auch nach
+    // `ladeNeu` (Import) — dann zurück auf die Voreinstellung.
+    gewichtung.value =
+      gewichtungErgebnis.status === 'geladen' && istGueltigeOrteGewichtung(gewichtungErgebnis.wert)
+        ? { szenario: gewichtungErgebnis.wert.szenario }
+        : ORTE_GEWICHTUNG_VOREINSTELLUNG
   }
 
   /** Abgeleitetes Tag-Vokabular über den gesamten Bestand (ADR-0014 Punkt
@@ -142,7 +163,7 @@ export const useOrteStore = defineStore('orte', () => {
   /** Sortierte Ansicht inkl. der Partition „mit Wert / ohne Wert" für das
    * aktuelle Kriterium (ADR-0009 Punkt 8/9) — reine Ableitung, kein
    * Schreibzugriff. */
-  const sortierErgebnis = computed<SortierErgebnis>(() => sortiereOrte(orteGefiltert.value, sortierung.value))
+  const sortierErgebnis = computed<SortierErgebnis>(() => sortiereOrte(orteGefiltert.value, sortierung.value, gewichte.value))
 
   /** Fire-and-forget (ADR-0009 Punkt 6): ein fehlgeschlagenes Schreiben der
    * Sortierung wird nicht gemeldet und bricht nichts ab. */
@@ -172,6 +193,19 @@ export const useOrteStore = defineStore('orte', () => {
       richtung: sortierung.value.richtung === 'aufsteigend' ? 'absteigend' : 'aufsteigend',
     }
     persistiereSortierung()
+  }
+
+  /** Fire-and-forget (ADR-0009 Punkt 6): ein Schreibfehler bricht nichts ab. */
+  function persistiereGewichtung(): void {
+    void schreibeEinstellung(GEWICHTUNG_SCHLUESSEL, gewichtung.value)
+  }
+
+  /** Wählt ein festes Szenario; wirkt sofort auf Liste, Detail, Sortierung
+   * und Zone, weil alle aus `gewichte` ableiten (ADR-0037 Punkt 7). */
+  function setzeGewichtungsSzenario(szenario: GewichtungsSzenario): void {
+    if (szenario === gewichtung.value.szenario) return
+    gewichtung.value = { szenario }
+    persistiereGewichtung()
   }
 
   async function legeOrtAn(bezeichnung: string): Promise<OrtDatensatz> {
@@ -435,6 +469,9 @@ export const useOrteStore = defineStore('orte', () => {
     sortierErgebnis,
     setzeSortierKriterium,
     schalteSortierrichtungUm,
+    gewichtung,
+    gewichte,
+    setzeGewichtungsSzenario,
     tagVokabular,
     aktiveTags,
     tagfilterEinstellung,

@@ -14,9 +14,11 @@
  * einem Schlüssel zusammen, sonst findet ein Grep nach dem Tokennamen die
  * Verwendung nicht.
  *
- * Die Zone wird am UNGERUNDETEN Wert bestimmt (ADR-0034 Punkt 3, ADR-0007
- * Punkt 6) — nie am formatierten String. Belegt durch den erschöpfenden
- * Vitest in `zonen.spec.ts`.
+ * Die Zone wird am GANZZAHLIGEN `zehntel` bestimmt (ADR-0037 Punkt 5, löst
+ * ADR-0034 Punkt 3 ab) — demselben Wert, den die Anzeige formatiert, nie am
+ * formatierten String. Damit stimmt „Zone nach dem angezeigten Wert" für
+ * jeden Nenner. Ein Einzelachsenwert geht als `wert x 10` hinein. Belegt
+ * durch die erschöpfenden Vitests in `zonen.spec.ts`.
  */
 import type { OrtDatensatz } from '../../../persistence/schema'
 import { formatiereGesamtnote } from '../../../shared/lib/gesamtnote'
@@ -27,32 +29,33 @@ export type ZonenSchluessel = '8' | '8-5' | '9' | '9-5' | '10'
 
 export interface Zone {
   schluessel: ZonenSchluessel
-  /** Untergrenze inklusive — gehört zur jeweiligen Zone. */
-  untergrenze: number
+  /** Untergrenze in Zehnteln (80 = 8,0), inklusive — gehört zur jeweiligen Zone. */
+  untergrenzeZehntel: number
   beschriftung: string
   /** Wörtlicher CSS-Custom-Property-Name (tokens.css), nie aus `schluessel`
    * zusammengesetzt (ADR-0034 Punkt 2). */
   tokenName: string
 }
 
-/** Aufsteigend sortiert nach `untergrenze` — `bestimmeZone` verlässt sich
+/** Aufsteigend sortiert nach `untergrenzeZehntel` — `bestimmeZone` verlässt sich
  * darauf (Suche von hinten). */
 export const ZONEN: readonly Zone[] = [
-  { schluessel: '8', untergrenze: 8, beschriftung: '8,0 bis unter 8,5', tokenName: '--color-zone-8' },
-  { schluessel: '8-5', untergrenze: 8.5, beschriftung: '8,5 bis unter 9,0', tokenName: '--color-zone-8-5' },
-  { schluessel: '9', untergrenze: 9, beschriftung: '9,0 bis unter 9,5', tokenName: '--color-zone-9' },
-  { schluessel: '9-5', untergrenze: 9.5, beschriftung: '9,5 bis unter 10', tokenName: '--color-zone-9-5' },
-  { schluessel: '10', untergrenze: 10, beschriftung: 'genau 10', tokenName: '--color-zone-10' },
+  { schluessel: '8', untergrenzeZehntel: 80, beschriftung: '8,0 bis unter 8,5', tokenName: '--color-zone-8' },
+  { schluessel: '8-5', untergrenzeZehntel: 85, beschriftung: '8,5 bis unter 9,0', tokenName: '--color-zone-8-5' },
+  { schluessel: '9', untergrenzeZehntel: 90, beschriftung: '9,0 bis unter 9,5', tokenName: '--color-zone-9' },
+  { schluessel: '9-5', untergrenzeZehntel: 95, beschriftung: '9,5 bis unter 10', tokenName: '--color-zone-9-5' },
+  { schluessel: '10', untergrenzeZehntel: 100, beschriftung: 'genau 10', tokenName: '--color-zone-10' },
 ]
 
 /**
- * Zone eines Werts — `null` bei `null` oder einem Wert unter der untersten
- * Zonengrenze. Die Untergrenze selbst gehört zur Zone (`>=`, nicht `>`).
+ * Zone eines Werts in Zehnteln — `null` bei `null` oder einem Wert unter der
+ * untersten Zonengrenze. Die Untergrenze selbst gehört zur Zone (`>=`,
+ * nicht `>`); der Vergleich ist rein ganzzahlig.
  */
-export function bestimmeZone(wert: number | null): Zone | null {
-  if (wert === null) return null
+export function bestimmeZone(zehntel: number | null): Zone | null {
+  if (zehntel === null) return null
   for (let i = ZONEN.length - 1; i >= 0; i -= 1) {
-    if (wert >= ZONEN[i].untergrenze) return ZONEN[i]
+    if (zehntel >= ZONEN[i].untergrenzeZehntel) return ZONEN[i]
   }
   return null
 }
@@ -96,8 +99,8 @@ export function bestimmeHervorhebung(bewertungen: Bewertungen): HervorhebungsErg
   else if (geschmackAktiv) hervorhebung = 'schwach'
 
   const teile: string[] = []
-  if (geschmackAktiv) teile.push(`${GESCHMACK_NAME} ${formatiereGesamtnote(geschmack as number)}`)
-  if (preisLeistungAktiv) teile.push(`${PREIS_LEISTUNG_NAME} ${formatiereGesamtnote(preisLeistung as number)}`)
+  if (geschmackAktiv) teile.push(`${GESCHMACK_NAME} ${formatiereGesamtnote((geschmack as number) * 10)}`)
+  if (preisLeistungAktiv) teile.push(`${PREIS_LEISTUNG_NAME} ${formatiereGesamtnote((preisLeistung as number) * 10)}`)
 
   return { hervorhebung, screenreaderText: teile.length > 0 ? teile.join(', ') : null }
 }

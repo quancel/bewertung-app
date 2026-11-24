@@ -123,8 +123,11 @@ describe('wendeMigrationsketteAn', () => {
       expect(ort.bewertungen.geschmack).toEqual({ wert: null, kommentar: null })
       expect(ort.bewertungen.preisLeistung).toEqual({ wert: null, kommentar: null })
       // Kein Ersatzwert 0 und keine Gesamtnote 0,0 (ADR-0007): die
-      // Ableitung liefert für einen frisch migrierten Ort ausdrücklich null.
-      expect(berechneGesamtnote(ort.bewertungen)).toBeNull()
+      // Ableitung liefert für einen frisch migrierten Ort ausdrücklich
+      // „unbewertet".
+      expect(berechneGesamtnote(ort.bewertungen, { ambiente: 1, zeit: 1, geschmack: 1, preisLeistung: 1 })).toEqual({
+        art: 'unbewertet',
+      })
     }
   })
 

@@ -271,6 +271,171 @@ describe('useOrteStore', () => {
     })
   })
 
+  describe('Gewichtung der Gesamtnote (PO-2026-11-24-001, ADR-0037)', () => {
+    it('startet mit Ausgewogen (1:1:1:1), wenn nichts gespeichert ist', async () => {
+      ladeAlleOrteMock.mockResolvedValue({ status: 'geladen', orte: [] })
+      const store = useOrteStore()
+
+      await store.sicherstellenGeladen()
+
+      expect(store.gewichtung).toEqual({ szenario: 'ausgewogen' })
+      expect(store.gewichte).toEqual({ ambiente: 1, zeit: 1, geschmack: 1, preisLeistung: 1 })
+    })
+
+    it('übernimmt ein gültig gespeichertes Szenario beim Laden (unter dem Schlüssel orte.gewichtung)', async () => {
+      ladeAlleOrteMock.mockResolvedValue({ status: 'geladen', orte: [] })
+      ladeEinstellungMock.mockImplementation(async (schluessel: string) =>
+        schluessel === 'orte.gewichtung'
+          ? { status: 'geladen', wert: { szenario: 'fokus-geschmack' } }
+          : { status: 'nicht_vorhanden' },
+      )
+      const store = useOrteStore()
+
+      await store.sicherstellenGeladen()
+
+      expect(store.gewichtung).toEqual({ szenario: 'fokus-geschmack' })
+      expect(store.gewichte).toEqual({ ambiente: 1, zeit: 1, geschmack: 2, preisLeistung: 1 })
+    })
+
+    it('fällt bei einem unbekannten gespeicherten Wert still auf Ausgewogen zurück', async () => {
+      ladeAlleOrteMock.mockResolvedValue({ status: 'geladen', orte: [] })
+      ladeEinstellungMock.mockImplementation(async (schluessel: string) =>
+        schluessel === 'orte.gewichtung'
+          ? { status: 'geladen', wert: { szenario: 'gibt-es-nicht' } }
+          : { status: 'nicht_vorhanden' },
+      )
+      const store = useOrteStore()
+
+      await store.sicherstellenGeladen()
+
+      expect(store.gewichtung).toEqual({ szenario: 'ausgewogen' })
+    })
+
+    it('setzeGewichtungsSzenario ändert die Gewichte sofort und persistiert { szenario }', () => {
+      const store = useOrteStore()
+
+      store.setzeGewichtungsSzenario('fokus-zeit')
+
+      expect(store.gewichte).toEqual({ ambiente: 1, zeit: 2, geschmack: 1, preisLeistung: 1 })
+      expect(schreibeEinstellungMock).toHaveBeenCalledWith('orte.gewichtung', { szenario: 'fokus-zeit' })
+    })
+
+    it('dasselbe Szenario erneut zu wählen schreibt nichts', () => {
+      const store = useOrteStore()
+
+      store.setzeGewichtungsSzenario('ausgewogen')
+
+      expect(schreibeEinstellungMock).not.toHaveBeenCalled()
+    })
+
+    it('ein Schreibfehler bricht nichts ab: das Szenario gilt im Arbeitsspeicher weiter', () => {
+      schreibeEinstellungMock.mockResolvedValue({ status: 'fehlgeschlagen' })
+      const store = useOrteStore()
+
+      store.setzeGewichtungsSzenario('fokus-ambiente')
+
+      expect(store.gewichtung).toEqual({ szenario: 'fokus-ambiente' })
+    })
+
+    it('ein Szenariowechsel ändert die Sortierung nach Gesamtnote ohne Neuladen', async () => {
+      const geschmackOrt = {
+        id: 'g',
+        bezeichnung: 'Geschmack-Ort',
+        adresse: null,
+        breite: null,
+        laenge: null,
+        anfangsnotiz: null,
+        tags: [],
+        geaendertAm: '2026-09-08T10:00:00.000Z',
+        bewertungen: {
+          ambiente: { wert: 5, kommentar: null },
+          zeit: { wert: 5, kommentar: null },
+          geschmack: { wert: 10, kommentar: null },
+          preisLeistung: { wert: 5, kommentar: null },
+        },
+      }
+      const ambienteOrt = {
+        ...geschmackOrt,
+        id: 'a',
+        bezeichnung: 'Ambiente-Ort',
+        bewertungen: {
+          ambiente: { wert: 9, kommentar: null },
+          zeit: { wert: 5, kommentar: null },
+          geschmack: { wert: 5, kommentar: null },
+          preisLeistung: { wert: 5, kommentar: null },
+        },
+      }
+      ladeAlleOrteMock.mockResolvedValue({ status: 'geladen', orte: [geschmackOrt, ambienteOrt] })
+      const store = useOrteStore()
+      await store.sicherstellenGeladen()
+      store.setzeSortierKriterium('gesamtnote')
+
+      // Ausgewogen: 6,25 gegen 6,0.
+      expect(store.sortierErgebnis.mitWert.map((ort) => ort.id)).toEqual(['g', 'a'])
+
+      store.setzeGewichtungsSzenario('fokus-ambiente')
+
+      // Ambiente doppelt: (10+5+10+5)/5 = 6 gegen (18+5+5+5)/5 = 6,6.
+      expect(store.sortierErgebnis.mitWert.map((ort) => ort.id)).toEqual(['a', 'g'])
+    })
+
+    // code-conventions.md „Die Naht Store → Repository wird nicht vollständig
+    // wegmockt": dieser Test bindet an das ECHTE einstellungen-repository
+    // (gegen `fake-indexeddb`), damit der Weg Setter → Schreiben → Neuladen
+    // mit dem Wert geprüft ist, den der Store im Betrieb übergibt.
+    it('Setter → echtes einstellungen-repository → frischer Store: das Szenario übersteht das „Neuladen"', async () => {
+      vi.resetModules()
+      vi.doUnmock('../../../persistence/einstellungen-repository')
+      vi.doUnmock('../../../persistence/orte-repository')
+
+      try {
+        const { createPinia: erzeugePinia, setActivePinia: setzeAktivePinia } = await import('pinia')
+        const { oeffneDatenbank, _resetFuerTests: resetDb } = await import('../../../persistence/db')
+        const { ladeEinstellung: ladeEinstellungEcht } = await import('../../../persistence/einstellungen-repository')
+
+        resetDb()
+        const geoeffnet = await oeffneDatenbank()
+        if (geoeffnet.status !== 'geoeffnet') throw new Error('Datenbank hätte offen sein müssen')
+        await geoeffnet.db.clear('meta')
+        await geoeffnet.db.clear('orte')
+        await geoeffnet.db.clear('einstellungen')
+        await geoeffnet.db.clear('bilder')
+
+        setzeAktivePinia(erzeugePinia())
+        const { useOrteStore: useOrteStoreEcht } = await import('./orte.store')
+        const ersterStore = useOrteStoreEcht()
+        await ersterStore.sicherstellenGeladen()
+        ersterStore.setzeGewichtungsSzenario('fokus-preis-leistung')
+
+        // Fire-and-forget (ADR-0009 Punkt 6): auf den Schreibvorgang warten.
+        for (let versuch = 0; versuch < 50; versuch += 1) {
+          const gelesen = await ladeEinstellungEcht('orte.gewichtung')
+          if (gelesen.status === 'geladen') break
+          await new Promise((resolve) => setTimeout(resolve, 10))
+        }
+
+        setzeAktivePinia(erzeugePinia())
+        const zweiterStore = useOrteStoreEcht()
+        await zweiterStore.sicherstellenGeladen()
+
+        expect(zweiterStore.gewichtung).toEqual({ szenario: 'fokus-preis-leistung' })
+        expect(zweiterStore.gewichte).toEqual({ ambiente: 1, zeit: 1, geschmack: 1, preisLeistung: 2 })
+
+        resetDb()
+      } finally {
+        vi.doMock('../../../persistence/orte-repository', () => ({
+          ladeAlleOrte: ladeAlleOrteMock,
+          speichereOrt: speichereOrtMock,
+          loescheOrt: loescheOrtMock,
+        }))
+        vi.doMock('../../../persistence/einstellungen-repository', () => ({
+          ladeEinstellung: ladeEinstellungMock,
+          schreibeEinstellung: schreibeEinstellungMock,
+        }))
+      }
+    })
+  })
+
   describe('Tags und Tag-Filter (ADR-0014, PO-2026-09-07-004)', () => {
     it('legt einen neuen Ort mit leeren Tags an', async () => {
       const store = useOrteStore()

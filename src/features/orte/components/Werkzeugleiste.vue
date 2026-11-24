@@ -54,6 +54,7 @@
  * Trefferzahl ihre Kurzform.
  */
 import { computed, ref } from 'vue'
+import IconChevron from '../../../shared/ui/icons/IconChevron.vue'
 import IconArrowUp from '../../../shared/ui/icons/IconArrowUp.vue'
 import IconKarte from '../../../shared/ui/icons/IconKarte.vue'
 import IconList from '../../../shared/ui/icons/IconList.vue'
@@ -84,6 +85,9 @@ const props = defineProps<{
    * Marker (Orte mit beiden Koordinaten) unter den `angezeigt` gefilterten
    * Orten. `undefined` in der Listenansicht. */
   sichtbarAufKarte?: number
+  /** Name des aktiven Gewichtungs-Szenarios (PO-2026-11-24-001) — nur für
+   * die Zeile „Gewichtung: {Name}" im Sortier-Sheet. */
+  gewichtungName: string
 }>()
 
 const emit = defineEmits<{
@@ -93,6 +97,9 @@ const emit = defineEmits<{
    * entscheidet Ziel-Adresse und führt den `router.push` aus (Constraint
    * UMSCHALTER: diese Komponente bleibt routerfrei). */
   'ansicht-umschalten': []
+  /** Einstieg 1 ins Gewichtungs-Sheet (PO-2026-11-24-001): das Sortier-Sheet
+   * schließt sich, `Ortebereich.vue` öffnet das Gewichtungs-Sheet. */
+  'gewichtung-oeffnen': []
 }>()
 
 const sheetOffen = ref(false)
@@ -122,6 +129,11 @@ const trefferzahlText = computed(() => {
   }
   return formatiereListenTrefferzahl(props.angezeigt, props.gesamt)
 })
+
+function aufGewichtungGewaehlt(): void {
+  sheetOffen.value = false
+  emit('gewichtung-oeffnen')
+}
 
 function aufKriteriumGewaehlt(kriterium: SortierKriterium): void {
   sheetOffen.value = false
@@ -241,6 +253,28 @@ function aufKriteriumGewaehlt(kriterium: SortierKriterium): void {
               @click="aufKriteriumGewaehlt(kriterium)"
             >
               {{ SORTIER_KRITERIUM_LABEL[kriterium] }}
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <div class="sortier-sheet__gruppe">
+        <p class="sortier-sheet__gruppentitel">
+          Gesamtnote
+        </p>
+        <ul class="sortier-sheet__liste">
+          <li>
+            <button
+              type="button"
+              class="sortier-sheet__eintrag sortier-sheet__eintrag--mit-chevron"
+              aria-haspopup="dialog"
+              @click="aufGewichtungGewaehlt"
+            >
+              <span>Gewichtung: {{ gewichtungName }}</span>
+              <IconChevron
+                :size="20"
+                class="sortier-sheet__chevron"
+              />
             </button>
           </li>
         </ul>
@@ -431,6 +465,19 @@ function aufKriteriumGewaehlt(kriterium: SortierKriterium): void {
 
 .sortier-sheet__eintrag:hover {
   background-color: var(--surface-muted);
+}
+
+.sortier-sheet__eintrag--mit-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+/* Basisrichtung des Chevron ist abwärts — „weiter" zeigt nach rechts. */
+.sortier-sheet__chevron {
+  color: var(--text-muted);
+  transform: rotate(-90deg);
 }
 
 .sortier-sheet__eintrag--aktiv {

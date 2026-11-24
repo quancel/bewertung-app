@@ -365,6 +365,14 @@ const ANSICHTEN = [
   // Überlauf und Button-Umbruch wie jede Ansicht. Die harten Zusicherungen
   // (Blättern, Wischen, Esc, Zurück) stehen in `pruefeBildvorschau`.
   { name: 'bildvorschau', pfad: '/orte', vorbereiten: oeffneBildvorschau },
+  // PO-2026-11-24-001 (ADR-0037): die drei Einstiege der Gewichtung, je mit
+  // dem LÄNGSTEN Szenarionamen („Fokus Preis-Leistung"), damit Umbruch und
+  // Überlauf bei 320px greifen. `aufraeumen` setzt die persistierte Wahl
+  // danach auf Ausgewogen zurück (sie bliebe sonst für den Rest des Laufs
+  // aktiv und verschöbe Noten/Zonen späterer Ansichten).
+  { name: 'ortsliste-gewichtung-hinweis', pfad: '/orte', vorbereiten: zeigeGewichtungHinweis, aufraeumen: setzeGewichtungZurueck },
+  { name: 'ortsdetail-gewichtung', pfad: '/orte', vorbereiten: zeigeGewichtungImDetail, aufraeumen: setzeGewichtungZurueck },
+  { name: 'gewichtung-sheet', pfad: '/orte', vorbereiten: oeffneGewichtungSheet, aufraeumen: setzeGewichtungZurueck },
 ]
 
 /** Photon-Endpunkt, NUR zum Abfangen (Request-Interception) — es wird
@@ -762,6 +770,72 @@ async function oeffneBildvorschau(seite) {
   await seite.locator('.bildkachel__oeffnen').first().click()
   await seite.getByRole('dialog', { name: 'Bildvorschau' }).waitFor({ state: 'visible' })
   await seite.waitForTimeout(400)
+}
+
+/**
+ * PO-2026-11-24-001: wählt ein Gewichtungs-Szenario über Einstieg 1 (Zeile
+ * „Gewichtung: {Name}" im Sortier-Sheet). Treiberaktion — die Messgröße
+ * (Noten, Reihenfolge, Zonen) wird erst danach gelesen. Setzt eine sichtbare
+ * Werkzeugleiste voraus (Bestand nicht leer, Liste sichtbar).
+ */
+async function waehleGewichtungUeberSortierSheet(seite, name) {
+  await seite.locator('.werkzeugleiste__chip').click()
+  await seite.waitForTimeout(200)
+  await seite.locator('.sortier-sheet__eintrag', { hasText: 'Gewichtung:' }).click()
+  const dialog = seite.getByRole('dialog', { name: 'Gewichtung der Gesamtnote' })
+  await dialog.waitFor({ state: 'visible' })
+  await seite.waitForTimeout(300)
+  await dialog.locator('.gewichtung-sheet__name', { hasText: name }).click()
+  // Feste Szenarien schließen das Sheet (240ms Übergang).
+  await dialog.waitFor({ state: 'detached', timeout: 5000 })
+  await seite.waitForTimeout(300)
+}
+
+/** Stellt sicher, dass es mindestens einen Ort gibt (Werkzeugleiste sichtbar). */
+async function stelleOrtSicher(seite) {
+  if ((await seite.locator('.werkzeugleiste').count()) > 0) return
+  await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Gewichtung-Basis')
+  await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+  await seite.waitForTimeout(300)
+}
+
+async function zeigeGewichtungHinweis(seite) {
+  await stelleOrtSicher(seite)
+  await waehleGewichtungUeberSortierSheet(seite, 'Fokus Preis-Leistung')
+}
+
+async function zeigeGewichtungImDetail(seite) {
+  await legeOrtAnUndOeffneIhn(seite, 'Rauchtest-Gewichtung-Detail')
+  await seite.locator('.ortsdetail__gewichtung-knopf').click()
+  const dialog = seite.getByRole('dialog', { name: 'Gewichtung der Gesamtnote' })
+  await dialog.waitFor({ state: 'visible' })
+  await seite.waitForTimeout(300)
+  await dialog.locator('.gewichtung-sheet__name', { hasText: 'Fokus Preis-Leistung' }).click()
+  await dialog.waitFor({ state: 'detached', timeout: 5000 })
+  // Treiberaktion und Messgröße getrennt: Playwrights Klick auf den Button
+  // scrollt das Fenster selbst — Elemente, die dadurch hinter die feste
+  // Kopfzeile des Details rutschen, wären ein Fehlbefund der
+  // Verdeckungsprüfung (keine echte Verdeckung). Gemessen wird deshalb in
+  // der Ausgangslage der übrigen Ansichten: ganz oben.
+  await seite.evaluate(() => window.scrollTo(0, 0))
+  await seite.waitForTimeout(300)
+}
+
+async function oeffneGewichtungSheet(seite) {
+  await stelleOrtSicher(seite)
+  await waehleGewichtungUeberSortierSheet(seite, 'Fokus Geschmack')
+  // Einstieg 3: die Hinweiszeile über der Liste.
+  await seite.locator('.gewichtung-hinweis').getByRole('button', { name: 'Ändern' }).click()
+  await seite.getByRole('dialog', { name: 'Gewichtung der Gesamtnote' }).waitFor({ state: 'visible' })
+  await seite.waitForTimeout(400)
+}
+
+/** Setzt die persistierte Gewichtung auf Ausgewogen zurück (code-conventions.md
+ *  „Ansichten teilen Einstellungen"). */
+async function setzeGewichtungZurueck(seite) {
+  await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+  await seite.waitForTimeout(300)
+  await waehleGewichtungUeberSortierSheet(seite, 'Ausgewogen')
 }
 
 /** Zusicherung 4: Was über CSS geladen wird, ist aufgelöst. Ein `.icon`
@@ -1883,6 +1957,169 @@ async function pruefeBildvorschau(browser, breite, befunde) {
 /** Öffnet jede Ansicht bei einer Breite und prüft die Zusicherungen 1-5
  *  (Zusicherung 2 — Laufzeitfehler — hängt an Listenern auf `seite`, die
  *  der Aufrufer vor dem Aufruf registriert). */
+/**
+ * PO-2026-11-24-001 (ADR-0037), harte Zusicherung — nur bei 1280px, eigener
+ * Bestand auf frischer Seite: Die Wahl eines Gewichtungs-Szenarios wirkt
+ * SOFORT (ohne Neuladen) und nach einem Neuladen auf Liste, Detail,
+ * Sortierung nach Gesamtnote (inkl. Gruppen) und Zonenfarbe — überall
+ * derselbe Wert je Ort. Eigenschaften, nicht Stellen:
+ *
+ *   - Prüfbeispiel: Fokus Geschmack, Geschmack 10, Ambiente 6, Rest nicht
+ *     bewertet -> „8,7" (Ausgewogen: „8,0"); Ort B bleibt bei „8,5". Die
+ *     Reihenfolge B vor A (Ausgewogen) kippt zu A vor B (Fokus Geschmack) —
+ *     das ist die VORBEDINGUNG, dass „die Sortierung folgt" nicht schon an
+ *     einer unveränderten Reihenfolge scheitert oder zufällig stimmt.
+ *   - Zone und angezeigter Wert gehören zusammen: jede Zeile mit angezeigtem
+ *     Wert >= 8,0 trägt eine Zone, keine mit < 8,0 (Kriterium „nie ein
+ *     angezeigter Wert >= 8,0 ohne Zone"), und A trägt bei „8,7" die Zone
+ *     8,5 (`--color-zone-8-5`), bei „8,0" die Zone 8.
+ *   - Das Detail zeigt dieselbe Zahl wie die Zeile und nennt im Text-Button
+ *     das aktive Szenario; die Hinweiszeile steht nur bei Abweichung.
+ *   - Der Hervorhebungs-Schatten (Geschmack >= 9 an A) bleibt unberührt.
+ *   - Alle drei Einstiege öffnen dasselbe Sheet, die aktive Zeile trägt
+ *     `aria-pressed="true"`.
+ * Ein Wechsel zurück auf Ausgewogen stellt die alte Ausgabe wieder her.
+ */
+async function pruefeGewichtungWirktUeberallUndUeberstehtNeuladen(browser, befunde) {
+  const seite = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+  const lese = () =>
+    seite.evaluate(() =>
+      [...document.querySelectorAll('.ortszeile')]
+        .map((zeile) => ({
+          name: zeile.querySelector('.ortszeile__bezeichnung')?.textContent?.trim() ?? '',
+          wert: zeile.querySelector('.ortszeile__gesamtnote-wert')?.textContent?.trim() ?? null,
+          zone: zeile.querySelector('.ortszeile__gesamtnote')?.classList.contains('ortszeile__gesamtnote--zone') ?? false,
+          stil: zeile.querySelector('.ortszeile__gesamtnote')?.getAttribute('style') ?? '',
+          schwach: zeile.classList.contains('ortszeile--hervorhebung-schwach'),
+        }))
+        .filter((zeile) => zeile.name.startsWith('Gewicht-')),
+    )
+  const pruefe = async (label, erwartet) => {
+    const zeilen = await lese()
+    const namen = zeilen.map((zeile) => zeile.name)
+    if (namen.join(',') !== erwartet.reihenfolge.join(',')) {
+      befunde.push(`gewichtung-${label}: Reihenfolge ${namen.join(', ')} statt ${erwartet.reihenfolge.join(', ')}`)
+    }
+    for (const [name, wert] of Object.entries(erwartet.werte)) {
+      const zeile = zeilen.find((eintrag) => eintrag.name === name)
+      if (!zeile || zeile.wert !== wert) {
+        befunde.push(`gewichtung-${label}: ${name} zeigt "${zeile?.wert}" statt "${wert}"`)
+      }
+    }
+    for (const zeile of zeilen) {
+      if (zeile.wert === null) continue
+      const angezeigt = Number(zeile.wert.replace(',', '.'))
+      if (angezeigt >= 8 && !zeile.zone) befunde.push(`gewichtung-${label}: ${zeile.name} zeigt "${zeile.wert}" ohne Zone`)
+      if (angezeigt < 8 && zeile.zone) befunde.push(`gewichtung-${label}: ${zeile.name} zeigt "${zeile.wert}" mit Zone`)
+    }
+    const a = zeilen.find((eintrag) => eintrag.name === 'Gewicht-A')
+    if (!a || !a.stil.includes(erwartet.zonenTokenA)) {
+      befunde.push(`gewichtung-${label}: Gewicht-A trägt nicht die Zone ${erwartet.zonenTokenA} (Stil "${a?.stil}")`)
+    }
+    if (!a?.schwach) befunde.push(`gewichtung-${label}: der Hervorhebungs-Schatten (Geschmack 10) von Gewicht-A fehlt`)
+    const hinweis = await seite.locator('.gewichtung-hinweis').count()
+    if (erwartet.hinweis === null && hinweis !== 0) befunde.push(`gewichtung-${label}: Hinweiszeile sichtbar, obwohl Ausgewogen`)
+    if (erwartet.hinweis !== null) {
+      const text = hinweis > 0 ? await seite.locator('.gewichtung-hinweis').innerText() : ''
+      if (!text.includes(erwartet.hinweis)) befunde.push(`gewichtung-${label}: Hinweiszeile "${text}" nennt nicht „${erwartet.hinweis}"`)
+    }
+    // Detail: dieselbe Zahl wie die Zeile, Text-Button nennt das Szenario.
+    await seite.locator('.ortszeile', { hasText: 'Gewicht-A' }).click()
+    await seite.waitForTimeout(300)
+    const detailWert = (await seite.locator('.ortsdetail__gesamtnote-wert').innerText()).trim()
+    if (detailWert !== erwartet.werte['Gewicht-A']) {
+      befunde.push(`gewichtung-${label}: Detail zeigt "${detailWert}", die Zeile "${erwartet.werte['Gewicht-A']}"`)
+    }
+    const knopf = (await seite.locator('.ortsdetail__gewichtung-knopf').innerText()).trim()
+    if (knopf !== `Gewichtung: ${erwartet.name}`) {
+      befunde.push(`gewichtung-${label}: Detail-Button "${knopf}" statt "Gewichtung: ${erwartet.name}"`)
+    }
+  }
+  const sortiereNachGesamtnote = async () => {
+    await seite.locator('.werkzeugleiste__chip').click()
+    await seite.waitForTimeout(200)
+    await seite.locator('.sortier-sheet__eintrag', { hasText: 'Gesamtnote' }).click()
+    await seite.waitForTimeout(300)
+  }
+  const AUSGEWOGEN = {
+    name: 'Ausgewogen',
+    hinweis: null,
+    reihenfolge: ['Gewicht-B', 'Gewicht-A', 'Gewicht-D', 'Gewicht-C'],
+    werte: { 'Gewicht-B': '8,5', 'Gewicht-A': '8,0', 'Gewicht-D': '7,0' },
+    zonenTokenA: '--color-zone-8)',
+  }
+  const FOKUS_GESCHMACK = {
+    name: 'Fokus Geschmack',
+    hinweis: 'Fokus Geschmack',
+    reihenfolge: ['Gewicht-A', 'Gewicht-B', 'Gewicht-D', 'Gewicht-C'],
+    werte: { 'Gewicht-A': '8,7', 'Gewicht-B': '8,5', 'Gewicht-D': '7,0' },
+    zonenTokenA: '--color-zone-8-5',
+  }
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    const bestand = [
+      { bezeichnung: 'Gewicht-A', achsen: { 0: 6, 2: 10 } },
+      { bezeichnung: 'Gewicht-B', achsen: { 0: 9, 1: 8 } },
+      { bezeichnung: 'Gewicht-C', achsen: {} },
+      { bezeichnung: 'Gewicht-D', achsen: { 1: 7 } },
+    ]
+    for (const ort of bestand) {
+      await legeOrtAnUndOeffneIhn(seite, ort.bezeichnung)
+      for (const [index, wert] of Object.entries(ort.achsen)) {
+        await seite.locator('.bewertungsachse').nth(Number(index)).locator('input[type="number"]').fill(String(wert))
+        await seite.keyboard.press('Tab')
+        await seite.waitForTimeout(100)
+      }
+      await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+      await seite.waitForTimeout(200)
+    }
+    await sortiereNachGesamtnote()
+
+    // Vorbedingung: Ausgewogen = B vor A.
+    await pruefe('ausgewogen', AUSGEWOGEN)
+
+    // Sofort, ohne Neuladen (Einstieg 1).
+    await waehleGewichtungUeberSortierSheet(seite, 'Fokus Geschmack')
+    await pruefe('sofort', FOKUS_GESCHMACK)
+
+    // Übersteht Neuladen.
+    await seite.reload({ waitUntil: 'networkidle' })
+    await seite.waitForTimeout(400)
+    await pruefe('nach-neuladen', FOKUS_GESCHMACK)
+
+    // Einstieg 2 (Text-Button im Detail): offenes Sheet, aktive Zeile per aria-pressed.
+    await seite.locator('.ortsdetail__gewichtung-knopf').click()
+    const dialog = seite.getByRole('dialog', { name: 'Gewichtung der Gesamtnote' })
+    await dialog.waitFor({ state: 'visible' })
+    await seite.waitForTimeout(300)
+    const aktive = await dialog.locator('.gewichtung-sheet__eintrag[aria-pressed="true"]').allInnerTexts()
+    if (aktive.length !== 1 || !aktive[0].includes('Fokus Geschmack')) {
+      befunde.push(`gewichtung-einstieg-detail: aktive Zeile (aria-pressed) ist "${aktive.join(' | ')}" statt „Fokus Geschmack"`)
+    }
+    await dialog.locator('.gewichtung-sheet__name', { hasText: 'Ausgewogen' }).click()
+    await dialog.waitFor({ state: 'detached', timeout: 5000 })
+    await seite.waitForTimeout(300)
+    await seite.locator('[aria-label="Detailansicht schließen"]').click()
+    await seite.waitForTimeout(300)
+    await pruefe('zurueck-auf-ausgewogen', AUSGEWOGEN)
+
+    // Einstieg 3 (Hinweiszeile): erscheint bei Abweichung, öffnet dasselbe Sheet.
+    await waehleGewichtungUeberSortierSheet(seite, 'Fokus Zeit')
+    await seite.locator('.gewichtung-hinweis').getByRole('button', { name: 'Ändern' }).click()
+    await dialog.waitFor({ state: 'visible' })
+    await seite.waitForTimeout(300)
+    await dialog.locator('.gewichtung-sheet__name', { hasText: 'Ausgewogen' }).click()
+    await dialog.waitFor({ state: 'detached', timeout: 5000 })
+    await seite.waitForTimeout(300)
+    if ((await seite.locator('.gewichtung-hinweis').count()) !== 0) {
+      befunde.push('gewichtung-einstieg-hinweis: Hinweiszeile steht nach der Rückkehr zu Ausgewogen weiter da')
+    }
+  } catch (fehler) {
+    befunde.push(`gewichtung: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  }
+  await seite.close()
+}
+
 async function pruefeAnsichtenBeiBreite(seite, breite, befunde) {
   for (const ansicht of ANSICHTEN) {
     await seite.goto(BASIS + ansicht.pfad, { waitUntil: 'networkidle' })
@@ -1937,6 +2174,7 @@ async function pruefeAnsichtenBeiBreite(seite, breite, befunde) {
 
     await seite.screenshot({ path: `${FOTOS}/${breite.name}-${ansicht.name}.png` })
     console.log(`  ${breite.name}/${ansicht.name} — geöffnet, Bildschirmfoto in ${FOTOS}/${breite.name}-${ansicht.name}.png`)
+    if (ansicht.aufraeumen) await ansicht.aufraeumen(seite)
   }
 }
 
@@ -3385,6 +3623,10 @@ async function main() {
       await pruefeBildvorschau(browser, breite, befunde)
     }
 
+    // Zusicherung ab PO-2026-11-24-001 (ADR-0037), s. Funktionskommentar —
+    // nur bei 1280px, eigener Bestand auf frischer Seite.
+    await pruefeGewichtungWirktUeberallUndUeberstehtNeuladen(browser, befunde)
+
     // Zusicherung ab PO-2026-09-27-001 (design-conventions.md „Mehrzeilige
     // Textfelder wachsen mit dem Inhalt"), Weg (2) — nur bei 1280px (ab lg
     // gleichzeitig sichtbare Listen-Spalte, s. Funktionskommentar). Weg (1)
@@ -3485,6 +3727,10 @@ async function main() {
   console.log('Esc/„×" (Fokus auf der Kachel des zuletzt gezeigten Bildes, eigener Eintrag')
   console.log('entfernt) und per System-Zurück (Adresse bleibt das Ortsdetail); Vorwärts und')
   console.log('Neuladen öffnen nie (PO-2026-11-24-006, ADR-0036).')
+  console.log('Die Gewichtung der Gesamtnote wirkt sofort und nach dem Neuladen auf Liste, Detail,')
+  console.log('Sortierung und Zonenfarbe (überall derselbe Wert, nie „8,0" und mehr ohne Zone,')
+  console.log('Hinweiszeile nur bei Abweichung von Ausgewogen, alle drei Einstiege öffnen dasselbe')
+  console.log('Sheet) (PO-2026-11-24-001, ADR-0037).')
   console.log('Zusicherungen über engine-abhängige Darstellung sind auf WebKit ungeprüft')
   console.log('(ADR-0029) — geprüft ist ausschließlich Chromium.')
 }

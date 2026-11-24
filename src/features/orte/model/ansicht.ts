@@ -142,3 +142,91 @@ export function istGueltigeTagfilterEinstellung(wert: unknown): wert is OrteTagf
   const kandidat = wert as Record<string, unknown>
   return GUELTIGE_TAGVERKNUEPFUNGEN.includes(kandidat.verknuepfung as TagVerknuepfung)
 }
+
+/**
+ * Gewichtung der Gesamtnote (PO-2026-11-24-001, ADR-0037): Anzeigeeinstellung
+ * von `orte` unter dem Schlüssel `orte.gewichtung`, Gerätezustand ohne
+ * Bestandsfeld. Fünf feste Szenarien; PO-2026-11-24-002 ergänzt additiv
+ * `'eigene'` samt `eigeneGewichte` (ADR-0037 Punkt 2) — deshalb ein Objekt
+ * statt eines rohen Strings. Importiert nichts: `Gewichte` ist strukturell
+ * kompatibel zu `AchsenGewichte` aus `shared/lib/gesamtnote.ts`.
+ */
+export type GewichtungsSzenario =
+  | 'ausgewogen'
+  | 'fokus-geschmack'
+  | 'fokus-ambiente'
+  | 'fokus-preis-leistung'
+  | 'fokus-zeit'
+
+export interface OrteGewichtung {
+  szenario: GewichtungsSzenario
+}
+
+export interface Gewichte {
+  ambiente: number
+  zeit: number
+  geschmack: number
+  preisLeistung: number
+}
+
+export interface GewichtungsSzenarioEintrag {
+  schluessel: GewichtungsSzenario
+  /** Name wörtlich wie im Sheet, in der Hinweiszeile und im Erklärsatz. */
+  name: string
+  sekundaerzeile: string
+  gewichte: Gewichte
+}
+
+/** EINZIGE Quelle für Name, Sekundärzeile und Gewichte (Reihenfolge = Reihenfolge im Sheet). */
+export const GEWICHTUNG_SZENARIEN: readonly GewichtungsSzenarioEintrag[] = [
+  {
+    schluessel: 'ausgewogen',
+    name: 'Ausgewogen',
+    sekundaerzeile: 'Alle Achsen zählen gleich',
+    gewichte: { ambiente: 1, zeit: 1, geschmack: 1, preisLeistung: 1 },
+  },
+  {
+    schluessel: 'fokus-geschmack',
+    name: 'Fokus Geschmack',
+    sekundaerzeile: 'Geschmack zählt doppelt',
+    gewichte: { ambiente: 1, zeit: 1, geschmack: 2, preisLeistung: 1 },
+  },
+  {
+    schluessel: 'fokus-ambiente',
+    name: 'Fokus Ambiente',
+    sekundaerzeile: 'Ambiente zählt doppelt',
+    gewichte: { ambiente: 2, zeit: 1, geschmack: 1, preisLeistung: 1 },
+  },
+  {
+    schluessel: 'fokus-preis-leistung',
+    name: 'Fokus Preis-Leistung',
+    sekundaerzeile: 'Preis-Leistung zählt doppelt',
+    gewichte: { ambiente: 1, zeit: 1, geschmack: 1, preisLeistung: 2 },
+  },
+  {
+    schluessel: 'fokus-zeit',
+    name: 'Fokus Zeit',
+    sekundaerzeile: 'Zeit zählt doppelt',
+    gewichte: { ambiente: 1, zeit: 2, geschmack: 1, preisLeistung: 1 },
+  },
+]
+
+/** Voreinstellung (Acceptance: Ein Gerät ohne gespeicherte Wahl zeigt nach
+ * dem Update keine veränderte Note). */
+export const ORTE_GEWICHTUNG_VOREINSTELLUNG: OrteGewichtung = { szenario: 'ausgewogen' }
+
+/** Eintrag zum Szenario; ein unbekannter Schlüssel liefert Ausgewogen. */
+export function findeGewichtungsSzenario(schluessel: GewichtungsSzenario): GewichtungsSzenarioEintrag {
+  return GEWICHTUNG_SZENARIEN.find((eintrag) => eintrag.schluessel === schluessel) ?? GEWICHTUNG_SZENARIEN[0]!
+}
+
+/**
+ * Prüffunktion (ADR-0006 Punkt 3/4, ADR-0037 Punkt 2): Ein fehlender,
+ * unbekannter oder ungültiger gespeicherter Wert führt still zur
+ * Voreinstellung Ausgewogen.
+ */
+export function istGueltigeOrteGewichtung(wert: unknown): wert is OrteGewichtung {
+  if (typeof wert !== 'object' || wert === null) return false
+  const szenario = (wert as Record<string, unknown>).szenario
+  return GEWICHTUNG_SZENARIEN.some((eintrag) => eintrag.schluessel === szenario)
+}

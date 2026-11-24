@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { istGueltigeOrteSortierung, istGueltigeTagfilterEinstellung } from './ansicht'
+import {
+  findeGewichtungsSzenario,
+  GEWICHTUNG_SZENARIEN,
+  istGueltigeOrteGewichtung,
+  istGueltigeOrteSortierung,
+  istGueltigeTagfilterEinstellung,
+} from './ansicht'
 
 describe('istGueltigeOrteSortierung', () => {
   it('akzeptiert jedes gültige Allgemein-Kriterium mit beiden Richtungen', () => {
@@ -83,5 +89,37 @@ describe('istGueltigeTagfilterEinstellung', () => {
 
   it('lehnt eine kaputte Wertform ab — Zeichenkette statt Objekt', () => {
     expect(istGueltigeTagfilterEinstellung('und')).toBe(false)
+  })
+})
+
+describe('Gewichtung der Gesamtnote (PO-2026-11-24-001)', () => {
+  it('kennt genau fünf feste Szenarien mit 1:1:1:1 bzw. 2:1:1:1 zugunsten der Fokus-Achse', () => {
+    expect(GEWICHTUNG_SZENARIEN.map((eintrag) => eintrag.schluessel)).toEqual([
+      'ausgewogen',
+      'fokus-geschmack',
+      'fokus-ambiente',
+      'fokus-preis-leistung',
+      'fokus-zeit',
+    ])
+    expect(findeGewichtungsSzenario('ausgewogen').gewichte).toEqual({ ambiente: 1, zeit: 1, geschmack: 1, preisLeistung: 1 })
+    expect(findeGewichtungsSzenario('fokus-geschmack').gewichte).toEqual({ ambiente: 1, zeit: 1, geschmack: 2, preisLeistung: 1 })
+    expect(findeGewichtungsSzenario('fokus-ambiente').gewichte).toEqual({ ambiente: 2, zeit: 1, geschmack: 1, preisLeistung: 1 })
+    expect(findeGewichtungsSzenario('fokus-preis-leistung').gewichte).toEqual({ ambiente: 1, zeit: 1, geschmack: 1, preisLeistung: 2 })
+    expect(findeGewichtungsSzenario('fokus-zeit').gewichte).toEqual({ ambiente: 1, zeit: 2, geschmack: 1, preisLeistung: 1 })
+  })
+
+  it('akzeptiert jedes feste Szenario als Objekt { szenario }', () => {
+    for (const eintrag of GEWICHTUNG_SZENARIEN) {
+      expect(istGueltigeOrteGewichtung({ szenario: eintrag.schluessel })).toBe(true)
+    }
+  })
+
+  it('lehnt fehlende, unbekannte und falsch geformte Werte ab (Rückfall auf Ausgewogen)', () => {
+    expect(istGueltigeOrteGewichtung(undefined)).toBe(false)
+    expect(istGueltigeOrteGewichtung(null)).toBe(false)
+    expect(istGueltigeOrteGewichtung('ausgewogen')).toBe(false)
+    expect(istGueltigeOrteGewichtung({})).toBe(false)
+    expect(istGueltigeOrteGewichtung({ szenario: 'gibt-es-nicht' })).toBe(false)
+    expect(istGueltigeOrteGewichtung({ szenario: 5 })).toBe(false)
   })
 })
