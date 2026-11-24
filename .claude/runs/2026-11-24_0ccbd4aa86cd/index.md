@@ -15,3 +15,7 @@ den JSON-Dateien daneben.
 | 2026-11-24T08:19:56Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (<agent-message from="a37217406f6a3aca5">) |
 | 2026-11-24T11:20:06Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (Jo fang an.) |
 | 2026-11-24T11:22:16Z | 004 | `product-owner` | — | — | — | `004-product-owner.json` |
+| 2026-11-24T11:22:36Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (<agent-message from="a168ed2503e2a8aec">) |
+| 2026-11-24T11:22:50Z | 005 | `design-concept` | — | — | — | `005-design-concept.json` |
+| 2026-11-24T11:22:50Z | 006 | `ux-ui-designer` | — | — | — | `006-ux-ui-designer.json` |
+| 2026-11-24T11:22:50Z | 007 | `architekt` | — | — | — | `007-architekt.json` |
