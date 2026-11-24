@@ -15,8 +15,10 @@
 
 - **Herkunft**: `neu entworfen (bestätigt am 2026-09-07)`; Ausnahme
   „Ortsliste" vom Nutzer entschieden am 2026-09-27 (PO-2026-09-27-003),
-  am selben Tag präzisiert: Schatten unabhängig von der Zone
-- **Zuletzt überarbeitet**: 2026-09-27
+  am selben Tag präzisiert: Schatten unabhängig von der Zone; zwei
+  Auslegungen (Plakette/Balken, Hairline-Layer) vom Nutzer bestätigt am
+  2026-11-24 (PO-2026-11-24-007)
+- **Zuletzt überarbeitet**: 2026-11-24
 - **Quellen**: keine — Repo war zum Zeitpunkt des Entwurfs ohne Anwendungscode
   (kein Token-File, keine Theme-Config, kein Stylesheet). Alles hier ist
   **Setzung**, nicht Bestandsaufnahme.
@@ -125,10 +127,12 @@ Punkte"): Konzept **nur für die Ortsliste** gezielt geöffnet. Benannte
 Ausnahme, kein neues Prinzip.
 
 - **Geltungsbereich**: ausschließlich die Zeilen der Ortsliste (volle Breite
-  mobil, Listen-Spalte ab `lg`). **Nicht**: Ortsdetail (Gesamtnote,
-  Bewertungsachsen, deren Intensitätsbalken), Kartenansicht (Marker,
-  Trefferzahl), Sheets, andere Listen. Der geteilte Intensitätsbalken bleibt
-  außerhalb der Ortsliste eine Tonleiter eines Tons. Jede Ausweitung ist eine
+  mobil, Listen-Spalte ab `lg`) und deren Legende, die sie erklärt.
+  **Nicht**: Ortsdetail (Gesamtnote, Bewertungsachsen, deren
+  Intensitätsbalken), Kartenansicht (Marker, Trefferzahl), Sortier-Sheet und
+  alle anderen Sheets, andere Listen. Der geteilte Intensitätsbalken bleibt
+  außerhalb der Ortsliste eine Tonleiter eines Tons; in der Ortsliste darf
+  seine Füllung bei einer Zone flach in der Zonenfarbe stehen. Jede Ausweitung ist eine
   neue Konzeptänderung, keine Auslegung.
 - **Zwei unabhängige Mechanismen**: Zonenfarbe (nach Gesamtnote/sortierter
   Achse) und Hervorhebungs-Schatten (nach Einzelwerten von Geschmack bzw.
@@ -155,6 +159,10 @@ Ausnahme, kein neues Prinzip.
   - **Kontrast** gegen `neutral-0` und die Hover-Fläche `neutral-50`: als
     Text oder Text auf Zonenfläche 4.5:1; trägt die Farbe als Punkt, Balken
     oder Rahmen die Zone, 3:1. Eine reine Flächentönung ist nur Zusatzsignal.
+    **Auslegung (bestätigt 2026-11-24)**: Eine Zahl auf gefüllter
+    Zonenfläche (Plakette: helle Zahl auf Zonenfarbe, Zahl gegen Fläche
+    ≥ 4.5:1, Fläche gegen Umgebung ≥ 3:1) ist „Text auf Zonenfläche", kein
+    Flächentönungs-Zusatzsignal — zulässig in Zeilen und Legende.
   - **Nie alleiniger Bedeutungsträger**: Die Zahl bleibt sichtbar. Keine
     Worte, Badges oder Ränge dazu — „keine Bewertungs-Rhetorik" gilt weiter.
 - **Hervorhebungs-Schatten** — zwei Stufen (schwach/stark), eigenständige
@@ -169,6 +177,12 @@ Ausnahme, kein neues Prinzip.
     nur im Farbton. Schattenfarbe `neutral-900` mit geringer Deckkraft —
     nicht der Zonenton (Schatten tritt auch ohne Zone auf), nie Warn-,
     Fehler- oder Akzentfarbe. Radius folgt der Zeile (12px).
+  - **Auslegung (bestätigt 2026-11-24)**: Je Stufe ist ein
+    1px-Hairline-Layer (Spread, `neutral-900` mit 10 % schwach / 16 % stark)
+    plus ein Schattenlayer zulässig. Die Hairline ist Teil der
+    Hervorhebung, kein Rahmen im Sinne von „Karten sind flach" und keine
+    Elevation; der Schattenlayer bleibt deutlich schwächer als der des
+    Sheets. Werte: design-conventions.md.
   - Der Schatten ist nicht alleiniger Bedeutungsträger: Welche Achse ≥ 9
     liegt, muss auch ohne Sehen ankommen; wie, legt das Paket fest (keine
     sichtbaren Badges/Ränge).

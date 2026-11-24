@@ -19,3 +19,4 @@ den JSON-Dateien daneben.
 | 2026-11-24T11:22:50Z | 005 | `design-concept` | — | — | — | `005-design-concept.json` |
 | 2026-11-24T11:22:50Z | 006 | `ux-ui-designer` | — | — | — | `006-ux-ui-designer.json` |
 | 2026-11-24T11:22:50Z | 007 | `architekt` | — | — | — | `007-architekt.json` |
+| 2026-11-24T11:23:06Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (<agent-message from="abe181d62e35da1ce">) |

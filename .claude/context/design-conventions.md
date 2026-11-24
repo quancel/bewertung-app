@@ -265,8 +265,9 @@ Design-Schleife) ergänzt vier Abschnitte: „Gewichtung der Gesamtnote",
 (Plakette statt Text+Rand), die Schattenwerte und die Legende
 (beschrifteter Auslöser statt Icon-only), weil der Nutzer die Zonen als
 schwer erkennbar und die Legende als nicht vorhanden meldete (PO-2026-11-24-007).
-Der Plakette-Eintrag ist bis zur Konzeptauslegung (design_open_questions)
-**vorläufig**.
+Plakette, Hairline-Schatten, „Sortierpunkte" = Wert-Slot und „Bearbeiten" als
+Sekundär-Button im Quick-Look sind vom Nutzer bestätigt; der Karten-Ausschnitt
+wird nach Filteränderung wiederhergestellt (Einpassen nur ohne sichtbaren Marker).
 
 - **Zuletzt kuratiert**: 2026-11-24
 
@@ -944,8 +945,7 @@ nicht für Ortsdetail, Kartenansicht, Sheets oder andere Listen.
 - **Visueller Träger: Zonen-Plakette um die Zahl** (PO-2026-11-24-007,
   ersetzt „Zahltext + 2px-Rand", der nach Nutzerbefund zu schwach war; Zone 8
   `#29707A` lag farblich zu nah an der Zahl ohne Zone `--color-primary-700`).
-  **Vorläufig**, bis die Konzeptauslegung „Text auf Zonenfläche" bestätigt ist
-  (Fallback unten). Die Zahl des Wert-Slots (`.ortszeile__gesamtnote-wert`
+  Vom Nutzer bestätigt, ebenso der 1px-Hairline im Hervorhebungs-Schatten. Die Zahl des Wert-Slots (`.ortszeile__gesamtnote-wert`
   bzw. `.intensitaetsbalken__zahl` bei Sortierung nach Einzelachse) steht bei
   einer Zone auf einer Plakette: Fläche = Zonenfarbe, Zahl `--color-neutral-0`,
   Gewicht 600, `tabular-nums`, Radius `--radius-8`. Kontrast Zahl auf Fläche
@@ -971,16 +971,13 @@ nicht für Ortsdetail, Kartenansicht, Sheets oder andere Listen.
     `-zahl-flaeche`, `-zahl-padding`, `-zahl-radius`, `-zahl-gewicht`,
     `-fuellung`); Default unverändert überall außer in der Ortsliste. Ob
     Hooks oder Prop, entscheidet der `architekt`.
-  - **Fallback, falls „Text auf Zonenfläche" als Flächentönung gelesen
-    wird** (design_open_questions): Zahl in Zonenfarbe + 10px-Punkt vor der
-    Zahl in Zonenfarbe + Balkenfüllung in Zonenfarbe; Rand entfällt nicht.
   - Zonenzuordnung folgt den Grenzen der Tabelle oben, angewendet auf den
     jeweils angezeigten Wert (Gesamtnote — nach Gewichtung, siehe „Gewichtung
     der Gesamtnote" — oder sortierte Achse). Werte < 8, die Gruppe „ohne
     Wert" und fehlende Bewertungen bekommen weder Plakette noch Zonenfüllung.
   - **Nicht angefasst, bewusst**: Sortier-Sheet, Karte, Ortsdetail und jedes
     andere Sheet bleiben ohne Zonenfarbe (Konzept „Ausnahme Ortsliste").
-    „Sortierpunkte" = Wert-Slot der Ortszeile (Annahme, Nutzer offen).
+    „Sortierpunkte" = Wert-Slot der Ortszeile (vom Nutzer bestätigt).
 
 - **Hervorhebungs-Schatten, zwei Stufen, feste Achsenzuordnung** (Reihen-
   folge nach `ACHSEN_KRITERIEN`: Geschmack steht vor Preis-Leistung):
@@ -1468,7 +1465,9 @@ Fokus Geschmack, Fokus Ambiente, Fokus Preis-Leistung, Fokus Zeit, Eigene.
   Animation (kein Hinweis, kein Übergang); der Ausschnitt wird beim Aufbau der
   Karte als Startansicht gesetzt (kein sichtbares Einpassen mit anschließendem
   Sprung). Fokusrückgabe auf den Marker ohne Verschieben (`preventScroll`).
-  Neu einpassen weiterhin bei Änderung des Tag-Filters in der Kartenansicht.
+  Nach einer Änderung des Tag-Filters in der Kartenansicht bleibt der Ausschnitt
+  erhalten (wiederhergestellt), **außer** im Ausschnitt liegt danach kein
+  sichtbarer Marker — dann wird auf die gefilterten Marker eingepasst.
 
 ## Karte: Quick-Look-Sheet (PO-2026-11-24-005)
 
