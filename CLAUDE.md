@@ -516,11 +516,11 @@ Ansichten und eine harte Zusicherung dazu. `ortsliste-gewichtung-hinweis`,
 373–375) zeigen die drei Einstiege je mit dem **längsten** Szenarionamen
 („Fokus Preis-Leistung") und laufen so durch Verdeckung, Überlauf und
 Button-Umbruch bei allen `BREITEN`. Neu ist die optionale Ansichts-Eigenschaft
-`aufraeumen` (Zeile 2177): Die Gewichtung ist persistiert und würde sonst für
+`aufraeumen` (Zeile 2551): Die Gewichtung ist persistiert und würde sonst für
 den Rest des Laufs gelten und Noten und Zonen späterer Ansichten verschieben;
-`setzeGewichtungZurueck` (Zeile 835) stellt Ausgewogen wieder her. Die harte
+`setzeGewichtungZurueck` (Zeile 874) stellt Ausgewogen wieder her. Die harte
 Zusicherung `pruefeGewichtungWirktUeberallUndUeberstehtNeuladen` (ab Zeile
-1983, nur bei 1280px, eigener Bestand auf frischer Seite) prüft Eigenschaften:
+2034, nur bei 1280px, eigener Bestand auf frischer Seite) prüft Eigenschaften:
 Das Prüfbeispiel (Fokus Geschmack, Geschmack 10, Ambiente 6 → „8,7", bei
 Ausgewogen „8,0") zeigt Zeile **und** Detail **sofort** und nach einem
 Neuladen; die Reihenfolge nach Gesamtnote kippt von B-vor-A zu A-vor-B (das
@@ -536,12 +536,12 @@ ein dabei hinter die feste Kopfzeile des Details gerutschtes Element ist ein
 Fehlbefund der Verdeckungsprüfung (zuerst gemessen: `#ortsdetail-adresse` und
 der Button „verdeckt von div.ortsdetail__kopf", auch bei 1280px, sobald
 stattdessen mittig gescrollt wurde). Die Grenze `159/20 = 7,95` (Anzeige
-„8,0", Zone nur über `zehntel` richtig) ist im Rauchtest **nicht**
-beobachtbar, weil die fünf festen Szenarien nur Nenner bis 5 erzeugen und
-dort jede Rundung auf ein Zehntel exakt ist; sie wird in Vitest
-(`gesamtnote.spec.ts`, `zonen.spec.ts`) erschöpfend über 12⁴ × 5 Szenarien
-und als konstruierter Fall belegt und wird mit -002 (eigene Gewichte) im
-Rauchtest relevant. **Rot-Nachweis** (ADR-0027 Punkt 8, je eine kompilierbare
+„8,0", Zone nur über `zehntel` richtig) war mit den festen Szenarien im
+Rauchtest **nicht** beobachtbar (sie erzeugen nur Nenner bis 5, dort ist jede
+Rundung auf ein Zehntel exakt); sie wird in Vitest (`gesamtnote.spec.ts`,
+`zonen.spec.ts`) erschöpfend über 12⁴ × 5 Szenarien und als konstruierter Fall
+belegt und ist seit PO-2026-11-24-002 (eigene Gewichte) auch im Rauchtest
+beobachtbar, siehe unten. **Rot-Nachweis** (ADR-0027 Punkt 8, je eine kompilierbare
 Mutation, danach Quelle zurückgesetzt, `npm run smoke` Exit 1): `gewichte`
 im Store ignoriert das Szenario → „Reihenfolge … statt …", „zeigt 8,0 statt
 8,7", falsche Zone, Detail ≠ Zeile (sofort und nach Neuladen); gespeicherte
@@ -597,3 +597,74 @@ als Eigenschaft benannt, nicht als Funktions-/Klassenliste.
 Neue Ansicht gebaut? In `ANSICHTEN` eintragen. Neue Breite oder neuer
 netzabhängiger Zustand? In `BREITEN` bzw. `ORTSSUCHE_ZUSTAENDE` (alle oben in
 `scripts/smoke.mjs`) — sonst prüft sie niemand.
+
+Ab PO-2026-11-24-002 (ADR-0037, eigene Gewichte mit vier Reglern) kommen eine
+Ansicht, zwei harte Zusicherungen und eine Erweiterung einer bestehenden
+dazu. Die Ansicht `gewichtung-eigene` (`scripts/smoke.mjs` Zeile 381) zeigt das
+Sheet mit offenem Block „Eigene" im **widersprüchlichsten** Zustand: Eine Achse
+„zählt nicht", die letzte trägt „100 % · muss zählen", und die Statuszeile
+steht nach einem abgefangenen Versuch — bei allen `BREITEN` durch Verdeckung,
+Überlauf und Button-Umbruch. `setzeGewichtungZurueck` (Zeile 874) stellt für
+**alle** Gewichtungs-Ansichten jetzt auch die **eigenen** Gewichte auf 1:1:1:1
+zurück: Sie überstehen die Wahl eines festen Szenarios (das ist Absicht,
+ADR-0037 Punkt 2) und würden sonst für die nächste „Eigene"-Vorbereitung bei
+einer anderen Breite stehen bleiben. Die Erweiterung: `pruefeReglerGreifbarkeit`
+(Zeile 2534) läuft nicht mehr über den Ansichtsnamen `ortsdetail`, sondern über
+die **benannte Bedingung** „die Ansicht enthält einen `input[type="range"]`" —
+dadurch deckt sie die Gewichtsregler im Sheet ohne weiteres Zutun mit ab, und
+jeder künftige Regler ebenso. Die Befundzeile benennt einen Regler ohne `id`
+über sein `aria-label`. Die harte Zusicherung
+`pruefeEigeneGewichteUndEndgruppen` (ab Zeile 2229, nur bei 1280px, eigener
+Browser-Kontext = frische IndexedDB, eigener Bestand mit drei Orten)
+prüft Eigenschaften: Die Erstbelegung ist 1:1:1:1 und das Sheet **bleibt bei
+„Eigene" offen**; mit Ambiente 9 / Zeit 1 / Geschmack 10 / Preis-Leistung 1
+zeigt ein Ort mit nur drei bewerteten Achsen **159/20 = 7,95 als „8,0" und
+trägt die Zone 8** (der Fall, der ADR-0037 begründet: „8,0" ohne Zonenfarbe);
+nach Gewicht 0 an Ambiente zeigt der Ort mit **nur** einer bewerteten Achse
+(Ambiente) **keine Zahl und keine Zone** und steht in einer **eigenen
+Endgruppe „ohne Gesamtnote bei dieser Gewichtung" nach „ohne Bewertung in
+Gesamtnote"** (die Vorbedingung, dass es BEIDE Gruppen gibt, steht in der
+Messgröße selbst — sonst wäre „kommt nach der anderen Gruppe" leer erfüllt);
+das Detail sagt „Keine Gesamtnote bei dieser Gewichtung" statt „Noch nicht
+bewertet", das Detail des unbewerteten Ortes weiter „Noch nicht bewertet"; die
+Gewichte (und die Endgruppe) überstehen ein Neuladen UND den Wechsel auf
+Fokus Zeit und zurück, bei Fokus Zeit entfällt die leere Gruppe; das Gate:
+„99" im Zahlenfeld wird „10", ein geleertes Feld kehrt beim Verlassen zum
+bisherigen Wert zurück, die letzte Achse über 0 bleibt bei „0" auf „1" (Zeile
+„100 % · muss zählen", Regler `min="1"`, Statuszeile `role="status"` bis zur
+nächsten Änderung, auch Pos1 am Regler bleibt bei 1, danach darf die vorher
+„letzte" Achse auf 0). Die zweite Zusicherung
+`pruefeGewichtsreglerCommitWaehrendZiehens` (ab Zeile 2420, nur bei 1280px)
+hält die Maustaste am Regler der Zeile „Zeit" gedrückt und prüft **vor** dem
+Loslassen, dass das Zahlenfeld denselben Wert zeigt, der Anteil stimmt und die
+Gesamtnote in der Liste dahinter sich geändert hat (Vorbedingung: der Regler
+hat sich tatsächlich bewegt) — aus demselben Grund wie bei der Bewertungsachse:
+ein Klick feuert `input` **und** `change`, eine klickbasierte Prüfung wäre gegen
+einen Regler, der erst auf `change` committet, grün gewesen. Zwei Bauformen
+sind Absicht: Die Zahlenfelder werden mit `fill` bedient (genau ein `input`,
+kein Enter, kein Feldwechsel — das **ist** die „eine Bedienung"), und die
+Gewichts-Zusicherung läuft auf einem **frischen** Kontext statt auf dem
+Bestand der Ansichten (Vorbild `pruefeSpaltenAbgeschlossenerScrollBereich`).
+**Rot-Nachweis** (ADR-0027 Punkt 8; je eine **kompilierbare** Mutation, danach
+Quelle zurückgesetzt, jeweils Exit 1 mit den genannten Befunden): Gate ohne
+„letzte Achse bleibt auf 1" → 12 Befunde (keine Endgruppe, „8 %" statt „zählt
+nicht", „muss zählen"/`min`/Statuszeile fehlen); Gate klemmt nicht auf 10 →
+„gate-klemmt: 99 statt 10"; Ortszeile liest die Zone am Rohwert statt an
+`zehntel` → „Eig-Ziel zeigt 8,0 ohne Zone 8"; Endgruppe in die Gruppe der
+unbewerteten gelegt → „2 Orte ohne Bewertung in Gesamtnote" statt zwei Gruppen
+(Liste und nach Neuladen); Detail zeigt „Noch nicht bewertet" statt „Keine
+Gesamtnote bei dieser Gewichtung"; Regler committet auf `change` statt
+`input` → „Zahlenfeld zeigt 1", „Anteil 25 % statt 75 %", „Gesamtnote bleibt
+5,0" (alle drei **während** des Ziehens); Wahl eines Szenarios verwirft die
+eigenen Gewichte → „1/1/1/1 statt 0/1/10/1" nach der Rückkehr; Statuszeile
+wird nie zurückgenommen → zwei Befunde; ein Thumb mit `opacity: 0` **nur im
+Sheet** → vier Befunde je Breite an `gewichtung-eigene` (und keiner an
+`ortsdetail`, d. h. die benannte Bedingung erreicht die Gewichtsregler
+wirklich). Zwei erste Mutationsversuche kompilierten nicht (ein Typfehler
+durch Narrowing, ein `noUnusedParameters`) und wurden durch andere ersetzt —
+eine Mutation, die nicht baut, beweist nichts. Auch hier: nur Chromium; die
+Thumb-/Bahn-Darstellung der **gemeinsamen Regler-Bauform** (`shared/ui/Regler.vue`,
+ADR-0029) und das Reveal des Blocks sind auf WebKit ungeprüft. Die
+Bildschirmfotos `.smoke/*-gewichtung-eigene.png` wurden je Breite angesehen
+(Sheet scrollt intern, Zeilen bei 320/390px gestapelt, bei 1280px einzeilig,
+Regler und Zahlenfeld sichtbar).

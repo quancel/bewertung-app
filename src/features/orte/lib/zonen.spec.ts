@@ -68,6 +68,29 @@ describe('Zone nach dem angezeigten Wert (ADR-0037 Punkt 5, löst ADR-0034 Punkt
     },
   )
 
+  // Eigene Gewichte (PO-2026-11-24-002): die Nenner reichen bis 40. 11^4 Gewichte
+  // x 12^4 Werte sind nicht erschöpfend rechenbar (ADR-0037 „Alternativen"); hier
+  // ein dichtes Raster beider Seiten, ohne `expect` in der Schleife.
+  it('Eigene Gewichte: nie ein angezeigter Wert >= 8,0 ohne Zone, nie eine Zone ohne angezeigte 8,0', () => {
+    const gewichtsstufen = [0, 1, 2, 3, 5, 7, 9, 10]
+    const werte: ReadonlyArray<number | null> = [null, 6, 7, 8, 9, 10]
+    let verstoesse = 0
+    let geprueft = 0
+    for (const ga of gewichtsstufen) for (const gz of gewichtsstufen) for (const gg of gewichtsstufen) for (const gp of gewichtsstufen) {
+      if (ga + gz + gg + gp === 0) continue
+      const gewichte = { ambiente: ga, zeit: gz, geschmack: gg, preisLeistung: gp }
+      for (const a of werte) for (const b of werte) for (const c of werte) for (const d of werte) {
+        const ergebnis = berechneGesamtnote(bewertungen(a, b, c, d), gewichte)
+        if (ergebnis.art !== 'wert') continue
+        geprueft += 1
+        const angezeigt = angezeigterWertInZehnteln(ergebnis.zehntel)
+        if (angezeigt >= 80 !== (bestimmeZone(ergebnis.zehntel) !== null)) verstoesse += 1
+      }
+    }
+    expect(geprueft).toBeGreaterThan(1_000_000)
+    expect(verstoesse).toBe(0)
+  })
+
   it('Grenzfall 159/20 = 7,95 zeigt „8,0" UND bekommt Zone 8 (nicht „8,0" ohne Zone)', () => {
     const gewichte = { ambiente: 9, zeit: 1, geschmack: 10, preisLeistung: 0 }
     const ergebnis = berechneGesamtnote(bewertungen(8, 7, 8, null), gewichte)

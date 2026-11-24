@@ -436,6 +436,204 @@ describe('useOrteStore', () => {
     })
   })
 
+  describe('Eigene Gewichte (PO-2026-11-24-002, ADR-0037 Punkt 2)', () => {
+    const ERST = { ambiente: 1, zeit: 1, geschmack: 1, preisLeistung: 1 }
+
+    function ortMit(id: string, werte: Partial<Record<'ambiente' | 'zeit' | 'geschmack' | 'preisLeistung', number>>) {
+      return {
+        id,
+        bezeichnung: `Ort ${id}`,
+        adresse: null,
+        breite: null,
+        laenge: null,
+        anfangsnotiz: null,
+        tags: [],
+        geaendertAm: '2026-09-08T10:00:00.000Z',
+        bewertungen: {
+          ambiente: { wert: werte.ambiente ?? null, kommentar: null },
+          zeit: { wert: werte.zeit ?? null, kommentar: null },
+          geschmack: { wert: werte.geschmack ?? null, kommentar: null },
+          preisLeistung: { wert: werte.preisLeistung ?? null, kommentar: null },
+        },
+      }
+    }
+
+    it('„Eigene" beginnt mit 1:1:1:1, ohne dass etwas Eigenes gespeichert ist', () => {
+      const store = useOrteStore()
+
+      store.setzeGewichtungsSzenario('eigene')
+
+      expect(store.eigeneGewichte).toEqual(ERST)
+      expect(store.gewichte).toEqual(ERST)
+      expect(schreibeEinstellungMock).toHaveBeenCalledWith('orte.gewichtung', { szenario: 'eigene' })
+    })
+
+    it('setzeEigenesGewicht wirkt sofort auf die Gewichte und persistiert beides', () => {
+      const store = useOrteStore()
+      store.setzeGewichtungsSzenario('eigene')
+
+      const ergebnis = store.setzeEigenesGewicht('geschmack', 7)
+
+      expect(ergebnis.mussZaehlen).toBe(false)
+      expect(store.gewichte).toEqual({ ambiente: 1, zeit: 1, geschmack: 7, preisLeistung: 1 })
+      expect(schreibeEinstellungMock).toHaveBeenLastCalledWith('orte.gewichtung', {
+        szenario: 'eigene',
+        eigeneGewichte: { ambiente: 1, zeit: 1, geschmack: 7, preisLeistung: 1 },
+      })
+    })
+
+    it('JEDER Wert läuft durch das Gate: geklemmt und ganzzahlig', () => {
+      const store = useOrteStore()
+      store.setzeGewichtungsSzenario('eigene')
+
+      store.setzeEigenesGewicht('zeit', 99)
+      expect(store.eigeneGewichte.zeit).toBe(10)
+      store.setzeEigenesGewicht('zeit', -4)
+      expect(store.eigeneGewichte.zeit).toBe(0)
+      store.setzeEigenesGewicht('zeit', 2.6)
+      expect(store.eigeneGewichte.zeit).toBe(3)
+    })
+
+    it('die letzte Achse über 0 lässt sich nicht auf 0 setzen und meldet das Signal', () => {
+      const store = useOrteStore()
+      store.setzeGewichtungsSzenario('eigene')
+      store.setzeEigenesGewicht('ambiente', 0)
+      store.setzeEigenesGewicht('zeit', 0)
+      store.setzeEigenesGewicht('geschmack', 0)
+
+      const ergebnis = store.setzeEigenesGewicht('preisLeistung', 0)
+
+      expect(ergebnis.mussZaehlen).toBe(true)
+      expect(store.eigeneGewichte).toEqual({ ambiente: 0, zeit: 0, geschmack: 0, preisLeistung: 1 })
+    })
+
+    it('ein unveränderter Wert schreibt nichts', () => {
+      const store = useOrteStore()
+      store.setzeGewichtungsSzenario('eigene')
+      schreibeEinstellungMock.mockClear()
+
+      store.setzeEigenesGewicht('zeit', 1)
+
+      expect(schreibeEinstellungMock).not.toHaveBeenCalled()
+    })
+
+    it('ein festes Szenario lässt die eigenen Gewichte stehen, die Rückkehr zu „Eigene" findet sie wieder', () => {
+      const store = useOrteStore()
+      store.setzeGewichtungsSzenario('eigene')
+      store.setzeEigenesGewicht('geschmack', 9)
+
+      store.setzeGewichtungsSzenario('fokus-zeit')
+      expect(store.gewichte).toEqual({ ambiente: 1, zeit: 2, geschmack: 1, preisLeistung: 1 })
+      expect(store.eigeneGewichte.geschmack).toBe(9)
+
+      store.setzeGewichtungsSzenario('eigene')
+      expect(store.gewichte).toEqual({ ambiente: 1, zeit: 1, geschmack: 9, preisLeistung: 1 })
+    })
+
+    it('lädt gespeicherte eigene Gewichte; fehlende oder ungültige werden 1:1:1:1', async () => {
+      ladeAlleOrteMock.mockResolvedValue({ status: 'geladen', orte: [] })
+      const speichern = (wert: unknown) =>
+        ladeEinstellungMock.mockImplementation(async (schluessel: string) =>
+          schluessel === 'orte.gewichtung' ? { status: 'geladen', wert } : { status: 'nicht_vorhanden' },
+        )
+
+      speichern({ szenario: 'eigene', eigeneGewichte: { ambiente: 0, zeit: 2, geschmack: 10, preisLeistung: 4 } })
+      const gueltig = useOrteStore()
+      await gueltig.sicherstellenGeladen()
+      expect(gueltig.gewichte).toEqual({ ambiente: 0, zeit: 2, geschmack: 10, preisLeistung: 4 })
+
+      setActivePinia(createPinia())
+      speichern({ szenario: 'eigene', eigeneGewichte: { ambiente: 0, zeit: 0, geschmack: 0, preisLeistung: 0 } })
+      const ungueltig = useOrteStore()
+      await ungueltig.sicherstellenGeladen()
+      expect(ungueltig.gewichtung.szenario).toBe('eigene')
+      expect(ungueltig.gewichte).toEqual(ERST)
+
+      setActivePinia(createPinia())
+      speichern({ szenario: 'eigene' })
+      const fehlend = useOrteStore()
+      await fehlend.sicherstellenGeladen()
+      expect(fehlend.gewichte).toEqual(ERST)
+    })
+
+    it('Gewicht 0 nimmt die Achse aus der Rechnung; ein Ort nur mit solchen Achsen landet in der Endgruppe', async () => {
+      ladeAlleOrteMock.mockResolvedValue({
+        status: 'geladen',
+        orte: [ortMit('a', { ambiente: 6 }), ortMit('b', { zeit: 8 }), ortMit('c', {})],
+      })
+      const store = useOrteStore()
+      await store.sicherstellenGeladen()
+      store.setzeSortierKriterium('gesamtnote')
+      store.setzeGewichtungsSzenario('eigene')
+      store.setzeEigenesGewicht('ambiente', 0)
+
+      expect(store.sortierErgebnis.mitWert.map((ort) => ort.id)).toEqual(['b'])
+      expect(store.sortierErgebnis.ohneWert.map((ort) => ort.id)).toEqual(['c'])
+      expect(store.sortierErgebnis.ohneGewicht.map((ort) => ort.id)).toEqual(['a'])
+
+      store.setzeEigenesGewicht('ambiente', 1)
+      expect(store.sortierErgebnis.ohneGewicht).toEqual([])
+      expect(store.sortierErgebnis.mitWert.map((ort) => ort.id)).toEqual(['b', 'a'])
+    })
+
+    // Naht Store → Repository (code-conventions.md): echtes
+    // einstellungen-repository, der Wert, den der Store im Betrieb übergibt.
+    it('Setter → echtes einstellungen-repository → frischer Store: eigene Gewichte überstehen das „Neuladen"', async () => {
+      vi.resetModules()
+      vi.doUnmock('../../../persistence/einstellungen-repository')
+      vi.doUnmock('../../../persistence/orte-repository')
+
+      try {
+        const { createPinia: erzeugePinia, setActivePinia: setzeAktivePinia } = await import('pinia')
+        const { oeffneDatenbank, _resetFuerTests: resetDb } = await import('../../../persistence/db')
+        const { ladeEinstellung: ladeEinstellungEcht } = await import('../../../persistence/einstellungen-repository')
+
+        resetDb()
+        const geoeffnet = await oeffneDatenbank()
+        if (geoeffnet.status !== 'geoeffnet') throw new Error('Datenbank hätte offen sein müssen')
+        await geoeffnet.db.clear('meta')
+        await geoeffnet.db.clear('orte')
+        await geoeffnet.db.clear('einstellungen')
+        await geoeffnet.db.clear('bilder')
+
+        setzeAktivePinia(erzeugePinia())
+        const { useOrteStore: useOrteStoreEcht } = await import('./orte.store')
+        const ersterStore = useOrteStoreEcht()
+        await ersterStore.sicherstellenGeladen()
+        ersterStore.setzeGewichtungsSzenario('eigene')
+        ersterStore.setzeEigenesGewicht('geschmack', 10)
+        ersterStore.setzeEigenesGewicht('ambiente', 0)
+        ersterStore.setzeGewichtungsSzenario('fokus-zeit')
+
+        // Fire-and-forget (ADR-0009 Punkt 6): auf den LETZTEN Schreibvorgang warten.
+        for (let versuch = 0; versuch < 100; versuch += 1) {
+          const gelesen = await ladeEinstellungEcht('orte.gewichtung')
+          if (gelesen.status === 'geladen' && (gelesen.wert as { szenario?: string }).szenario === 'fokus-zeit') break
+          await new Promise((resolve) => setTimeout(resolve, 10))
+        }
+
+        setzeAktivePinia(erzeugePinia())
+        const zweiterStore = useOrteStoreEcht()
+        await zweiterStore.sicherstellenGeladen()
+
+        expect(zweiterStore.gewichtung.szenario).toBe('fokus-zeit')
+        expect(zweiterStore.eigeneGewichte).toEqual({ ambiente: 0, zeit: 1, geschmack: 10, preisLeistung: 1 })
+
+        resetDb()
+      } finally {
+        vi.doMock('../../../persistence/orte-repository', () => ({
+          ladeAlleOrte: ladeAlleOrteMock,
+          speichereOrt: speichereOrtMock,
+          loescheOrt: loescheOrtMock,
+        }))
+        vi.doMock('../../../persistence/einstellungen-repository', () => ({
+          ladeEinstellung: ladeEinstellungMock,
+          schreibeEinstellung: schreibeEinstellungMock,
+        }))
+      }
+    })
+  })
+
   describe('Tags und Tag-Filter (ADR-0014, PO-2026-09-07-004)', () => {
     it('legt einen neuen Ort mit leeren Tags an', async () => {
       const store = useOrteStore()

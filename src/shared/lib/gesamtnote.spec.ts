@@ -84,6 +84,38 @@ describe('berechneGesamtnote', () => {
   })
 })
 
+describe('Gewicht 0 und „ohne Gewicht" (PO-2026-11-24-002)', () => {
+  const NUR_GESCHMACK: AchsenGewichte = { ambiente: 0, zeit: 0, geschmack: 3, preisLeistung: 0 }
+
+  it('ein Gewicht 0 nimmt die Achse samt Wert aus der Rechnung', () => {
+    const ergebnis = berechneGesamtnote(bewertungen(2, null, 8, null), NUR_GESCHMACK)
+    expect(roh(ergebnis)).toBe(8)
+  })
+
+  it('haben alle bewerteten Achsen Gewicht 0, ist das „ohne-gewicht" und NICHT „unbewertet"', () => {
+    expect(berechneGesamtnote(bewertungen(6, null, null, null), NUR_GESCHMACK)).toEqual({ art: 'ohne-gewicht' })
+  })
+
+  it('keine bewertete Achse bleibt „unbewertet", auch bei Gewicht 0 überall davor', () => {
+    expect(berechneGesamtnote(bewertungen(null, null, null, null), NUR_GESCHMACK)).toEqual({ art: 'unbewertet' })
+  })
+
+  it('eine gesetzte 0 mit Gewicht 0 ist ebenfalls „ohne-gewicht" (0 ist ein Wert)', () => {
+    expect(berechneGesamtnote(bewertungen(0, null, null, null), NUR_GESCHMACK)).toEqual({ art: 'ohne-gewicht' })
+  })
+
+  // Der Fall, der ADR-0037 begründet: 159/20 = 7,95 zeigt „8,0" und muss die
+  // Zone 8 tragen — beide lesen `zehntel`. Mit Preis-Leistung als nicht
+  // bewerteter Achse mit Gewicht 1 fällt sie samt Gewicht heraus.
+  it('Grenzfall 159/20 mit eigenen Gewichten 9/1/10/1 und nicht bewerteter Preis-Leistung', () => {
+    const eigene: AchsenGewichte = { ambiente: 9, zeit: 1, geschmack: 10, preisLeistung: 1 }
+    const ergebnis = berechneGesamtnote(bewertungen(8, 7, 8, null), eigene)
+    expect(roh(ergebnis)).toBeCloseTo(7.95, 10)
+    expect(zehntel(ergebnis)).toBe(80)
+    expect(formatiereGesamtnote(zehntel(ergebnis))).toBe('8,0')
+  })
+})
+
 describe('Ausgewogen = bisherige Ausgabe (ADR-0037 Punkt 6, erschöpfend über 12^4)', () => {
   // Die bisherige Anzeige: ungewichteter Mittelwert, formatiert mit Intl.
   const bisherigerFormatierer = new Intl.NumberFormat('de-DE', {

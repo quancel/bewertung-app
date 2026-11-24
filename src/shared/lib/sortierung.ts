@@ -33,6 +33,10 @@ export interface SortierErgebnis {
    * einer Einzelachse überhaupt möglich, gesammelt ans Ende, unabhängig von
    * der Richtung. Für Bezeichnung/Zuletzt geändert immer leer. */
   ohneWert: OrtDatensatz[]
+  /** Nur bei Gesamtnote (PO-2026-11-24-002, ADR-0037 Punkt 4): Orte, deren
+   * bewertete Achsen alle Gewicht 0 haben — eine EIGENE Endgruppe NACH
+   * `ohneWert`, nie mit den unbewerteten Orten vermischt. Sonst immer leer. */
+  ohneGewicht: OrtDatensatz[]
 }
 
 const bezeichnungsVergleicher = new Intl.Collator('de')
@@ -56,6 +60,11 @@ function numerischerWert(
   }
   if (istAchsenKriterium(kriterium)) return ort.bewertungen[kriterium].wert
   return null
+}
+
+/** Nur bei Gesamtnote: bewertete Achsen vorhanden, aber alle mit Gewicht 0. */
+function hatKeinGewicht(ort: OrtDatensatz, kriterium: SortierKriterium, gewichte: AchsenGewichte): boolean {
+  return kriterium === 'gesamtnote' && berechneGesamtnote(ort.bewertungen, gewichte).art === 'ohne-gewicht'
 }
 
 function hatWert(ort: OrtDatensatz, kriterium: SortierKriterium, gewichte: AchsenGewichte): boolean {
@@ -95,8 +104,10 @@ export function sortiereOrte(
 
   const mitWert: OrtDatensatz[] = []
   const ohneWert: OrtDatensatz[] = []
+  const ohneGewicht: OrtDatensatz[] = []
   for (const ort of orte) {
     if (hatWert(ort, kriterium, gewichte)) mitWert.push(ort)
+    else if (hatKeinGewicht(ort, kriterium, gewichte)) ohneGewicht.push(ort)
     else ohneWert.push(ort)
   }
 
@@ -105,6 +116,7 @@ export function sortiereOrte(
     return hauptvergleich !== 0 ? hauptvergleich : vergleicheGleichstand(a, b)
   })
   ohneWert.sort(vergleicheGleichstand)
+  ohneGewicht.sort(vergleicheGleichstand)
 
-  return { mitWert, ohneWert }
+  return { mitWert, ohneWert, ohneGewicht }
 }

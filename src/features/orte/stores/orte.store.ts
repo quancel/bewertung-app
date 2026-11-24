@@ -38,6 +38,7 @@ import {
 import type { OrtDatensatz } from '../../../persistence/schema'
 import { sortiereOrte, type SortierErgebnis } from '../../../shared/lib/sortierung'
 import { normalisiereAnfangsnotiz } from '../lib/anfangsnotiz'
+import { setzeGewicht } from '../lib/gewichtung'
 import {
   ermittleKanonischeSchreibweise,
   leiteTagVokabularAb,
@@ -45,14 +46,17 @@ import {
   ortErfuelltTagfilter,
 } from '../../../shared/lib/tagfilter'
 import {
+  EIGENE_GEWICHTE_ERSTBELEGUNG,
   findeGewichtungsSzenario,
-  istGueltigeOrteGewichtung,
   istGueltigeOrteSortierung,
   istGueltigeTagfilterEinstellung,
   ORTE_GEWICHTUNG_VOREINSTELLUNG,
   ORTE_SORTIERUNG_VOREINSTELLUNG,
   ORTE_TAGFILTER_VOREINSTELLUNG,
+  liesOrteGewichtung,
   SORTIER_ANFANGSRICHTUNG,
+  type AchsenKriterium,
+  type Gewichte,
   type GewichtungsSzenario,
   type OrteGewichtung,
   type OrteSortierung,
@@ -99,9 +103,18 @@ export const useOrteStore = defineStore('orte', () => {
   // Ansichtszustand „Gewichtung" (ADR-0037): startet mit Ausgewogen, bis
   // `sicherstellenGeladen` einen gültigen gespeicherten Wert findet.
   const gewichtung = ref<OrteGewichtung>(ORTE_GEWICHTUNG_VOREINSTELLUNG)
+  /** Die eigenen Gewichte (PO-2026-11-24-002): bleiben bei der Wahl eines
+   * festen Szenarios stehen, Erstbelegung 1:1:1:1. */
+  const eigeneGewichte = computed<Gewichte>(
+    () => gewichtung.value.eigeneGewichte ?? EIGENE_GEWICHTE_ERSTBELEGUNG,
+  )
   /** Die aktuellen Achsengewichte — einzige Quelle für `berechneGesamtnote`
    * und `sortiereOrte` (ADR-0037 Punkt 7). */
-  const gewichte = computed(() => findeGewichtungsSzenario(gewichtung.value.szenario).gewichte)
+  const gewichte = computed<Gewichte>(() =>
+    gewichtung.value.szenario === 'eigene'
+      ? eigeneGewichte.value
+      : findeGewichtungsSzenario(gewichtung.value.szenario).gewichte,
+  )
 
   function ortNachId(id: string): OrtDatensatz | undefined {
     return orte.value.find((ort) => ort.id === id)
@@ -134,11 +147,12 @@ export const useOrteStore = defineStore('orte', () => {
     if (tagfilterErgebnis.status === 'geladen' && istGueltigeTagfilterEinstellung(tagfilterErgebnis.wert)) {
       tagfilterEinstellung.value = tagfilterErgebnis.wert
     }
-    // Ungültig/fehlend: still Ausgewogen (ADR-0037 Punkt 2), auch nach
-    // `ladeNeu` (Import) — dann zurück auf die Voreinstellung.
+    // Ungültig/fehlend: still Ausgewogen, fehlende oder ungültige eigene
+    // Gewichte 1:1:1:1 (ADR-0037 Punkt 2), auch nach `ladeNeu` (Import) —
+    // dann zurück auf die Voreinstellung.
     gewichtung.value =
-      gewichtungErgebnis.status === 'geladen' && istGueltigeOrteGewichtung(gewichtungErgebnis.wert)
-        ? { szenario: gewichtungErgebnis.wert.szenario }
+      gewichtungErgebnis.status === 'geladen'
+        ? liesOrteGewichtung(gewichtungErgebnis.wert)
         : ORTE_GEWICHTUNG_VOREINSTELLUNG
   }
 
@@ -204,8 +218,27 @@ export const useOrteStore = defineStore('orte', () => {
    * und Zone, weil alle aus `gewichte` ableiten (ADR-0037 Punkt 7). */
   function setzeGewichtungsSzenario(szenario: GewichtungsSzenario): void {
     if (szenario === gewichtung.value.szenario) return
-    gewichtung.value = { szenario }
+    // Die Wahl eines festen Szenarios lässt `eigeneGewichte` stehen
+    // (ADR-0037 Punkt 2) — auch die Wahl von „Eigene" selbst ändert sie nicht.
+    gewichtung.value = { ...gewichtung.value, szenario }
     persistiereGewichtung()
+  }
+
+  /**
+   * Setzt das Gewicht einer Achse der eigenen Gewichte (PO-2026-11-24-002).
+   * Der EINZIGE Schreibpfad auf `eigeneGewichte`, und er läuft durch das Gate
+   * `setzeGewicht` — Regler und Zahlenfeld gehen beide hierher (ADR-0037,
+   * Struktur statt Konvention). Wirkt sofort auf alle Stellen, weil `gewichte`
+   * daraus ableitet. Das Ergebnis meldet, ob der Versuch, die letzte Achse
+   * über 0 auf 0 zu setzen, abgefangen wurde (Statuszeile in der View).
+   */
+  function setzeEigenesGewicht(achse: AchsenKriterium, roh: number): { mussZaehlen: boolean } {
+    const ergebnis = setzeGewicht(eigeneGewichte.value, achse, roh)
+    if (ergebnis.gewichte[achse] !== eigeneGewichte.value[achse]) {
+      gewichtung.value = { ...gewichtung.value, eigeneGewichte: ergebnis.gewichte }
+      persistiereGewichtung()
+    }
+    return { mussZaehlen: ergebnis.mussZaehlen }
   }
 
   async function legeOrtAn(bezeichnung: string): Promise<OrtDatensatz> {
@@ -471,7 +504,9 @@ export const useOrteStore = defineStore('orte', () => {
     schalteSortierrichtungUm,
     gewichtung,
     gewichte,
+    eigeneGewichte,
     setzeGewichtungsSzenario,
+    setzeEigenesGewicht,
     tagVokabular,
     aktiveTags,
     tagfilterEinstellung,

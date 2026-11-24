@@ -373,6 +373,12 @@ const ANSICHTEN = [
   { name: 'ortsliste-gewichtung-hinweis', pfad: '/orte', vorbereiten: zeigeGewichtungHinweis, aufraeumen: setzeGewichtungZurueck },
   { name: 'ortsdetail-gewichtung', pfad: '/orte', vorbereiten: zeigeGewichtungImDetail, aufraeumen: setzeGewichtungZurueck },
   { name: 'gewichtung-sheet', pfad: '/orte', vorbereiten: oeffneGewichtungSheet, aufraeumen: setzeGewichtungZurueck },
+  // PO-2026-11-24-002: das Sheet mit offenem Block „Eigene" im WIDERSPRÜCHLICHSTEN
+  // Zustand — eine Achse „zählt nicht", die letzte trägt „100 % · muss zählen",
+  // dazu die Statuszeile nach einem abgefangenen Versuch. `aufraeumen` stellt
+  // auch die eigenen Gewichte auf 1:1:1:1 zurück (sie sind persistiert und
+  // bleiben sonst für spätere „Eigene"-Läufe bei anderen Breiten stehen).
+  { name: 'gewichtung-eigene', pfad: '/orte', vorbereiten: oeffneEigeneGewichte, aufraeumen: setzeGewichtungZurueck },
 ]
 
 /** Photon-Endpunkt, NUR zum Abfangen (Request-Interception) — es wird
@@ -778,17 +784,38 @@ async function oeffneBildvorschau(seite) {
  * (Noten, Reihenfolge, Zonen) wird erst danach gelesen. Setzt eine sichtbare
  * Werkzeugleiste voraus (Bestand nicht leer, Liste sichtbar).
  */
-async function waehleGewichtungUeberSortierSheet(seite, name) {
+async function oeffneGewichtungSheetUeberSortierSheet(seite) {
   await seite.locator('.werkzeugleiste__chip').click()
   await seite.waitForTimeout(200)
   await seite.locator('.sortier-sheet__eintrag', { hasText: 'Gewichtung:' }).click()
   const dialog = seite.getByRole('dialog', { name: 'Gewichtung der Gesamtnote' })
   await dialog.waitFor({ state: 'visible' })
   await seite.waitForTimeout(300)
+  return dialog
+}
+
+async function waehleGewichtungUeberSortierSheet(seite, name) {
+  const dialog = await oeffneGewichtungSheetUeberSortierSheet(seite)
   await dialog.locator('.gewichtung-sheet__name', { hasText: name }).click()
   // Feste Szenarien schließen das Sheet (240ms Übergang).
   await dialog.waitFor({ state: 'detached', timeout: 5000 })
   await seite.waitForTimeout(300)
+}
+
+const GEWICHT_ACHSEN = ['ambiente', 'zeit', 'geschmack', 'preisLeistung']
+
+/** Das Zahlenfeld einer Achse im Block „Eigene" (Wert wie der Store ihn kennt). */
+function gewichtFeld(dialog, achse) {
+  return dialog.locator(`#gewichtung-eigene-${achse}-zahl`)
+}
+
+/** Setzt die Gewichte über die Zahlenfelder. `fill` löst genau ein `input`
+ *  aus — das ist die „eine Bedienung" (kein Enter, kein Feldwechsel). */
+async function setzeEigeneGewichteUeberZahlenfelder(seite, dialog, werte) {
+  for (const [achse, wert] of Object.entries(werte)) {
+    await gewichtFeld(dialog, achse).fill(String(wert))
+    await seite.waitForTimeout(80)
+  }
 }
 
 /** Stellt sicher, dass es mindestens einen Ort gibt (Werkzeugleiste sichtbar). */
@@ -830,12 +857,35 @@ async function oeffneGewichtungSheet(seite) {
   await seite.waitForTimeout(400)
 }
 
+async function oeffneEigeneGewichte(seite) {
+  await stelleOrtSicher(seite)
+  const dialog = await oeffneGewichtungSheetUeberSortierSheet(seite)
+  await dialog.locator('.gewichtung-sheet__name', { hasText: 'Eigene' }).click()
+  await seite.waitForTimeout(400)
+  // Eine Achse „zählt nicht", die letzte wird zur einzigen über 0 („muss
+  // zählen"), ein Versuch auf 0 zeigt die Statuszeile.
+  await setzeEigeneGewichteUeberZahlenfelder(seite, dialog, { zeit: 0, geschmack: 0, preisLeistung: 0 })
+  await gewichtFeld(dialog, 'ambiente').fill('0')
+  await seite.waitForTimeout(300)
+}
+
 /** Setzt die persistierte Gewichtung auf Ausgewogen zurück (code-conventions.md
  *  „Ansichten teilen Einstellungen"). */
 async function setzeGewichtungZurueck(seite) {
   await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
   await seite.waitForTimeout(300)
-  await waehleGewichtungUeberSortierSheet(seite, 'Ausgewogen')
+  // Seit PO-2026-11-24-002 auch die EIGENEN Gewichte: Sie überstehen die Wahl
+  // eines festen Szenarios (das ist Absicht) und würden sonst für die nächste
+  // „Eigene"-Vorbereitung bei einer anderen Breite stehen bleiben. Erst auf
+  // 1:1:1:1 (jeder Schritt ist ein gültiger Zustand, kein „muss zählen"),
+  // dann Ausgewogen.
+  const dialog = await oeffneGewichtungSheetUeberSortierSheet(seite)
+  await dialog.locator('.gewichtung-sheet__name', { hasText: 'Eigene' }).click()
+  await seite.waitForTimeout(300)
+  await setzeEigeneGewichteUeberZahlenfelder(seite, dialog, { ambiente: 1, zeit: 1, geschmack: 1, preisLeistung: 1 })
+  await dialog.locator('.gewichtung-sheet__name', { hasText: 'Ausgewogen' }).click()
+  await dialog.waitFor({ state: 'detached', timeout: 5000 })
+  await seite.waitForTimeout(300)
 }
 
 /** Zusicherung 4: Was über CSS geladen wird, ist aufgelöst. Ein `.icon`
@@ -1220,7 +1270,11 @@ async function pruefeReglerGreifbarkeit(seite, kontext) {
     )
 
     for (const inputKnoten of rangeInputs) {
-      const bezeichner = attributWert(inputKnoten, 'id') ? '#' + attributWert(inputKnoten, 'id') : 'input[type="range"]'
+      const bezeichner = attributWert(inputKnoten, 'id')
+        ? '#' + attributWert(inputKnoten, 'id')
+        : attributWert(inputKnoten, 'aria-label')
+          ? `input[type="range"][aria-label="${attributWert(inputKnoten, 'aria-label')}"]`
+          : 'input[type="range"]'
 
       try {
         const { model } = await client.send('DOM.getBoxModel', { nodeId: inputKnoten.nodeId })
@@ -1954,9 +2008,6 @@ async function pruefeBildvorschau(browser, breite, befunde) {
 }
 
 
-/** Öffnet jede Ansicht bei einer Breite und prüft die Zusicherungen 1-5
- *  (Zusicherung 2 — Laufzeitfehler — hängt an Listenern auf `seite`, die
- *  der Aufrufer vor dem Aufruf registriert). */
 /**
  * PO-2026-11-24-001 (ADR-0037), harte Zusicherung — nur bei 1280px, eigener
  * Bestand auf frischer Seite: Die Wahl eines Gewichtungs-Szenarios wirkt
@@ -2120,6 +2171,324 @@ async function pruefeGewichtungWirktUeberallUndUeberstehtNeuladen(browser, befun
   await seite.close()
 }
 
+/**
+ * Liest die Ortsliste als Folge von Zeilen und Gruppenüberschriften — nur Orte,
+ * deren Bezeichnung mit `praefix` beginnt, plus ALLE Überschriften.
+ */
+async function leseOrtslisteMitGruppen(seite, praefix) {
+  return seite.evaluate((vorsatz) => {
+    const eintraege = []
+    for (const li of document.querySelectorAll('.ortebereich__liste > li')) {
+      if (li.classList.contains('ortebereich__ohne-wert-ueberschrift')) {
+        eintraege.push({ ueberschrift: li.textContent.trim() })
+        continue
+      }
+      const name = li.querySelector('.ortszeile__bezeichnung')?.textContent?.trim() ?? ''
+      if (!name.startsWith(vorsatz)) continue
+      const gesamtnote = li.querySelector('.ortszeile__gesamtnote')
+      eintraege.push({
+        name,
+        wert: li.querySelector('.ortszeile__gesamtnote-wert')?.textContent?.trim() ?? null,
+        zone: gesamtnote?.classList.contains('ortszeile__gesamtnote--zone') ?? false,
+        stil: gesamtnote?.getAttribute('style') ?? '',
+      })
+    }
+    return eintraege
+  }, praefix)
+}
+
+/** Kurzschrift für Vergleiche: „Name=Wert", „Name=–" ohne Zahl, „# Überschrift". */
+function beschreibeListe(eintraege) {
+  return eintraege
+    .map((e) => (e.ueberschrift !== undefined ? `# ${e.ueberschrift}` : `${e.name}=${e.wert ?? '–'}${e.zone ? ' (Zone)' : ''}`))
+    .join(' | ')
+}
+
+/**
+ * PO-2026-11-24-002 (ADR-0037), harte Zusicherung — nur bei 1280px, eigener
+ * Bestand auf frischer Seite (eigener Browser-Kontext, damit frische
+ * IndexedDB): „Eigene" Gewichte.
+ *
+ *   - 0-Gewicht nimmt die Achse samt Wert aus der Rechnung; ein Ort, dessen
+ *     bewertete Achsen ALLE Gewicht 0 haben, zeigt KEINE Zahl und keine Zone,
+ *     steht in einer EIGENEN Endgruppe „ohne Gesamtnote bei dieser Gewichtung"
+ *     NACH der Gruppe „ohne Bewertung" (die Vorbedingung, dass es beide Gruppen
+ *     gibt, steht in der Messgröße selbst), und das Detail sagt „Keine
+ *     Gesamtnote bei dieser Gewichtung" statt „Noch nicht bewertet".
+ *   - Grenzfall 159/20 = 7,95: zeigt „8,0" UND trägt die Zone 8 (Anzeige und
+ *     Zone lesen beide `zehntel`, ADR-0037 Punkt 5) — der Fehlerfall, der ADR-0037
+ *     begründet („8,0" ohne Zonenfarbe).
+ *   - Die eigenen Gewichte überstehen ein Neuladen UND den Wechsel auf ein festes
+ *     Szenario und zurück.
+ *   - Gate (jeder Eingabepfad): „99" im Zahlenfeld wird 10; die letzte Achse
+ *     über 0 lässt sich nicht auf 0 setzen — die Zeile sagt „muss zählen", der
+ *     Regler hat min=1, die Statuszeile (role=status) steht, bis eine andere
+ *     Änderung sie zurücknimmt; ein geleertes Zahlenfeld kehrt beim Verlassen
+ *     zum bisherigen Wert zurück.
+ */
+async function pruefeEigeneGewichteUndEndgruppen(browser, befunde) {
+  const seite = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+  const dialog = seite.getByRole('dialog', { name: 'Gewichtung der Gesamtnote' })
+  const erwarte = (label, ist, soll) => {
+    if (ist !== soll) befunde.push(`gewichtung-eigene-${label}: "${ist}" statt "${soll}"`)
+  }
+  const oeffneSheet = async () => {
+    await oeffneGewichtungSheetUeberSortierSheet(seite)
+  }
+  const schliesseSheet = async () => {
+    await seite.keyboard.press('Escape')
+    await dialog.waitFor({ state: 'detached', timeout: 5000 })
+    await seite.waitForTimeout(300)
+  }
+  const pruefeListe = async (label, soll) => erwarte(label, beschreibeListe(await leseOrtslisteMitGruppen(seite, 'Eig-')), soll)
+  const feldWerte = async () => {
+    const werte = []
+    for (const achse of GEWICHT_ACHSEN) werte.push(await gewichtFeld(dialog, achse).inputValue())
+    return werte.join('/')
+  }
+  const detailText = async () => (await seite.locator('.ortsdetail__gesamtnote').innerText()).replace(/\s+/g, ' ').trim()
+  const oeffneDetail = async (name) => {
+    await seite.locator('.ortszeile', { hasText: name }).click()
+    await seite.waitForTimeout(300)
+  }
+  const schliesseDetail = async () => {
+    await seite.locator('[aria-label="Detailansicht schließen"]').click()
+    await seite.waitForTimeout(300)
+  }
+
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    const bestand = [
+      { bezeichnung: 'Eig-Ziel', achsen: { 0: 8, 1: 7, 2: 8 } },
+      { bezeichnung: 'Eig-NurAmbiente', achsen: { 0: 6 } },
+      { bezeichnung: 'Eig-Leer', achsen: {} },
+    ]
+    for (const ort of bestand) {
+      await legeOrtAnUndOeffneIhn(seite, ort.bezeichnung)
+      for (const [index, wert] of Object.entries(ort.achsen)) {
+        await seite.locator('.bewertungsachse').nth(Number(index)).locator('input[type="number"]').fill(String(wert))
+        await seite.keyboard.press('Tab')
+        await seite.waitForTimeout(100)
+      }
+      await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+      await seite.waitForTimeout(200)
+    }
+    await seite.locator('.werkzeugleiste__chip').click()
+    await seite.waitForTimeout(200)
+    await seite.locator('.sortier-sheet__eintrag', { hasText: 'Gesamtnote' }).click()
+    await seite.waitForTimeout(300)
+
+    // 1) Erstbelegung 1:1:1:1: (8+7+8)/3 = 7,67 -> „7,7"; beide Zustände ohne Note
+    //    stehen in EINER Gruppe, solange kein Gewicht 0 ist.
+    await oeffneSheet()
+    await dialog.locator('.gewichtung-sheet__name', { hasText: 'Eigene' }).click()
+    await seite.waitForTimeout(400)
+    erwarte('erstbelegung', await feldWerte(), '1/1/1/1')
+    erwarte('erstbelegung-sheet-bleibt-offen', String(await dialog.isVisible()), 'true')
+    erwarte(
+      'erstbelegung-aktive-zeile',
+      (await dialog.locator('.gewichtung-sheet__eintrag[aria-pressed="true"]').allInnerTexts()).map((t) => t.split('\n')[0]).join('|'),
+      'Eigene',
+    )
+    await pruefeListe('erstbelegung', 'Eig-Ziel=7,7 | Eig-NurAmbiente=6,0 | # 1 Ort ohne Bewertung in Gesamtnote | Eig-Leer=–')
+
+    // 2) Grenzfall 159/20: Ambiente 9, Zeit 1, Geschmack 10, Preis-Leistung 1;
+    //    Preis-Leistung ist bei Eig-Ziel nicht bewertet und fällt samt Gewicht heraus.
+    await setzeEigeneGewichteUeberZahlenfelder(seite, dialog, { ambiente: 9, zeit: 1, geschmack: 10, preisLeistung: 1 })
+    await seite.waitForTimeout(200)
+    {
+      const liste = await leseOrtslisteMitGruppen(seite, 'Eig-')
+      const ziel = liste.find((e) => e.name === 'Eig-Ziel')
+      erwarte('grenzfall-159-20-wert', ziel?.wert ?? null, '8,0')
+      if (!ziel?.zone || !ziel.stil.includes('--color-zone-8)')) {
+        befunde.push(`gewichtung-eigene-grenzfall-159-20: Eig-Ziel zeigt "${ziel?.wert}" ohne Zone 8 (Stil "${ziel?.stil}", Zone: ${ziel?.zone})`)
+      }
+    }
+    await schliesseSheet()
+    await oeffneDetail('Eig-Ziel')
+    erwarte('grenzfall-detail', await detailText(), '8,0 Ø aus 3 von 4 Achsen')
+    erwarte('detail-button', (await seite.locator('.ortsdetail__gewichtung-knopf').innerText()).trim(), 'Gewichtung: Eigene')
+    await schliesseDetail()
+    {
+      const hinweis = await seite.locator('.gewichtung-hinweis').count()
+      const text = hinweis > 0 ? await seite.locator('.gewichtung-hinweis').innerText() : ''
+      if (!text.includes('Eigene')) befunde.push(`gewichtung-eigene-hinweiszeile: "${text}" nennt nicht „Eigene"`)
+    }
+
+    // 3) Gewicht 0 an Ambiente: Eig-NurAmbiente hat NUR noch Achsen mit Gewicht 0.
+    await oeffneSheet()
+    await gewichtFeld(dialog, 'ambiente').fill('0')
+    await seite.waitForTimeout(200)
+    erwarte('ambiente-null-anteil', (await dialog.locator('.gewicht-zeile__anteil[data-achse="ambiente"]').innerText()).trim(), 'zählt nicht')
+    await schliesseSheet()
+    await pruefeListe(
+      'endgruppen',
+      'Eig-Ziel=7,9 | # 1 Ort ohne Bewertung in Gesamtnote | Eig-Leer=–' +
+        ' | # 1 Ort ohne Gesamtnote bei dieser Gewichtung | Eig-NurAmbiente=–',
+    )
+    await oeffneDetail('Eig-NurAmbiente')
+    erwarte(
+      'endgruppe-detail',
+      await detailText(),
+      'Keine Gesamtnote bei dieser Gewichtung Die bewerteten Achsen zählen mit Gewicht 0.',
+    )
+    erwarte('endgruppe-detail-ohne-zahl', String(await seite.locator('.ortsdetail__gesamtnote-wert').count()), '0')
+    await schliesseDetail()
+    await oeffneDetail('Eig-Leer')
+    erwarte('unbewertet-detail', await detailText(), 'Noch nicht bewertet')
+    await schliesseDetail()
+
+    // 4) Überlebt Neuladen.
+    await seite.reload({ waitUntil: 'networkidle' })
+    await seite.waitForTimeout(400)
+    await pruefeListe(
+      'nach-neuladen',
+      'Eig-Ziel=7,9 | # 1 Ort ohne Bewertung in Gesamtnote | Eig-Leer=–' +
+        ' | # 1 Ort ohne Gesamtnote bei dieser Gewichtung | Eig-NurAmbiente=–',
+    )
+    await oeffneSheet()
+    erwarte('nach-neuladen-felder', await feldWerte(), '0/1/10/1')
+
+    // 5) Fokus Zeit: Eig-NurAmbiente hat wieder eine Zahl, die Endgruppe entfällt;
+    //    die eigenen Gewichte bleiben stehen.
+    await dialog.locator('.gewichtung-sheet__name', { hasText: 'Fokus Zeit' }).click()
+    await dialog.waitFor({ state: 'detached', timeout: 5000 })
+    await seite.waitForTimeout(300)
+    {
+      const liste = await leseOrtslisteMitGruppen(seite, 'Eig-')
+      if (liste.some((e) => e.ueberschrift?.includes('ohne Gesamtnote bei dieser Gewichtung'))) {
+        befunde.push('gewichtung-eigene-feste-szenarien: die Endgruppe steht auch bei Fokus Zeit (leere Gruppe muss entfallen)')
+      }
+      const nurAmbiente = liste.find((e) => e.name === 'Eig-NurAmbiente')
+      if (!nurAmbiente || nurAmbiente.wert !== '6,0') {
+        befunde.push(`gewichtung-eigene-feste-szenarien: Eig-NurAmbiente zeigt "${nurAmbiente?.wert}" statt "6,0" bei Fokus Zeit`)
+      }
+    }
+    await oeffneSheet()
+    await dialog.locator('.gewichtung-sheet__name', { hasText: 'Eigene' }).click()
+    await seite.waitForTimeout(400)
+    erwarte('zurueck-auf-eigene-felder', await feldWerte(), '0/1/10/1')
+
+    // 6) Gate. (a) „99" wird 10, (b) leer + Verlassen kehrt zurück, (c) die letzte
+    //    Achse über 0.
+    await gewichtFeld(dialog, 'preisLeistung').fill('99')
+    await seite.waitForTimeout(150)
+    erwarte('gate-klemmt', await gewichtFeld(dialog, 'preisLeistung').inputValue(), '10')
+    await gewichtFeld(dialog, 'zeit').fill('')
+    await seite.keyboard.press('Tab')
+    await seite.waitForTimeout(150)
+    erwarte('gate-leer-kehrt-zurueck', await gewichtFeld(dialog, 'zeit').inputValue(), '1')
+
+    await setzeEigeneGewichteUeberZahlenfelder(seite, dialog, { zeit: 0, preisLeistung: 0 })
+    // Nur Geschmack (10) zählt noch.
+    const zeileGeschmack = dialog.locator('.gewicht-zeile').nth(2)
+    erwarte('letzte-zeile-text', (await zeileGeschmack.locator('.gewicht-zeile__anteil').innerText()).trim(), '100 % · muss zählen')
+    erwarte('letzte-regler-min', (await zeileGeschmack.locator('input[type="range"]').getAttribute('min')) ?? '', '1')
+    erwarte('status-ohne-versuch', (await dialog.locator('[role="status"]').innerText()).trim(), '')
+    await gewichtFeld(dialog, 'geschmack').fill('0')
+    await seite.waitForTimeout(200)
+    erwarte('letzte-bleibt-auf-1', await gewichtFeld(dialog, 'geschmack').inputValue(), '1')
+    erwarte('status-nach-versuch', (await dialog.locator('[role="status"]').innerText()).trim(), 'Mindestens eine Achse muss zählen.')
+    // Der Regler-Pfad läuft durch dasselbe Gate: Pos1 am Regler (min=1) bleibt bei 1.
+    await zeileGeschmack.locator('input[type="range"]').focus()
+    await seite.keyboard.press('Home')
+    await seite.waitForTimeout(150)
+    erwarte('letzte-regler-pos1', await gewichtFeld(dialog, 'geschmack').inputValue(), '1')
+    // Die nächste Änderung nimmt die Statuszeile zurück (kein Timer).
+    await gewichtFeld(dialog, 'ambiente').fill('3')
+    await seite.waitForTimeout(200)
+    erwarte('status-zurueckgenommen', (await dialog.locator('[role="status"]').innerText()).trim(), '')
+    await gewichtFeld(dialog, 'geschmack').fill('0')
+    await seite.waitForTimeout(200)
+    erwarte('zweite-achse-erlaubt-null', await gewichtFeld(dialog, 'geschmack').inputValue(), '0')
+    erwarte('status-bleibt-leer', (await dialog.locator('[role="status"]').innerText()).trim(), '')
+  } catch (fehler) {
+    befunde.push(`gewichtung-eigene: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  }
+  await seite.close()
+}
+
+/**
+ * PO-2026-11-24-002 (ADR-0027 Punkt 5, analog `pruefeReglerCommitWaehrendZiehens`):
+ * Während eines GEDRÜCKT GEHALTENEN Ziehens an einem Gewichtsregler hat der
+ * Wert bereits gewirkt — dasselbe Gewicht im Zahlenfeld, passender Anteil, und
+ * die Gesamtnote in der Liste dahinter hat sich geändert. Geprüft VOR
+ * `mouse.up()`, denn ein Klick feuert `input` UND `change`; ein Regler, der
+ * erst auf `change` committet, wäre mit einer klickbasierten Prüfung grün.
+ * Vorbedingung in der Messgröße: das Ziehen hat den Regler tatsächlich bewegt.
+ */
+async function pruefeGewichtsreglerCommitWaehrendZiehens(browser, befunde) {
+  const seite = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+  const dialog = seite.getByRole('dialog', { name: 'Gewichtung der Gesamtnote' })
+  try {
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await legeOrtAnUndOeffneIhn(seite, 'Zieh-Ort')
+    await seite.locator('.bewertungsachse').nth(0).locator('input[type="number"]').fill('10')
+    await seite.keyboard.press('Tab')
+    await seite.locator('.bewertungsachse').nth(1).locator('input[type="number"]').fill('0')
+    await seite.keyboard.press('Tab')
+    await seite.waitForTimeout(150)
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    await seite.waitForTimeout(200)
+
+    await oeffneGewichtungSheetUeberSortierSheet(seite)
+    await dialog.locator('.gewichtung-sheet__name', { hasText: 'Eigene' }).click()
+    await seite.waitForTimeout(400)
+    const notePro = () => seite.locator('.ortszeile__gesamtnote-wert').first().innerText()
+    const vorher = (await notePro()).trim()
+
+    // Die Zeile „Zeit": (10 x 1 + 0 x Gewicht) / (1 + Gewicht) fällt mit dem Gewicht.
+    const regler = dialog.locator('.gewicht-zeile').nth(1).locator('input[type="range"]')
+    await regler.scrollIntoViewIfNeeded()
+    const kasten = await regler.boundingBox()
+    if (!kasten) {
+      befunde.push('gewichtung-regler-commit-waehrend-ziehens: Regler der Zeile „Zeit" nicht gefunden')
+      await seite.close()
+      return
+    }
+    const y = kasten.y + kasten.height / 2
+    await seite.mouse.move(kasten.x + kasten.width * 0.5, y)
+    await seite.mouse.down()
+    await seite.mouse.move(kasten.x + kasten.width * 0.85, y, { steps: 8 })
+
+    // VOR mouse.up() gelesen.
+    const waehrendZiehens = await seite.evaluate(() => {
+      const zeile = document.querySelectorAll('.gewicht-zeile')[1]
+      const reglerWert = zeile.querySelector('input[type="range"]').value
+      const zahlenfeld = zeile.querySelector('input[type="number"]').value
+      const anteil = zeile.querySelector('.gewicht-zeile__anteil').textContent.trim()
+      // Summe über die REGLER (nicht die Zahlenfelder): sie ist die Wahrheit des Ziehens.
+      const summe = [...document.querySelectorAll('.gewicht-zeile input[type="range"]')].reduce((s, f) => s + Number(f.value), 0)
+      return { reglerWert, zahlenfeld, anteil, summe }
+    })
+    const noteWaehrendZiehens = (await notePro()).trim()
+    await seite.mouse.up()
+
+    if (waehrendZiehens.reglerWert === '1') {
+      befunde.push('gewichtung-regler-commit-waehrend-ziehens: Vorbedingung verfehlt — das Ziehen hat den Regler nicht bewegt')
+    }
+    if (waehrendZiehens.zahlenfeld !== waehrendZiehens.reglerWert) {
+      befunde.push(`gewichtung-regler-commit-waehrend-ziehens: Regler steht auf ${waehrendZiehens.reglerWert}, das Zahlenfeld zeigt "${waehrendZiehens.zahlenfeld}"`)
+    }
+    const erwarteterAnteil = `${Math.round((100 * Number(waehrendZiehens.reglerWert)) / waehrendZiehens.summe)} %`
+    if (waehrendZiehens.anteil !== erwarteterAnteil) {
+      befunde.push(`gewichtung-regler-commit-waehrend-ziehens: Anteil "${waehrendZiehens.anteil}" statt "${erwarteterAnteil}" während des Ziehens`)
+    }
+    if (noteWaehrendZiehens === vorher) {
+      befunde.push(`gewichtung-regler-commit-waehrend-ziehens: die Gesamtnote in der Liste bleibt während des Ziehens bei "${vorher}"`)
+    }
+    // Greifbarkeit der Gewichtsregler läuft über die benannte Bedingung
+    // „Ansicht enthält einen Regler" in `pruefeAnsichtenBeiBreite`.
+    console.log('  gewichtung-regler-commit-waehrend-ziehens — geprüft (gedrücktes Ziehen, vor mouse.up)')
+  } catch (fehler) {
+    befunde.push(`gewichtung-regler-commit-waehrend-ziehens: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  }
+  await seite.close()
+}
+
+/** Öffnet jede Ansicht bei einer Breite und prüft die Zusicherungen 1-5
+ *  (Zusicherung 2 — Laufzeitfehler — hängt an Listenern auf `seite`, die
+ *  der Aufrufer vor dem Aufruf registriert). */
 async function pruefeAnsichtenBeiBreite(seite, breite, befunde) {
   for (const ansicht of ANSICHTEN) {
     await seite.goto(BASIS + ansicht.pfad, { waitUntil: 'networkidle' })
@@ -2159,8 +2528,13 @@ async function pruefeAnsichtenBeiBreite(seite, breite, befunde) {
     // PO-2026-09-13-002: nur auf der Ansicht, die Regler zeigt — kein neuer
     // Sonderpfad, läuft über dieselbe BREITEN-Liste wie alles andere hier.
     // Läuft über CDP statt `seite.evaluate` (s. Kommentar an der Funktion).
-    if (ansicht.name === 'ortsdetail') {
+    // PO-2026-11-24-002: benannte Bedingung statt Ansichtsnamen — jede Ansicht,
+    // die einen `input[type="range"]` im DOM hat (auch die Gewichtsregler im
+    // Sheet), läuft durch die Greifbarkeitsprüfung.
+    if ((await seite.locator('input[type="range"]').count()) > 0) {
       befunde.push(...(await pruefeReglerGreifbarkeit(seite, `${breite.name}/${ansicht.name}:`)))
+    }
+    if (ansicht.name === 'ortsdetail') {
       // PO-2026-09-13-003: ebenfalls kein neuer Sonderpfad, läuft über
       // dieselbe bereits geöffnete Ortsdetail-Seite und dieselbe BREITEN-Liste.
       await pruefeAbschlussKombination(seite, breite, befunde)
@@ -3627,6 +4001,11 @@ async function main() {
     // nur bei 1280px, eigener Bestand auf frischer Seite.
     await pruefeGewichtungWirktUeberallUndUeberstehtNeuladen(browser, befunde)
 
+    // Zusicherungen ab PO-2026-11-24-002 (ADR-0037), s. Funktionskommentare —
+    // nur bei 1280px, je auf frischer Seite mit eigenem Bestand.
+    await pruefeEigeneGewichteUndEndgruppen(browser, befunde)
+    await pruefeGewichtsreglerCommitWaehrendZiehens(browser, befunde)
+
     // Zusicherung ab PO-2026-09-27-001 (design-conventions.md „Mehrzeilige
     // Textfelder wachsen mit dem Inhalt"), Weg (2) — nur bei 1280px (ab lg
     // gleichzeitig sichtbare Listen-Spalte, s. Funktionskommentar). Weg (1)
@@ -3731,6 +4110,11 @@ async function main() {
   console.log('Sortierung und Zonenfarbe (überall derselbe Wert, nie „8,0" und mehr ohne Zone,')
   console.log('Hinweiszeile nur bei Abweichung von Ausgewogen, alle drei Einstiege öffnen dasselbe')
   console.log('Sheet) (PO-2026-11-24-001, ADR-0037).')
+  console.log('Eigene Gewichte (0-10) wirken sofort und überstehen Neuladen und den Wechsel auf ein')
+  console.log('festes Szenario; Gewicht 0 nimmt die Achse aus der Rechnung, ein Ort nur mit solchen')
+  console.log('Achsen steht ohne Zahl und Zone in einer eigenen Endgruppe nach „ohne Bewertung";')
+  console.log('7,95 (159/20) zeigt „8,0" MIT Zone; die letzte Achse über 0 bleibt auf 1 mit')
+  console.log('Statuszeile; ein Gewichtsregler wirkt schon während des Ziehens (PO-2026-11-24-002).')
   console.log('Zusicherungen über engine-abhängige Darstellung sind auf WebKit ungeprüft')
   console.log('(ADR-0029) — geprüft ist ausschließlich Chromium.')
 }

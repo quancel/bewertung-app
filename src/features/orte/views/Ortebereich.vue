@@ -145,6 +145,7 @@ import type { OrtssucheZustand, OrtsvorschlagWerte } from '../lib/geocoding'
 import {
   findeGewichtungsSzenario,
   SORTIER_KRITERIUM_LABEL,
+  type AchsenKriterium,
   type GewichtungsSzenario,
   type SortierKriterium,
   type TagVerknuepfung,
@@ -190,6 +191,7 @@ const schreibfehler = computed(() => (ortId.value ? store.schreibfehlerFuer(ortI
 const angezeigteOrteSortiert = computed(() => [
   ...store.sortierErgebnis.mitWert,
   ...store.sortierErgebnis.ohneWert,
+  ...store.sortierErgebnis.ohneGewicht,
 ])
 
 const bestandLeer = computed(() => store.istGeladen && store.orte.length === 0)
@@ -324,6 +326,21 @@ const abweichendesSzenarioName = computed(() =>
 
 function aufGewichtungGewaehlt(szenario: GewichtungsSzenario): void {
   store.setzeGewichtungsSzenario(szenario)
+  mussZaehlenHinweis.value = false
+}
+
+/** Statuszeile „Mindestens eine Achse muss zählen." (PO-2026-11-24-002): das
+ * Gate im Store meldet den abgefangenen Versuch, jede weitere Gewichtsänderung
+ * nimmt die Zeile zurück — kein Timer. */
+const mussZaehlenHinweis = ref(false)
+
+function aufEigenesGewichtGeaendert(achse: AchsenKriterium, wert: number): void {
+  mussZaehlenHinweis.value = store.setzeEigenesGewicht(achse, wert).mussZaehlen
+}
+
+function aufGewichtungSheetGeschlossen(): void {
+  gewichtungSheetOffen.value = false
+  mussZaehlenHinweis.value = false
 }
 
 const gesamtnote = computed<GesamtnoteErgebnis | null>(() => (ort.value ? gesamtnoteVon(ort.value) : null))
@@ -345,8 +362,17 @@ const ohneWertUeberschrift = computed(() => {
   if (anzahl === 0) return ''
   const orteWort = anzahl === 1 ? 'Ort' : 'Orte'
   const kriterium = store.sortierung.kriterium
-  if (kriterium === 'gesamtnote') return `${anzahl} ${orteWort} ohne Bewertung`
+  if (kriterium === 'gesamtnote') return `${anzahl} ${orteWort} ohne Bewertung in Gesamtnote`
   return `${anzahl} ${orteWort} ohne Bewertung in ${SORTIER_KRITERIUM_LABEL[kriterium]}`
+})
+
+/** Zweite Endgruppe nach „ohne Bewertung" (PO-2026-11-24-002, design-
+ * conventions.md „Gewichtung der Gesamtnote"): Orte mit bewerteten Achsen, die
+ * alle Gewicht 0 haben — nur bei Gesamtnote gefüllt, leere Gruppe entfällt. */
+const ohneGewichtUeberschrift = computed(() => {
+  const anzahl = store.sortierErgebnis.ohneGewicht.length
+  if (anzahl === 0) return ''
+  return `${anzahl} ${anzahl === 1 ? 'Ort' : 'Orte'} ohne Gesamtnote bei dieser Gewichtung`
 })
 
 function aufKriteriumGewaehlt(kriterium: SortierKriterium): void {
@@ -1001,6 +1027,25 @@ async function aufLoeschenBestaetigt(): Promise<void> {
                 />
               </li>
             </template>
+
+            <template v-if="store.sortierErgebnis.ohneGewicht.length > 0">
+              <li class="ortebereich__ohne-wert-ueberschrift">
+                {{ ohneGewichtUeberschrift }}
+              </li>
+              <li
+                v-for="ortEintrag in store.sortierErgebnis.ohneGewicht"
+                :key="ortEintrag.id"
+                :ref="(el) => setZeilenRef(ortEintrag.id, el as Element | null)"
+              >
+                <Ortszeile
+                  :ort="ortEintrag"
+                  :gesamtnote="gesamtnoteVon(ortEintrag)"
+                  :ausgewaehlt="ortEintrag.id === ortId"
+                  :sortier-kriterium="store.sortierung.kriterium"
+                  :zeige-wert="false"
+                />
+              </li>
+            </template>
           </ul>
         </div>
       </template>
@@ -1177,9 +1222,15 @@ async function aufLoeschenBestaetigt(): Promise<void> {
 
           <div class="ortsdetail__gesamtnote">
             <span
-              v-if="gesamtnote === null || gesamtnote.art !== 'wert'"
+              v-if="gesamtnote === null || gesamtnote.art === 'unbewertet'"
               class="ortsdetail__gesamtnote-leer"
             >Noch nicht bewertet</span>
+            <!-- Fachlich NICHT „noch nicht bewertet" (PO-2026-11-24-002): Es
+                 gibt Werte, sie zählen bei dieser Gewichtung nur nicht. -->
+            <template v-else-if="gesamtnote.art === 'ohne-gewicht'">
+              <span class="ortsdetail__gesamtnote-leer">Keine Gesamtnote bei dieser Gewichtung</span>
+              <span class="ortsdetail__gesamtnote-zusatz">Die bewerteten Achsen zählen mit Gewicht 0.</span>
+            </template>
             <template v-else>
               <span class="ortsdetail__gesamtnote-wert">{{ formatiereGesamtnote(gesamtnote.zehntel) }}</span>
               <span
@@ -1297,8 +1348,11 @@ async function aufLoeschenBestaetigt(): Promise<void> {
     <GewichtungSheet
       :offen="gewichtungSheetOffen"
       :szenario="store.gewichtung.szenario"
-      @schliessen="gewichtungSheetOffen = false"
+      :eigene-gewichte="store.eigeneGewichte"
+      :muss-zaehlen-hinweis="mussZaehlenHinweis"
+      @schliessen="aufGewichtungSheetGeschlossen"
       @szenario-gewaehlt="aufGewichtungGewaehlt"
+      @gewicht-geaendert="aufEigenesGewichtGeaendert"
     />
 
     <OrtAnlegenSheet
@@ -1660,8 +1714,9 @@ async function aufLoeschenBestaetigt(): Promise<void> {
 
 .ortsdetail__gesamtnote {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--space-8);
+  gap: var(--space-4) var(--space-8);
 }
 
 .ortsdetail__gesamtnote-wert {

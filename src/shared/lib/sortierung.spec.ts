@@ -182,6 +182,53 @@ describe('sortiereOrte', () => {
     expect(sortiereOrte(orte, sortierung, gewichte).mitWert.map((o) => o.id)).toEqual(['z-genau', 'a-knapp'])
   })
 
+  describe('Endgruppen bei Gesamtnote (PO-2026-11-24-002, ADR-0037 Punkt 4)', () => {
+    const nurAmbienteGewicht0 = { ambiente: 0, zeit: 1, geschmack: 1, preisLeistung: 1 }
+    const sortierung: OrteSortierung = { kriterium: 'gesamtnote', richtung: 'absteigend' }
+    const orte = [
+      ort({ id: 'mit', bezeichnung: 'Mit Note', bewertungen: bewertungen({ zeit: 8 }) }),
+      ort({ id: 'leer', bezeichnung: 'Ohne Bewertung' }),
+      ort({ id: 'ohne', bezeichnung: 'Nur Ambiente', bewertungen: bewertungen({ ambiente: 6 }) }),
+    ]
+
+    it('teilt in drei Gruppen: mit Wert, ohne Bewertung, ohne Gesamtnote bei dieser Gewichtung', () => {
+      const ergebnis = sortiereOrte(orte, sortierung, nurAmbienteGewicht0)
+      expect(ergebnis.mitWert.map((o) => o.id)).toEqual(['mit'])
+      expect(ergebnis.ohneWert.map((o) => o.id)).toEqual(['leer'])
+      expect(ergebnis.ohneGewicht.map((o) => o.id)).toEqual(['ohne'])
+    })
+
+    it('die beiden Zustände ohne Note werden nie vermischt', () => {
+      const ergebnis = sortiereOrte(orte, sortierung, nurAmbienteGewicht0)
+      expect(ergebnis.ohneWert.some((o) => o.id === 'ohne')).toBe(false)
+      expect(ergebnis.ohneGewicht.some((o) => o.id === 'leer')).toBe(false)
+    })
+
+    it('eine leere Gruppe ist ein leeres Array (die Ansicht lässt sie entfallen)', () => {
+      const ergebnis = sortiereOrte(orte, sortierung, AUSGEWOGEN)
+      expect(ergebnis.ohneGewicht).toEqual([])
+      expect(ergebnis.mitWert.map((o) => o.id)).toEqual(['mit', 'ohne'])
+    })
+
+    it('die Gruppe „ohne Gewicht" gibt es nur bei Gesamtnote', () => {
+      const nachAmbiente = sortiereOrte(orte, { kriterium: 'ambiente', richtung: 'absteigend' }, nurAmbienteGewicht0)
+      expect(nachAmbiente.ohneGewicht).toEqual([])
+      expect(nachAmbiente.mitWert.map((o) => o.id)).toEqual(['ohne'])
+      expect(sortiereOrte(orte, { kriterium: 'bezeichnung', richtung: 'aufsteigend' }, nurAmbienteGewicht0).ohneGewicht).toEqual([])
+    })
+
+    it('die Gruppe „ohne Gewicht" ist nach Bezeichnung sortiert, unabhängig von der Richtung', () => {
+      const viele = [
+        ort({ id: 'b', bezeichnung: 'B', bewertungen: bewertungen({ ambiente: 1 }) }),
+        ort({ id: 'a', bezeichnung: 'A', bewertungen: bewertungen({ ambiente: 9 }) }),
+      ]
+      for (const richtung of ['aufsteigend', 'absteigend'] as const) {
+        const ergebnis = sortiereOrte(viele, { kriterium: 'gesamtnote', richtung }, nurAmbienteGewicht0)
+        expect(ergebnis.ohneGewicht.map((o) => o.id)).toEqual(['a', 'b'])
+      }
+    })
+  })
+
   it('mutiert das übergebene Array nicht', () => {
     const orte = [
       ort({ id: '2', bezeichnung: 'Zebra' }),

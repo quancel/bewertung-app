@@ -157,9 +157,14 @@ export type GewichtungsSzenario =
   | 'fokus-ambiente'
   | 'fokus-preis-leistung'
   | 'fokus-zeit'
+  | 'eigene'
 
 export interface OrteGewichtung {
   szenario: GewichtungsSzenario
+  /** Eigene Gewichte (PO-2026-11-24-002): vier ganze Zahlen 0–10, mindestens
+   * eine > 0. Bleibt bei der Wahl eines festen Szenarios stehen. Fehlt das
+   * Feld (Stand aus -001), gilt `EIGENE_GEWICHTE_ERSTBELEGUNG`. */
+  eigeneGewichte?: Gewichte
 }
 
 export interface Gewichte {
@@ -177,7 +182,12 @@ export interface GewichtungsSzenarioEintrag {
   gewichte: Gewichte
 }
 
-/** EINZIGE Quelle für Name, Sekundärzeile und Gewichte (Reihenfolge = Reihenfolge im Sheet). */
+/** Erstbelegung der eigenen Gewichte (design-conventions.md „Eigene"). */
+export const EIGENE_GEWICHTE_ERSTBELEGUNG: Gewichte = { ambiente: 1, zeit: 1, geschmack: 1, preisLeistung: 1 }
+
+/** EINZIGE Quelle für Name, Sekundärzeile und Gewichte (Reihenfolge = Reihenfolge im Sheet).
+ * Bei `eigene` sind `gewichte` nur die Erstbelegung — die tatsächlichen Gewichte
+ * stehen in `OrteGewichtung.eigeneGewichte` (`useOrteStore.gewichte`). */
 export const GEWICHTUNG_SZENARIEN: readonly GewichtungsSzenarioEintrag[] = [
   {
     schluessel: 'ausgewogen',
@@ -209,6 +219,12 @@ export const GEWICHTUNG_SZENARIEN: readonly GewichtungsSzenarioEintrag[] = [
     sekundaerzeile: 'Zeit zählt doppelt',
     gewichte: { ambiente: 1, zeit: 2, geschmack: 1, preisLeistung: 1 },
   },
+  {
+    schluessel: 'eigene',
+    name: 'Eigene',
+    sekundaerzeile: 'Du legst die Gewichte selbst fest',
+    gewichte: EIGENE_GEWICHTE_ERSTBELEGUNG,
+  },
 ]
 
 /** Voreinstellung (Acceptance: Ein Gerät ohne gespeicherte Wahl zeigt nach
@@ -220,13 +236,47 @@ export function findeGewichtungsSzenario(schluessel: GewichtungsSzenario): Gewic
   return GEWICHTUNG_SZENARIEN.find((eintrag) => eintrag.schluessel === schluessel) ?? GEWICHTUNG_SZENARIEN[0]!
 }
 
+/** Eigene Gewichte gültig: vier ganze Zahlen 0–10, mindestens eine > 0. */
+export function istGueltigeEigeneGewichte(wert: unknown): wert is Gewichte {
+  if (typeof wert !== 'object' || wert === null) return false
+  const kandidat = wert as Record<string, unknown>
+  const achsen = ACHSEN_KRITERIEN.map((achse) => kandidat[achse])
+  return (
+    achsen.every((gewicht) => typeof gewicht === 'number' && Number.isInteger(gewicht) && gewicht >= 0 && gewicht <= 10) &&
+    achsen.some((gewicht) => (gewicht as number) > 0)
+  )
+}
+
 /**
  * Prüffunktion (ADR-0006 Punkt 3/4, ADR-0037 Punkt 2): Ein fehlender,
  * unbekannter oder ungültiger gespeicherter Wert führt still zur
- * Voreinstellung Ausgewogen.
+ * Voreinstellung Ausgewogen. Akzeptiert wird auch der Stand aus -001
+ * (`{ szenario }` ohne `eigeneGewichte`).
  */
 export function istGueltigeOrteGewichtung(wert: unknown): wert is OrteGewichtung {
   if (typeof wert !== 'object' || wert === null) return false
   const szenario = (wert as Record<string, unknown>).szenario
   return GEWICHTUNG_SZENARIEN.some((eintrag) => eintrag.schluessel === szenario)
+}
+
+/**
+ * Macht aus einem gespeicherten Wert die Gewichtung für den Store: ein
+ * ungültiger Wert wird Ausgewogen. Gültige `eigeneGewichte` werden
+ * übernommen, fehlende oder ungültige weggelassen — dann gilt 1:1:1:1
+ * (`EIGENE_GEWICHTE_ERSTBELEGUNG`, ADR-0037 Punkt 2), und der Stand aus -001
+ * (`{ szenario }`) bleibt unverändert lesbar.
+ */
+export function liesOrteGewichtung(wert: unknown): OrteGewichtung {
+  if (!istGueltigeOrteGewichtung(wert)) return ORTE_GEWICHTUNG_VOREINSTELLUNG
+  const eigene = (wert as { eigeneGewichte?: unknown }).eigeneGewichte
+  if (!istGueltigeEigeneGewichte(eigene)) return { szenario: wert.szenario }
+  return {
+    szenario: wert.szenario,
+    eigeneGewichte: {
+      ambiente: eigene.ambiente,
+      zeit: eigene.zeit,
+      geschmack: eigene.geschmack,
+      preisLeistung: eigene.preisLeistung,
+    },
+  }
 }

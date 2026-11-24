@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   findeGewichtungsSzenario,
   GEWICHTUNG_SZENARIEN,
+  istGueltigeEigeneGewichte,
   istGueltigeOrteGewichtung,
   istGueltigeOrteSortierung,
+  liesOrteGewichtung,
   istGueltigeTagfilterEinstellung,
 } from './ansicht'
 
@@ -93,13 +95,14 @@ describe('istGueltigeTagfilterEinstellung', () => {
 })
 
 describe('Gewichtung der Gesamtnote (PO-2026-11-24-001)', () => {
-  it('kennt genau fünf feste Szenarien mit 1:1:1:1 bzw. 2:1:1:1 zugunsten der Fokus-Achse', () => {
+  it('kennt fünf feste Szenarien mit 1:1:1:1 bzw. 2:1:1:1 zugunsten der Fokus-Achse, danach „Eigene" (-002)', () => {
     expect(GEWICHTUNG_SZENARIEN.map((eintrag) => eintrag.schluessel)).toEqual([
       'ausgewogen',
       'fokus-geschmack',
       'fokus-ambiente',
       'fokus-preis-leistung',
       'fokus-zeit',
+      'eigene',
     ])
     expect(findeGewichtungsSzenario('ausgewogen').gewichte).toEqual({ ambiente: 1, zeit: 1, geschmack: 1, preisLeistung: 1 })
     expect(findeGewichtungsSzenario('fokus-geschmack').gewichte).toEqual({ ambiente: 1, zeit: 1, geschmack: 2, preisLeistung: 1 })
@@ -121,5 +124,57 @@ describe('Gewichtung der Gesamtnote (PO-2026-11-24-001)', () => {
     expect(istGueltigeOrteGewichtung({})).toBe(false)
     expect(istGueltigeOrteGewichtung({ szenario: 'gibt-es-nicht' })).toBe(false)
     expect(istGueltigeOrteGewichtung({ szenario: 5 })).toBe(false)
+  })
+})
+
+describe('eigene Gewichte (PO-2026-11-24-002, ADR-0037 Punkt 2)', () => {
+  it('„eigene" ist ein gültiges Szenario, auch ohne eigeneGewichte (Stand aus -001)', () => {
+    expect(istGueltigeOrteGewichtung({ szenario: 'eigene' })).toBe(true)
+  })
+
+  it('istGueltigeEigeneGewichte: vier ganze Zahlen 0–10, mindestens eine > 0', () => {
+    expect(istGueltigeEigeneGewichte({ ambiente: 0, zeit: 0, geschmack: 10, preisLeistung: 0 })).toBe(true)
+    expect(istGueltigeEigeneGewichte({ ambiente: 0, zeit: 0, geschmack: 0, preisLeistung: 0 })).toBe(false)
+    expect(istGueltigeEigeneGewichte({ ambiente: 1, zeit: 1, geschmack: 1, preisLeistung: 11 })).toBe(false)
+    expect(istGueltigeEigeneGewichte({ ambiente: 1, zeit: 1, geschmack: 1, preisLeistung: -1 })).toBe(false)
+    expect(istGueltigeEigeneGewichte({ ambiente: 1, zeit: 1.5, geschmack: 1, preisLeistung: 1 })).toBe(false)
+    expect(istGueltigeEigeneGewichte({ ambiente: 1, zeit: '1', geschmack: 1, preisLeistung: 1 })).toBe(false)
+    expect(istGueltigeEigeneGewichte({ ambiente: 1, zeit: 1, geschmack: 1 })).toBe(false)
+    expect(istGueltigeEigeneGewichte(null)).toBe(false)
+  })
+
+  it('liesOrteGewichtung nimmt den Stand aus -001 unverändert', () => {
+    expect(liesOrteGewichtung({ szenario: 'fokus-zeit' })).toEqual({ szenario: 'fokus-zeit' })
+  })
+
+  it('liesOrteGewichtung übernimmt gültige eigene Gewichte, auch bei einem festen Szenario', () => {
+    const eigene = { ambiente: 0, zeit: 3, geschmack: 10, preisLeistung: 1 }
+    expect(liesOrteGewichtung({ szenario: 'ausgewogen', eigeneGewichte: eigene })).toEqual({
+      szenario: 'ausgewogen',
+      eigeneGewichte: eigene,
+    })
+  })
+
+  it('liesOrteGewichtung lässt ungültige eigene Gewichte weg (es gilt 1:1:1:1)', () => {
+    expect(liesOrteGewichtung({ szenario: 'eigene', eigeneGewichte: { ambiente: 0, zeit: 0, geschmack: 0, preisLeistung: 0 } })).toEqual({
+      szenario: 'eigene',
+    })
+    expect(liesOrteGewichtung({ szenario: 'eigene', eigeneGewichte: 'kaputt' })).toEqual({ szenario: 'eigene' })
+  })
+
+  it('liesOrteGewichtung fällt bei einem ungültigen Szenario still auf Ausgewogen zurück', () => {
+    expect(liesOrteGewichtung({ szenario: 'gibt-es-nicht', eigeneGewichte: { ambiente: 1, zeit: 1, geschmack: 1, preisLeistung: 1 } })).toEqual({
+      szenario: 'ausgewogen',
+    })
+    expect(liesOrteGewichtung(undefined)).toEqual({ szenario: 'ausgewogen' })
+  })
+
+  it('die Szenariotabelle führt „Eigene" als sechste Zeile mit der Erstbelegung 1:1:1:1', () => {
+    const eigene = GEWICHTUNG_SZENARIEN[5]!
+    expect(GEWICHTUNG_SZENARIEN).toHaveLength(6)
+    expect(eigene.schluessel).toBe('eigene')
+    expect(eigene.name).toBe('Eigene')
+    expect(eigene.sekundaerzeile).toBe('Du legst die Gewichte selbst fest')
+    expect(eigene.gewichte).toEqual({ ambiente: 1, zeit: 1, geschmack: 1, preisLeistung: 1 })
   })
 })

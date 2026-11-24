@@ -32,10 +32,15 @@ export interface AchsenGewichte {
  * Ergebnis der Gesamtnote (ADR-0037 Punkt 4/5). `zehntel` ist der EINE
  * Rundungsschritt, den Anzeige UND Zone lesen; `roh` ist der ungerundete
  * Wert für Sortierung, Gleichstand und Marker-Vorrang (ADR-0007 Punkt 6).
- * Die Art `ohne-gewicht` (Werte vorhanden, aber alle mit Gewicht 0) kommt
- * mit PO-2026-11-24-002 additiv dazu.
+ * `unbewertet` (keine Achse hat einen Wert) und `ohne-gewicht` (es gibt
+ * Werte, aber alle Achsen mit Wert haben Gewicht 0, PO-2026-11-24-002) sind
+ * fachlich verschiedene Zustände ohne Note (design-conventions.md
+ * „Gewichtung der Gesamtnote") und dürfen nicht zu einem `null` zusammenfallen.
  */
-export type GesamtnoteErgebnis = { art: 'wert'; roh: number; zehntel: number } | { art: 'unbewertet' }
+export type GesamtnoteErgebnis =
+  | { art: 'wert'; roh: number; zehntel: number }
+  | { art: 'unbewertet' }
+  | { art: 'ohne-gewicht' }
 
 /**
  * Gewichtete Gesamtnote: Summe(Gewicht x Wert) / Summe(Gewicht) über die
@@ -47,14 +52,17 @@ export type GesamtnoteErgebnis = { art: 'wert'; roh: number; zehntel: number } |
 export function berechneGesamtnote(bewertungen: Bewertungen, gewichte: AchsenGewichte): GesamtnoteErgebnis {
   let zaehler = 0
   let nenner = 0
+  let achsenMitWert = 0
   for (const achse of ACHSEN_SCHLUESSEL) {
     const wert = bewertungen[achse].wert
     if (wert === null) continue
+    achsenMitWert += 1
     zaehler += gewichte[achse] * wert
     nenner += gewichte[achse]
   }
 
-  if (nenner <= 0) return { art: 'unbewertet' }
+  if (achsenMitWert === 0) return { art: 'unbewertet' }
+  if (nenner <= 0) return { art: 'ohne-gewicht' }
 
   // Ganzzahliges Aufrunden halber Zehntel: floor((20 x Z + N) / (2 x N)).
   const zehntel = Math.floor((20 * zaehler + nenner) / (2 * nenner))
