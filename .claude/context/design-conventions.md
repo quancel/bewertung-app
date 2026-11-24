@@ -1021,8 +1021,8 @@ nicht für Ortsdetail, Kartenansicht, Sheets oder andere Listen.
     box-shadow: var(--schatten-auswahl), var(--schatten-hervorhebung);
   }
   .ortszeile--ausgewaehlt { --schatten-auswahl: inset 3px 0 0 var(--color-primary-600); }
-  .ortszeile--hervorhebung-schwach { --schatten-hervorhebung: 0 1px 4px 0 rgb(26 31 29 / 8%); }
-  .ortszeile--hervorhebung-stark { --schatten-hervorhebung: 0 3px 10px 1px rgb(26 31 29 / 16%); }
+  .ortszeile--hervorhebung-schwach { --schatten-hervorhebung: 0 0 0 1px rgb(26 31 29 / 10%), 0 2px 6px 0 rgb(26 31 29 / 12%); }
+  .ortszeile--hervorhebung-stark { --schatten-hervorhebung: 0 0 0 1px rgb(26 31 29 / 16%), 0 4px 10px 1px rgb(26 31 29 / 18%); }
   ```
   Bei beiden Achsen ≥ 9 bekommt `--schatten-hervorhebung` beide Layer
   kommagetrennt als EINEN Wert. Verbindlich: Die Auswahlkante bleibt in
@@ -1465,9 +1465,12 @@ Fokus Geschmack, Fokus Ambiente, Fokus Preis-Leistung, Fokus Zeit, Eigene.
   Animation (kein Hinweis, kein Übergang); der Ausschnitt wird beim Aufbau der
   Karte als Startansicht gesetzt (kein sichtbares Einpassen mit anschließendem
   Sprung). Fokusrückgabe auf den Marker ohne Verschieben (`preventScroll`).
-  Nach einer Änderung des Tag-Filters in der Kartenansicht bleibt der Ausschnitt
-  erhalten (wiederhergestellt), **außer** im Ausschnitt liegt danach kein
-  sichtbarer Marker — dann wird auf die gefilterten Marker eingepasst.
+  Nach einer Änderung des Tag-Filters **in der Kartenansicht** wird wie bisher
+  neu eingepasst (PO-2026-11-24-003, ADR-0038). Die Regel „Ausschnitt
+  wiederherstellen, **außer** im Ausschnitt liegt kein sichtbarer Marker — dann
+  auf die gefilterten Marker einpassen" gilt bei der **Rückkehr in die
+  Kartenansicht** (aus Detail oder Liste, auch nach einer Filteränderung in der
+  Liste).
 
 ## Karte: Quick-Look-Sheet (PO-2026-11-24-005)
 
