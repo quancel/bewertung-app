@@ -22,3 +22,5 @@ den JSON-Dateien daneben.
 | 2026-11-24T11:23:06Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (<agent-message from="abe181d62e35da1ce">) |
 | 2026-11-24T11:23:28Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (<agent-message from="a16eac1f3a03942f8">) |
 | 2026-11-24T11:37:29Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (<agent-message from="af6e900c94861b5b1">) |
+| 2026-11-24T11:37:45Z | 008 | `ux-ui-designer` | — | — | — | `008-ux-ui-designer.json` |
+| 2026-11-24T11:37:45Z | 009 | `frontend-lead` | — | — | — | `009-frontend-lead.json` |
