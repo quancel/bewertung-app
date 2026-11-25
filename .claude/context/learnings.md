@@ -146,7 +146,11 @@
   Bedienbarkeit, nicht die **Geometrie** der Darstellung. Bei einem Paket,
   dessen Ergebnis eine Darstellung ist, das Ansehen der ohnehin erzeugten
   Bildschirmfotos als `constraint` setzen, statt den Exit-Code als Abnahme zu
-  lesen. (task_id: PO-2026-09-16-001)
+  lesen. Bestätigt in -11-24-005: „Bearbeiten" saß bei 320×700 halb hinter
+  der Tab-Leiste, die Ausnahme „fixierte Chrome" schwieg bewusst. Gefunden
+  hat es das Foto, danach wurde es eine Zusicherung. Die **Höhe** des
+  Viewports ist eine eigene Dimension neben `BREITEN`.
+  (task_id: PO-2026-09-16-001, PO-2026-11-24-005)
 - [2026-09-17] projektweit: `notes_for_learnings`/`notes_for_conventions` aus
   einem Umsetzungslauf **vor** der Abnahme stehen unter Vorbehalt. Der erste
   Lauf von -001 empfahl `outline`/`outline-offset`; genau diesen Ansatz
@@ -226,6 +230,35 @@
   Ganzzahligkeit der Achsen, und die Gewichtung öffnete die Nenner bis 40.
   Ein strukturelles Argument im Zweifel durch ein konstruktives ersetzen
   (ein gemeinsamer Rundungsschritt). (task_id: PO-2026-11-24-002, ADR-0037)
+- [2026-11-25] app-shell/projektweit: Eine Rauchtest-Ausnahme, die über
+  **DOM-Vorfahren** statt über den Containing Block entscheidet, verschluckt
+  genau den Fehler, den das Projekt schon hatte (ADR-0011 Nachtrag P6). Die
+  im Bericht genannte Gegenprobe stand nicht im Code. Beim Einordnen eines
+  Pakets, das eine Ausnahme braucht, als `constraint` setzen: Eintrag im
+  Register ADR-0040, zwei Gegenprobe-Fälle am synthetischen DOM, beide rot
+  nachgewiesen. Beim Kuratieren „Gegenprobe vorhanden" am Code prüfen.
+  (task_id: PO-2026-11-24-004/-005, ADR-0040)
+- [2026-11-25] projektweit: Der Rot-Nachweis ist ein eigener Kostenblock.
+  3 von 8 und 2 von 10 Mutationen bauten im ersten Versuch nicht. Ein voller
+  Rauchtest dauert ca. 7,5 min. Bei Paketen mit mehreren neuen
+  Zusicherungen die gekürzte Smoke-Kopie und „Mutation muss bauen" als
+  `constraint` mitgeben, dazu „`git status` vor `done` ohne Reste" (Backups,
+  `*.orig`, Smoke-Kopien gehören ins Scratchpad).
+  (task_id: PO-2026-11-24-001/-002/-007, code-conventions.md „Tests")
+- [2026-11-25] projektweit: Ein Paket, das eine **persistierte
+  Einstellung** oder einen **Bestand mit Koordinaten** in eine
+  Rauchtest-Ansicht bringt, verfälscht ohne Gegenmaßnahme alle späteren
+  Ansichten. Beim Einordnen `aufraeumen` (samt Unterzustand) bzw.
+  `eigenerKontext` als `constraint` setzen. In -001, -002, -004 und -007
+  fielen die Fehlbefunde (verschobene Zonen, verdeckte Zeilen, 23
+  Überlauf-Befunde durch lange Tag-Namen) jedes Mal erst im Lauf auf.
+  (task_id: PO-2026-11-24-001/-002/-004/-007)
+- [2026-11-25] app-shell (beobachten): In zwei Volläufen von -004 kam
+  sporadisch „photon.komoot.io … blocked by CORS" im Ortssuche-Zustand
+  „laedt". Vermutet wird das Timing der Interception (`unroute` gegen eine
+  laufende Anfrage), danach war er nicht mehr da. Tritt er wieder auf, ist
+  das ein eigenes Paket am Prüfcode und kein Grund, eine Zusicherung
+  abzuschwächen. (task_id: PO-2026-11-24-004)
 - [2026-09-11] orte/tags/karte: Leerzustände sind je **Filterstufe** zu
   zählen, nicht pauschal einer. Bestand leer · Filter ohne Treffer · gefiltert,
   aber nichts davon darstellbar (Orte ohne Koordinaten) sind drei verschiedene

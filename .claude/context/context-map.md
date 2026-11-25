@@ -6,7 +6,12 @@
 > Halte sie kompakt (Faustregel: < 100 Zeilen). Sie ist ein Register,
 > kein Design-Dokument — Details gehören in ADRs unter `adr/`.
 
-- **Stand**: 2026-11-24 (Einordnen PO-2026-11-24-001…007): keine neue
+- **Stand**: 2026-11-25 (Nachpflege PO-2026-11-24-001…007): keine neue
+  Context-Grenze. Der verdeckte Bereich an `karte` ist ein Rechteck. Die
+  Schnellansicht ist eine **Komponente** in `orte`, die `Bildstreifen.vue`
+  einbindet. Die Rauchtest-Ausnahmen haben ein Register (ADR-0039 Nachtrag,
+  ADR-0040).
+  Davor 2026-11-24 (Einordnen PO-2026-11-24-001…007): keine neue
   Context-Grenze. Neu ist der Schlüssel `orte.gewichtung` (ADR-0037).
   `karte` hält flüchtigen Leaflet-Zustand für die Sitzung (ADR-0038).
   `medien` exportiert einen zweiten store-gebundenen Baustein
@@ -149,15 +154,18 @@ vollständiges Sequenzdiagramm.
     nicht-reaktive Modulvariable, nicht als Store (ADR-0038).
   - Die Schnellansicht (`?ort=`) ist eine Komponente in `orte`.
     `karte` bekommt nur Darstellungsgrößen über Props (ausgewählte ID,
-    verdeckte Höhe, `panBy`-Auslöser) und importiert weder `orte` noch
-    `medien` (ADR-0039).
+    verdeckter Bereich `KartenVerdeckung {hoehe, links, rechts}`,
+    `panBy`-Auslöser) und importiert weder `orte` noch `medien`
+    (ADR-0039, Nachtrag zu Punkt 5).
 - **`medien` (-005) hat als einziger Feature-Context einen eigenen Object
   Store und deshalb einen eigenen Pinia-Store** (ADR-0016). Er importiert
   **nichts** aus `features/orte/` — nur unter dieser Bedingung darf
   `Ortebereich.vue` umgekehrt seinen `Bilderbereich.vue` importieren, obwohl
   der einen Store anfasst (Präzisierung von ADR-0013 Punkt 3, das den
   Zyklus meint, nicht das Wort „Store"). Seit ADR-0039 gilt das für genau
-  zwei Bausteine, `Bilderbereich.vue` und `Bildstreifen.vue`. Die
+  zwei Bausteine, `Bilderbereich.vue` (eingebunden von der View
+  `Ortebereich.vue`) und `Bildstreifen.vue` (eingebunden von der
+  **Komponente** `orte/components/Schnellansicht.vue`, ADR-0039 Punkt 6). Die
   Bildvorschau (Vollbild) gehört `medien` und schließt über einen
   Verlaufseintrag ohne eigene Adresse (ADR-0036). Der Ort-Datensatz kennt
   seine Bilder nicht; die Zuordnung ist der Index `ortId` im Store `bilder`.

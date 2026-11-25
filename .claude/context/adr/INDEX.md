@@ -13,8 +13,20 @@
 > Eine Zeile pro ADR. Keine Zusammenfassung des Inhalts — der Titel muss
 > reichen, um zu entscheiden, ob das ADR relevant ist.
 
-**Stand: 2026-11-24 (Einordnen PO-2026-11-24-001…007)**: neununddreißig
-ADRs. Neu sind die folgenden vier.
+**Stand: 2026-11-25 (Nachpflege PO-2026-11-24-001…007)**: vierzig ADRs.
+- **0040** (neu): Register der benannten Ausnahmen der
+  Rauchtest-Zusicherungen. Pflicht zur Gegenprobe am synthetischen DOM.
+  Die Abschneider-Ausnahme in `pruefeUeberlauf()` folgt dem Containing
+  Block. Erweitert ADR-0023 Punkt 7. Zwei Auflagen sind offen, sie gehen
+  an ein Folgepaket.
+- **0039** hat einen **Nachtrag** zu Punkt 1, 5 und 7 bekommen.
+  Schließen per `back()` nur, wenn davor die Karte ohne `ort` liegt. Der
+  verdeckte Bereich ist `{hoehe, links, rechts}`, maßgeblich ist das
+  gerenderte Rechteck. Neu ist die Anhebung über die Tab-Leiste. Kein
+  `superseded by`.
+
+Davor **Stand: 2026-11-24 (Einordnen PO-2026-11-24-001…007)**:
+neununddreißig ADRs. Neu sind die folgenden vier.
 - **0036**: Verlaufseintrag ohne eigene Adresse für die Bildvorschau
   (-006). Präzisiert ADR-0011 Punkt 4.
 - **0037**: Gewichtete Gesamtnote (-001/-002). Die Gewichtung ist eine
@@ -210,7 +222,7 @@ PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
 | [0020](0020-ortssuche-anbieter-und-abfragemodell.md) | Ortssuche — Photon als Geocoder, Suche beim Tippen, im Context `orte` statt `karte` | orte, karte, app-shell | accepted | 2026-09-11 |
 | [0021](0021-netzzustand-im-ui.md) | Netzzustand im UI — erlaubt an der netzabhängigen Bedienstelle, verboten in der Auslieferungsmechanik (Präzisierung von ADR-0015 Punkt 6) | app-shell, karte, orte | accepted | 2026-09-10 |
 | [0022](0022-reine-lib-funktionen-ueber-context-grenzen.md) | Reine `lib`-Funktionen über Context-Grenzen (Präzisierung von ADR-0013 Punkt 2/3) | orte, karte, bewertungen, tags, medien, datensicherung | accepted | 2026-09-11 |
-| [0023](0023-verifikationsebenen-vitest-und-rauchtest.md) | Verifikationsebenen — was Vitest prüft, was der Rauchtest prüft, und warum kein Browser-Test-Runner dazukommt | app-shell, orte, medien, datensicherung | accepted (Punkt 7 erweitert durch 0039) | 2026-09-12 |
+| [0023](0023-verifikationsebenen-vitest-und-rauchtest.md) | Verifikationsebenen — was Vitest prüft, was der Rauchtest prüft, und warum kein Browser-Test-Runner dazukommt | app-shell, orte, medien, datensicherung | accepted (Punkt 7 erweitert durch 0039 und 0040) | 2026-09-12 |
 | [0024](0024-projektweite-interaktionsregeln-in-shared.md) | Projektweite Interaktionsregeln liegen einmal in `src/shared/`, und ein Paket darf sie über die Context-Grenze hinweg anbinden | orte, tags | accepted | 2026-09-12 |
 | [0025](0025-zustand-ueber-die-komponentengrenze-im-ortsdetail.md) | Zustand über die Komponentengrenze im Ortsdetail — Ortssuche meldet ihren wirksamen Zustand, die Sichtbarkeit rastet an der Ort-ID ein | orte | accepted (Punkt 3 präzisiert durch 0026) | 2026-09-12 |
 | [0026](0026-lebensdauer-der-sichtbarkeits-kennung.md) | Die Sichtbarkeits-Kennung gilt für die geöffnete Detailinstanz, nicht für die Ort-ID (Präzisierung von ADR-0025 Punkt 3) | orte | accepted | 2026-09-13 |
@@ -226,7 +238,8 @@ PO-2026-09-07-005 (Bilder), 0017 beim Einordnen von PO-2026-09-07-009
 | [0036](0036-verlaufseintrag-ohne-eigene-adresse.md) | Ein modaler Vollbild-Dialog bekommt einen Verlaufseintrag ohne eigene Adresse (Präzisierung von ADR-0011 Punkt 4 und ADR-0019 Punkt 2) | medien, orte, app-shell | accepted | 2026-11-24 |
 | [0037](0037-gewichtete-gesamtnote.md) | Gewichtete Gesamtnote — Gewichtung als Anzeigeeinstellung von `orte`, Pflichtparameter der reinen Berechnung, ein Rundungsschritt für Anzeige und Zone (löst ADR-0034 Punkt 3/4 ab, präzisiert ADR-0007 Punkt 6) | orte, bewertungen, karte | accepted | 2026-11-24 |
 | [0038](0038-kartenausschnitt-in-der-sitzung.md) | Kartenausschnitt bleibt für die Sitzung erhalten, als flüchtiger Modulzustand in `karte` (löst ADR-0019 Punkt 11 teilweise ab, präzisiert Punkt 6/8) | karte, orte | accepted | 2026-11-24 |
-| [0039](0039-schnellansicht-auf-der-karte.md) | Schnellansicht auf der Karte — eingefrorene Adressform `ort`, Komponente in `orte`, keine Kopplung `karte` → `medien`, `inert` als benannte Ausnahme (löst ADR-0019 Punkt 6 teilweise ab, erweitert ADR-0016 Punkt 10 und ADR-0023 Punkt 7) | orte, karte, medien, app-shell | accepted | 2026-11-24 |
+| [0039](0039-schnellansicht-auf-der-karte.md) | Schnellansicht auf der Karte — eingefrorene Adressform `ort`, Komponente in `orte`, keine Kopplung `karte` → `medien`, `inert` als benannte Ausnahme (löst ADR-0019 Punkt 6 teilweise ab, erweitert ADR-0016 Punkt 10 und ADR-0023 Punkt 7) | orte, karte, medien, app-shell | accepted (Punkt 1/5/7 präzisiert, Nachtrag 2026-11-25) | 2026-11-24 |
+| [0040](0040-benannte-ausnahmen-der-rauchtest-zusicherungen.md) | Benannte Ausnahmen der Rauchtest-Zusicherungen — Register, Gegenprobe am synthetischen DOM als Pflicht, Abschneider-Ausnahme folgt dem Containing Block (Erweiterung von ADR-0023 Punkt 7) | app-shell, karte, orte, medien | accepted | 2026-11-25 |
 
 **Status-Werte** wörtlich wie im ADR selbst: `proposed` · `accepted` ·
 `superseded by ADR-NNNN`.

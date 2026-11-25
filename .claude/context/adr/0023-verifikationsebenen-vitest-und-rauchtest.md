@@ -7,6 +7,9 @@
 - **Erweitert durch**: ADR-0039 Punkt 7 (2026-11-24). Zu Punkt 7 kommt
   eine weitere benannte Ausnahme der Verdeckungsprüfung (`[inert]`). Sie
   gilt nur zusammen mit einer harten Gegen-Zusicherung.
+- **Erweitert durch**: ADR-0040 (2026-11-25). Register aller benannten
+  Ausnahmen, Gegenprobe am synthetischen DOM als Pflicht, und die
+  Abschneider-Ausnahme in `pruefeUeberlauf()` folgt dem Containing Block.
 
 ## Kontext
 

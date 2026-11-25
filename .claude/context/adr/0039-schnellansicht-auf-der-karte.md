@@ -4,6 +4,9 @@
 - **Datum**: 2026-11-24
 - **Bounded Context(s)**: `orte`, `karte`, `medien`, `app-shell`
 - **task_id**: `PO-2026-11-24-005`
+- **Nachtrag** (2026-11-25, Nachpflege): Punkt 1, 5 und 7 sind am
+  umgesetzten Stand präzisiert, siehe Abschnitt „Nachtrag" am Ende. Der
+  normative Kern ist unverändert, kein `superseded by`.
 
 ## Kontext
 
@@ -103,3 +106,42 @@ würde das melden, sie kennt aber nur die Ausnahmen „aktive Auswahlliste",
   toter Verlaufseintrag (Punkt 2).
 - **Verdeckte Marker ausblenden statt `inert`**: verworfen. Die Karte
   verlöre sichtbare Information, und die Design-Vorgabe verlangt `inert`.
+
+## Nachtrag (2026-11-25, Nachpflege nach Umsetzung)
+
+Drei Stellen des umgesetzten Stands weichen vom Wortlaut ab. Alle drei sind
+richtig und werden hier übernommen.
+
+- **Zu Punkt 1 (Schließen)**: `router.back()` nur, wenn `history.state.back`
+  auf `/orte?ansicht=karte` **ohne** `ort` auflöst. Sonst gilt `replace`
+  ohne `ort` (`aufSchnellansichtSchliessen()` in `Ortebereich.vue`). „Der
+  vorige Eintrag liegt in der App" reichte nicht. Der beobachtbare
+  Fehlerfall: Nach „Bearbeiten" → Detail → Zurück liegt das Ortsdetail
+  davor. Nach einem Neuladen mit `?ort=` kann auch eine andere App-Adresse
+  davor liegen. Ein `back()` führte dann aus der Karte heraus, statt das
+  Sheet zu schließen.
+- **Zu Punkt 5 (verdeckter Bereich)**: `karte` bekommt statt einer Höhe den
+  Typ `KartenVerdeckung { hoehe, links, rechts }` (px, relativ zum
+  Kartencontainer, unten bündig; `karte.types.ts`). Ab `md` ist das Sheet
+  schmaler als die Karte, und ein Marker daneben ist nicht verdeckt. Mit
+  nur einer Höhe wären auch diese Marker `inert` geworden. Die reine
+  Auswertung steht in `features/karte/lib/verdeckung.ts`. Es bleibt eine
+  Darstellungsgröße ohne Ort-Wissen.
+- **Zu Punkt 7 (Gegen-Zusicherung)**: Maßgeblich ist das **gerenderte
+  Rechteck** des Sheets, nicht „unter der Sheet-Oberkante". Inert ist jeder
+  Marker, dessen Mittelpunkt darin liegt, und keiner sonst
+  (`pruefeMarkerInertGegenZusicherung()`). Die Ausnahme „Überlagerung
+  vollständig auf der Fläche" ist mit Register und Auflage in ADR-0040
+  festgehalten.
+- **Neu, ohne Punkt im Original: Anhebung über die Tab-Leiste.** Die Karte
+  hat eine feste Höhe (`--karte-hoehe: 480px`). Auf niedrigen Telefonen
+  (gemessen 320×700) reicht sie unter die feste Bottom-Tab-Leiste. Das Sheet
+  hebt seine Unterkante dann um den Überstand an. Gemessen wird gegen das
+  `padding-bottom` des nächsten `<main>` (`Schnellansicht.vue`, `messe()`),
+  hart zugesichert in `pruefeSchnellansicht()` (9). Das ist ein
+  **lesender** Griff aus einer `orte`-Komponente in das Layout von
+  `app-shell`. Er ist als Abweichung akzeptiert, weil die Zusicherung ihn
+  abdeckt. Ändert `AppRahmen.vue`, wie es den Platz für feste Leisten
+  reserviert, bricht die Anhebung. Ob die Kartenhöhe stattdessen der
+  verfügbaren Höhe folgen soll, ist eine offene Nutzerfrage (Nachpflege
+  2026-11-25). Bis dahin bleibt die Anhebung.

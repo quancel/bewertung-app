@@ -7,7 +7,16 @@
 > nicht hierhin.
 
 - **Modus**: `vorgegeben` (Greenfield, ADR-0002)
-- **Zuletzt geprüft**: 2026-11-24, Einordnen PO-2026-11-24-001…007.
+- **Zuletzt geprüft**: 2026-11-25, Nachpflege PO-2026-11-24-001…007
+  (nach Umsetzung, vor der Abnahme, am Code gegengelesen). Hinzugekommen
+  sind: `shared/ui/Regler.vue`, das Gewichts-Gate in
+  `orte/lib/gewichtung.ts`, drei Sortiergruppen, Marker- und
+  Balken-Hooks, Rauchtest-Bauformen `aufraeumen`/`eigenerKontext`, das
+  Ausnahmen-Register (ADR-0040) und Mutationsreste. Korrigiert ist die
+  Route-Namen-Regel (`ort-detail`). Die offene `watch`-Stelle in
+  `useLeafletKarte.ts` ist gestrichen, `IconInfo.vue` ist zur Löschung
+  vorgemerkt.
+  Davor 2026-11-24, Einordnen PO-2026-11-24-001…007.
   Hinzugekommen sind: gewichtete Gesamtnote mit Pflichtparameter und
   gemeinsamem Zehntelwert (ADR-0037), Adressform `ort` (ADR-0039),
   Verlaufseintrag ohne Adresse (ADR-0036), Sitzungszustand in `karte`
@@ -115,7 +124,11 @@ src/
      `medien` darf seinen **eigenen** Store anfassen, solange es nichts aus
      `orte` importiert (ADR-0016 P9/10). Store-gebundene Exporte gibt es
      genau zwei, `Bilderbereich.vue` und `Bildstreifen.vue` (ADR-0039 P6).
-     Ein dritter braucht ein ADR. `karte` importiert aus keinem Feature,
+     Ein dritter braucht ein ADR. `Bildstreifen.vue` bindet nicht die
+     View, sondern die **Komponente** `orte/components/Schnellansicht.vue`
+     ein. Das ist die einzige `components/`-Datei mit einem
+     store-gebundenen Kind, und sie gilt nicht als Vorbild für „Komponente
+     kennt Store". `karte` importiert aus keinem Feature,
      auch nicht aus `medien`.
   3. `datensicherung` darf nach einem Import `useOrteStore`/`useMedienStore`
      **zum Neuladen** anstoßen — nur das, ohne Rückrichtung (ADR-0017 P9).
@@ -127,6 +140,9 @@ src/
 - **Reicht ein anderer Context in einen Baustein hinein, bekommt er einen
   benannten Slot statt eines Imports** (ADR-0013; `Werkzeugleiste.vue`,
   Slot `zeile-2`). Leerer Slot = Zeile wird nicht gerendert.
+  `Werkzeugleiste.vue` bleibt store- und routerfrei. Was sie anzeigt,
+  bekommt sie als Pflicht-Prop (`gewichtungName`), was sie auslöst,
+  meldet sie per Emit (`gewichtung-oeffnen`).
 - **Der Ort-Datensatz hat genau einen Besitzer im Arbeitsspeicher:
   `useOrteStore`** (ADR-0008). Contexts, die Felder darin bearbeiten
   (`bewertungen`, `tags`), führen **keinen eigenen Store** und rufen
@@ -144,7 +160,12 @@ src/
   `number | null`. **Anzeige und Zone lesen `zehntel`** (ganzzahlig,
   `Math.round(10 · Zähler / Nenner)`). **Sortierung, Gleichstand und
   Vorrang lesen `roh`.** Komponenten und `karte` rechnen nicht selbst,
-  sie bekommen das Ergebnis bzw. primitive Felder von `Ortebereich.vue`.
+  sie bekommen das Ergebnis bzw. primitive Felder von `Ortebereich.vue`
+  (`gesamtnoteVon`, die einzige rechnende Stelle; `Ortszeile.vue` hat die
+  Pflicht-Prop `gesamtnote`, `KartenOrt` die Felder `notentext`/`rohwert`/
+  `ohneNoteGrund`). `SortierErgebnis` hat **drei** Gruppen: `mitWert`,
+  `ohneWert` und `ohneGewicht`. Die dritte ist nur bei Kriterium
+  Gesamtnote gefüllt. Jeder Konsument muss alle drei behandeln.
 - **`model/*.types.ts` importiert nichts** und enthält nur den Anteil seines
   Contexts; `persistence/schema.ts` setzt daraus `OrtDatensatz` zusammen. Ein
   Import von `persistence/` dorthin dreht die Richtung um und ist ein Fehler.
@@ -195,9 +216,8 @@ src/
   nicht erst bei inhaltlicher Änderung — `computed` + `filter`/`map` liefert
   jedes Mal ein neues Array. Soll eine Wirkung nur bei **Inhalts**änderung
   eintreten, vergleicht der Watcher selbst (stabile Kennung der Menge).
-  Offene Stelle: `features/karte/composables/useLeafletKarte.ts` ruft
-  `wendeKartenausschnittAn()` bei jeder Neuberechnung. PO-2026-11-24-003
-  korrigiert das (Vergleich über die ID-Menge, ADR-0038 P5).
+  Vorbild: `bildeMengenKennung()` in `karte/lib/kartenausschnitt.ts`,
+  benutzt von `useLeafletKarte.ts` (ADR-0038 P5).
 - **Ein `watch`, der das DOM misst oder liest** (`scrollHeight`,
   `getBoundingClientRect`, `offsetHeight`, `feld.value` …), läuft mit
   `{ flush: 'post' }`, nicht mit dem Vue-Standard `pre`. Template-Bindungen,
@@ -218,13 +238,16 @@ src/
     ihre Bedeutung wie `--color-primary-*`, deshalb gibt es keinen Alias in
     `semantic.css`. Die Zuordnung Zone → Tokenname steht wörtlich und genau
     einmal in `features/orte/lib/zonen.ts` (ADR-0034 P2). Die Zone
-    vergleicht ganzzahlige Zehntel (ADR-0037 P5).
+    vergleicht ganzzahlige Zehntel (ADR-0037 P5): `ZONEN[].untergrenzeZehntel`
+    (80/85/90/95/100), `bestimmeZone(zehntel)`. Ein Einzelachsenwert geht als
+    `wert × 10` hinein.
   - **Kartenmarker** (ab PO-2026-11-24-004): Maße als Tokens mit Präfix
     `--karte-marker-*` in `tokens.css`, analog `--karte-hoehe`. Das sind
     Scheibe 40/48px, Ring 3/4px, Punkt 16/24px, Außenring 3px,
     Trefferfläche 44px und die Etikettbreite 120/240px. `L.divIcon` braucht
     `iconSize`/`iconAnchor` als Zahl in JS, dort steht eine benannte
-    Konstante mit Tokennamen im Kommentar. Farben nur semantisch
+    Konstante mit Tokennamen im Kommentar (`MARKER_TREFFERFLAECHE`,
+    `ETIKETT_RANDABSTAND` = `--space-8`). Farben nur semantisch
     (`--surface`, `--color-accent-500`, `--text`, `--border`), keine
     Zonenfarbe.
   - **Hervorhebungs-Schatten**: `--shadow-hervorhebung-schwach` und
@@ -236,8 +259,11 @@ src/
   `var(--<baustein>-<eigenschaft>, <bisherige Vorgabe>)`, der Default bleibt
   also für alle anderen Nutzer unverändert. Der Elternteil setzt die Property
   auf seinem eigenen Wrapper, und die Vererbung trägt sie über die
-  Scoped-Grenze. Vorbild: `--intensitaetsbalken-zahl-farbe` (ab
-  PO-2026-09-27-003). Die bestehende `:deep()`-Stelle in
+  Scoped-Grenze. Vorbild: `Intensitaetsbalken.vue` mit
+  `--intensitaetsbalken-zahl-{farbe,padding,radius,flaeche,gewicht,ziffern}`
+  und `--intensitaetsbalken-fuellung-farbe` (ab PO-2026-09-27-003/-11-24-007).
+  Ein Hook ist kein Prop. Gesetzt wird er nur auf dem Wrapper des Nutzers,
+  nie global (`body`, `:root`), sonst leckt er in andere Nutzer. Die bestehende `:deep()`-Stelle in
   `ImportEntscheidenSheet.vue` nicht nebenbei umbauen.
 - **Mehrere unabhängige Signale auf derselben Eigenschaft (`box-shadow`)
   bekommen je Signal eine lokale Custom Property mit neutralem Fallback**
@@ -247,7 +273,12 @@ src/
 - **Schriften und Icons unter `src/assets/`** — kein Fremd-Host, kein
   Icon-CDN (Offline-Zusage, ADR-0001). Icons je Paket nachziehen: SVG nach
   `assets/icons/<kurzname>.svg` + Wrapper `shared/ui/icons/Icon<Name>.vue`,
-  Quelle Lucide Outline. Nie ein ganzes Set auf Vorrat.
+  Quelle Lucide Outline. Nie ein ganzes Set auf Vorrat. Dieselbe Regel gilt
+  rückwärts: Wer den letzten Nutzer eines Icons entfernt, löscht SVG und
+  Wrapper im selben Paket. **Offen**: `shared/ui/icons/IconInfo.vue` und
+  `assets/icons/info.svg` sind seit PO-2026-11-24-007 ungenutzt. Löschen
+  wird der `frontend-lead` im nächsten Paket, das er umsetzt; Nachweis ist
+  ein leerer `grep` und ein grüner Build. Danach diesen Satz streichen.
 - **Fremdnetz-Zugriffe** nur für drei Zwecke (Kartenkacheln, Ortssuche,
   Versionsauslieferung), im Feature, das sie braucht, jeder mit Ausfallpfad
   (ADR-0018/0020):
@@ -276,7 +307,14 @@ src/
   die Sitzung hält ein nicht-reaktives Modul in `karte/composables/`, mit
   Mitte und Zoom, ohne Ort-Daten und ohne Store (ADR-0038). Bestehende
   Marker werden bei Inhaltsänderung aktualisiert (Note, Name, Label) statt
-  nur verschoben.
+  nur verschoben. Das geschieht in-place und idempotent (`befuelleElement`),
+  der Fokus bleibt dabei und es wird nicht eingepasst. Ein Etikett, das
+  ausgeblendet werden kann, bleibt im Layout (`opacity`, nicht `display`).
+  Nur so lassen sich Kollisionen am gerenderten Rechteck messen. Reine
+  Geometrie liegt in `karte/lib/` (`etikettKollision.ts`, `verdeckung.ts`),
+  nicht im Composable. `.karte-wrapper` trägt `isolation: isolate`. Ohne
+  diesen Stapelkontext liegen Leaflets Bedienelemente (z-index 800/1000)
+  über der festen App-Chrome und fangen deren Klicks ab.
 - **`app/dev/`** ist Dev-Werkzeug: Routen nur unter `import.meta.env.DEV`,
   importiert nichts aus `features/`. `Tokenschau.vue` **bleibt dauerhaft**.
 
@@ -295,7 +333,10 @@ src/
 ## Routen, Ansichten, neue Bereiche
 
 - **Adressschema** `/<bereich>` und `/<bereich>/:<id>`; `/` leitet auf
-  `/orte`. Route-Name = Pfad ohne Schrägstrich. **Routen bleiben flach**,
+  `/orte`. Route-Name einer **neuen** flachen Route = Pfad ohne
+  Schrägstrich. Die ausgelieferten Namen sind eingefroren, wie sie sind:
+  `orte`, `ort-detail` (für `/orte/:ortId`), `daten`, `adresse-ohne-ziel`.
+  Navigiert wird per Name, nie per zusammengesetztem Pfad aus einem Namen. **Routen bleiben flach**,
   keine Elternroute als Layout-Träger; die Sammelroute `/:pfad(.*)*` steht
   als **letzter** Eintrag in `app/router/routes.ts`. `path` und `name` einer
   ausgelieferten Route werden **nie** geändert (ADR-0010/0011).
@@ -313,7 +354,9 @@ src/
 - **Eingefrorene Query-Parameter**: `ansicht` (Wert `karte`, ADR-0019) und
   `ort` (Ort-ID, nur zusammen mit `ansicht=karte`, ADR-0039). Bei `ort`
   gilt: Öffnen ist `push`, Wechsel ist `replace`, Schließen ist
-  `back()`, wenn `history.state.back` gesetzt ist, sonst `replace`. Eine
+  `back()` **nur**, wenn `history.state.back` auf die Karte **ohne** `ort`
+  auflöst (`router.resolve`), sonst `replace` ohne `ort` (ADR-0039
+  Nachtrag zu P1). Eine
   unbekannte oder nicht sichtbare ID wird **erst nach dem Laden des
   Stores** per `replace` entfernt. Das ist die einzige Ausnahme von „ohne
   `replace`".
@@ -322,6 +365,12 @@ src/
   Query-Parameter. Er wird über den Router angelegt, nie über rohes
   `history.pushState`. Eine Vorwärts-Navigation oder ein Neuladen öffnet
   ihn nie, und `scrollBehavior` scrollt bei gleicher `fullPath` nicht.
+  Bauform: `medien/composables/useVorschauVerlaufseintrag.ts`
+  (`router.push({ …, state: { bildvorschau: true }, force: true })`, ohne
+  `force` entsteht kein Eintrag; Schließerkennung über `popstate`). Der
+  Esc-Handler sitzt am Dialog selbst mit `stopPropagation`, damit die
+  `document`-Listener darunterliegender Sheets nicht mitschließen. Der
+  Fokus wird mit `focus({ preventScroll: true })` zurückgegeben.
 
 ## Layout und Breitenlogik (ADR-0010/0011/0012)
 
@@ -425,8 +474,13 @@ src/
   läuft aus dem Bildschirm. **Vertikal scrollen ist normal, horizontal nie** —
   aus dem Bildschirm ragen darf nichts.
 - **Ein selbst gezeichnetes Bedienelement wächst auf seine Trefferfläche über
-  einen transparenten `border`, nicht über `padding`** (Vorbild: Reglerbahn in
-  `Bewertungsachse.vue` — 8px Bahn + `border-width: 18px 0` = 44px). Drei
+  einen transparenten `border`, nicht über `padding`** (Vorbild:
+  `shared/ui/Regler.vue`, die gemeinsame Regler-Bauform für
+  `Bewertungsachse.vue` und `GewichtungSheet.vue` — 8px Bahn +
+  `border-width: 18px 0` = 44px). `Regler.vue` ist ein einziges `<input>`
+  mit den Props `wert`, `min`, `max`, `leer`. Ereignisse, `id`, `class` und
+  `aria-*` fallen per Attribut-Fallthrough durch. Das Layout (`flex`,
+  `min-width: 0`, `grid-area`) setzt der Nutzer, nicht der Baustein. Drei
   Teile, die nur zusammen funktionieren:
   - **Lokale Ausnahme `box-sizing: content-box`** vom globalen `border-box`
     (`base.css`) — sonst verdrängt der Rahmen die deklarierte Höhe der
@@ -503,6 +557,13 @@ src/
   „ganze Zahl 0–10, unabhängig vom Weg" zur Konvention statt zur Struktur.
   Ausgenommen bleibt nur das **Leeren** — es führt direkt zu `null` und wird
   nie geklemmt.
+- **Dasselbe Muster für die eigenen Gewichte** (ADR-0037): Das Gate sind
+  reine Funktionen in `features/orte/lib/gewichtung.ts` (klemmen 0–10,
+  runden, die letzte zählende Achse bleibt auf 1). Einziger Schreibpfad ist
+  `useOrteStore.setzeEigenesGewicht(achse, roh)`, über ihn laufen Regler und
+  Zahlenfeld. `eigeneGewichte` ist additiv in `OrteGewichtung`, gelesen
+  über `liesOrteGewichtung()`. Ungültiges fällt auf die Erstbelegung
+  zurück.
 - **Freitext mit Zeichenobergrenze und ohne Zeilenumbruch** (erstmals
   Anfangsnotiz, PO-2026-09-27-002; UI-Seite: `design-conventions.md`
   „Kurztextfeld mit Zeichenobergrenze"). Die Regel ist **eine** reine
@@ -642,12 +703,30 @@ src/
   Historie oder eine Wegwerf-Änderung; der Nachweis steht im Bericht. Ein
   Prüfweg, der die Eigenschaft gar nicht erreicht, sieht aus wie ein
   erfülltes Kriterium.
+  - **Eine Mutation muss bauen.** Ein Typfehler (`noUnusedLocals`,
+    `noUnusedParameters`, Narrowing etwa bei `false && x`) färbt den Lauf
+    vor dem Rauchtest rot, und das aus dem falschen Grund. Den Zielzweig
+    umlenken (anderer Schlüssel, anderer Text, anderer Event-Name), statt
+    einen Ausdruck zu entfernen. Eine Textersetzung prüft vorher, dass der
+    alte Text vorkommt, sonst bleibt die Mutation still wirkungslos.
+  - **Gekürzte Rauchtest-Kopie**: Für Mutationsläufe ist eine temporäre
+    Kopie von `scripts/smoke.mjs` mit gefilterten Ansichten zulässig
+    (ca. 1,5 statt 7,5 min). Der letzte Lauf vor `done` ist der volle.
+  - **Keine Reste**: Backups und Wegwerf-Skripte liegen im Scratchpad,
+    nicht im Repo. Vor `done` zeigt `git status` nur die beabsichtigten
+    Dateien, also keine `*.orig`, `*.bak`, `*.rej` und keine Smoke-Kopien.
+  - Lange Läufe im Hintergrund mit `setsid nohup` starten und auf das
+    Prozessende prüfen. Ein abgebrochener Lauf endet ohne Meldung mitten im
+    Ablauf.
 - **Jede Dokumentations-Änderung steht im Bericht mit Beleg** — Datei plus
   Zeilenbereich oder Diff-Auszug, nie nur „aktualisiert". Das betrifft vor
   allem den Abschnitt „Rauchtest" in `CLAUDE.md`, der mit **jeder** neuen
   Zusicherung einen Absatz bekommt. Maßstab ist `git diff`, nicht die
   Absicht: Eine Änderung, die dort fehlt, ist nicht gemacht (Anlass:
   PO-2026-09-27-004, die gemeldete `CLAUDE.md`-Ergänzung fehlte im Diff).
+  Die Zeilenangaben zu `scripts/smoke.mjs` in `CLAUDE.md` veralten mit
+  jeder Einfügung davor. Wer dort einfügt, zieht alle betroffenen Angaben
+  nach.
 - **Grün gegen `fake-indexeddb` heißt nicht, dass der Browser schreibt** — es
   bildet den strukturierten Klon in JavaScript nach. Jede Zusicherung „Daten
   überleben ein Neuladen" gehört in den Rauchtest. Für die Klonbarkeit selbst
@@ -683,21 +762,36 @@ src/
 - **Neue Ansicht, neue Breite, neuer Zustand?** In die zentralen Listen oben
   in `scripts/smoke.mjs` eintragen — sonst prüft sie niemand. Ausnahmen von
   einer Zusicherung stehen als **benannte Bedingung** (Bauform), nie als
-  Liste von IDs oder Klassennamen. Ab PO-2026-11-24-005 überspringt
-  `pruefeVerdeckung()` Elemente in einem `[inert]`-Teilbaum (ADR-0039 P7).
-  Diese Ausnahme gilt nur zusammen mit einer harten Gegen-Zusicherung:
-  Genau die überdeckten Elemente sind `inert`. Eine nicht modale
-  Überlagerung ist **nicht** `position: fixed`, sonst verschluckt die
+  Liste von IDs oder Klassennamen. **Das Register aller gültigen Ausnahmen
+  steht in ADR-0040**, eine neue Ausnahme kommt über den Architekten dort
+  hinein. Jede Ausnahme hat in `pruefeAusnahmenGegenprobe()` zwei Fälle am
+  synthetischen DOM: einen, in dem sie greift, und einen Gegenfall, in dem
+  die Prüfung weiter anschlägt. Beide werden rot nachgewiesen. Ob ein
+  Vorfahr ein Element abschneidet, entscheidet der **Containing Block**,
+  nicht der DOM-Baum: Ein `fixed`-Element oder ein absolutes ohne
+  positionierten Vorfahren im Abschneider entkommt ihm (ADR-0040 P4; im
+  heutigen `pruefeUeberlauf()` noch nicht umgesetzt, benannte Lücke). Die
+  `[inert]`-Ausnahme gilt nur zusammen mit der harten Gegen-Zusicherung
+  „genau die überdeckten Marker sind `inert`" (ADR-0039 P7). Eine nicht
+  modale Überlagerung ist **nicht** `position: fixed`, sonst verschluckt die
   Ausnahme „fixierte Chrome" ihre Befunde.
 - **Die Ansichten aus `ANSICHTEN` teilen sich Seite, Bestand und persistierte
-  Einstellungen** (Sortierung, Filter). Das gilt über die gesamte Laufzeit.
-  Eine Vorbereitung, die eine Einstellung verstellt, stellt sie wieder
-  zurück, bevor die nächste Ansicht läuft. Sonst verfälscht sie eine fremde,
-  spätere Zusicherung. Anlass: Nach `bereiteOrtslisteZonenVor()` blieb
-  „Gesamtnote" gespeichert, und die Verdeckungsprüfung der Ortssuche meldete
-  dadurch eine falsche Verdeckung. Bestehende Stelle: Der Reset steht beim
-  Nachfolger `oeffneZonenLegende()`. Wer die Reihenfolge in `ANSICHTEN`
-  ändert, zieht ihn mit. Braucht eine Zusicherung einen bestimmten Bestand als
+  Einstellungen** (Sortierung, Filter, Gewichtung). Das gilt über die
+  gesamte Laufzeit. Zwei Bauformen schützen davor, eine fremde, spätere
+  Zusicherung zu verfälschen:
+  - **`aufraeumen`** an der Ansicht: Wer eine persistierte Einstellung
+    verstellt, stellt sie dort zurück. Das gilt **samt Unterzustand**,
+    nicht nur den Schalter: `setzeGewichtungZurueck` setzt erst die eigenen
+    Gewichte auf 1:1:1:1, dann Ausgewogen. Ein älterer Reset steht noch
+    beim Nachfolger `oeffneZonenLegende()`. Wer die Reihenfolge in
+    `ANSICHTEN` ändert, zieht ihn mit.
+  - **`eigenerKontext: true`** an der Ansicht (frischer Browser-Kontext,
+    eigene IndexedDB): für einen Bestand mit Koordinaten oder vielen
+    zusätzlichen Orten. Auf der gemeinsamen Seite verlängert er die Liste,
+    und spätere Ansichten melden Fehlbefunde.
+  Rauchtest-Daten legen **kurze** Tag-Namen an (`ka`, `kb`). Tags bleiben im
+  Bestand, und lange Filter-Pillen ragen in jeder späteren Ansicht aus dem
+  Bildschirm. Braucht eine Zusicherung einen bestimmten Bestand als
   **Vorbedingung**, läuft sie auf einer frischen Seite und legt ihn selbst an.
   Der zufällig angesammelte Bestand eines Laufs zählt nicht als Vorbedingung.
   Vorbild: `pruefeSpaltenAbgeschlossenerScrollBereich()`.
@@ -791,6 +885,15 @@ Befund meldet.
   `pruefeAbschlussKombination` deckt die Stelle hart ab. Umgestellt wird,
   wenn der Chrome-Block dieser Datei aus eigenem Grund angefasst wird. Kein
   Einzelfall-Aufräumen.
+- **`Schnellansicht.vue` liest das `padding-bottom` des nächsten `<main>`**
+  (`messe()`), um sich über die feste Tab-Leiste anzuheben, wenn die
+  480px-Karte darunter reicht (ADR-0039 Nachtrag). Das ist ein lesender
+  Griff aus `orte` in das Layout von `app-shell`. Er ist bewusst
+  akzeptiert, weil `pruefeSchnellansicht()` (9) ihn bei 320×700 hart
+  abdeckt. Wer in `AppRahmen.vue` ändert, wie Platz für feste Leisten
+  reserviert wird, zieht ihn mit. Ob die Kartenhöhe stattdessen der
+  verfügbaren Höhe folgt, ist eine offene Nutzerfrage, nicht nebenbei
+  umbauen.
 - **`.datenbereich__datei-input`** (`Datenbereich.vue`) nutzt das `clip`-Muster
   für ein Datei-Input und nicht für Screenreader-Text. Deshalb heißt es nicht
   `__sr-…`. Nicht umbenennen.
