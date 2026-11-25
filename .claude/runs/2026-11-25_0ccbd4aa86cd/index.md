@@ -12,3 +12,5 @@ den JSON-Dateien daneben.
 | 2026-11-25T01:21:13Z | 002 | `architekt` | — | — | — | `002-architekt.json` |
 | 2026-11-25T01:28:31Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (<agent-message from="a4a304c0c93d40b75">) |
 | 2026-11-25T01:28:41Z | 003 | `product-owner` | — | — | — | `003-product-owner.json` |
+| 2026-11-25T05:48:46Z | 004 | `ux-ui-designer` | — | — | — | `004-ux-ui-designer.json` |
+| 2026-11-25T05:48:46Z | 004 | `frontend-lead` | — | — | — | `004-frontend-lead.json` |
