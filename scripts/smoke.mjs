@@ -393,6 +393,14 @@ const ANSICHTEN = [
   // verlängerten dort die Liste so, dass die Ortssuche-Zustände eine unter der
   // sticky Werkzeugleiste weggescrollte Zeile als „verdeckt" meldeten.
   { name: 'karten-marker', pfad: '/orte', vorbereiten: bereiteKartenMarkerVor, eigenerKontext: true },
+  // PO-2026-11-24-005: die Schnellansicht in JEDEM ihrer drei Zustände, mit langen
+  // Kommentaren, einer 100-Zeichen-Anfangsnotiz, Tags und sechs Bildern
+  // (Bildstreifen läuft über). Je Ansicht ein frischer Browser-Kontext
+  // (`eigenerKontext`): Der Bestand trägt Koordinaten und gehört keiner anderen
+  // Ansicht. Die harten Zusicherungen stehen in `pruefeSchnellansicht`.
+  { name: 'schnellansicht-eingeklappt', pfad: '/orte', vorbereiten: bereiteSchnellansichtVor('eingeklappt'), eigenerKontext: true },
+  { name: 'schnellansicht-halb', pfad: '/orte', vorbereiten: bereiteSchnellansichtVor('halb'), eigenerKontext: true },
+  { name: 'schnellansicht-voll', pfad: '/orte', vorbereiten: bereiteSchnellansichtVor('voll'), eigenerKontext: true },
 ]
 
 /** Photon-Endpunkt, NUR zum Abfangen (Request-Interception) — es wird
@@ -1050,6 +1058,44 @@ function pruefeVerdeckung() {
     return element.querySelector('[aria-modal="true"]') != null
   }
 
+  /** Benannte Bedingung (ADR-0023 Punkt 7, PO-2026-11-24-005): ein Punkt, der
+   *  außerhalb des SICHTBAREN Teils eines horizontalen Scroll-Streifens liegt
+   *  (`overflow-x: auto|scroll` bei `overflow-y: hidden|clip`, z. B. der
+   *  Bildstreifen der Schnellansicht), ist kein Prüfpunkt: Dort ist das Element
+   *  nicht sichtbar, es ragt nicht aus dem Bildschirm. Spalten, die vertikal
+   *  scrollen (`overflow-y: auto`), zählen NICHT — die Ausnahme betrifft nur
+   *  einen Streifen, der strukturell nur horizontal scrollt. */
+  function liegtAusserhalbDesSichtbarenStreifens(element, x) {
+    for (let vorfahr = element.parentElement; vorfahr && vorfahr !== document.body; vorfahr = vorfahr.parentElement) {
+      const stil = getComputedStyle(vorfahr)
+      const horizontal = stil.overflowX === 'auto' || stil.overflowX === 'scroll'
+      const vertikalZu = stil.overflowY === 'hidden' || stil.overflowY === 'clip'
+      if (horizontal && vertikalZu) {
+        const rahmen = vorfahr.getBoundingClientRect()
+        return x < rahmen.left || x > rahmen.right
+      }
+    }
+    return false
+  }
+
+  /** Benannte Bedingung (ADR-0023 Punkt 7, PO-2026-11-24-005): Eine NICHT modale
+   *  Überlagerung (`role="dialog"` ohne `aria-modal`), die vollständig auf der
+   *  Fläche des Elements sitzt (ihr Rechteck liegt innerhalb seines Rechtecks),
+   *  verdeckt es nicht, sondern belegt einen Teil davon — die Schnellansicht auf
+   *  der Karte: Der Kartencontainer ist fokussierbar (Leaflet) und liegt unter
+   *  ihr, bleibt aber über den freien Teil bedienbar. Ein kleines Bedienelement
+   *  (Marker, Button), das nur teilweise unter einer solchen Fläche liegt, enthält
+   *  ihr Rechteck nie und bleibt ein Befund; für Marker steht die harte
+   *  Gegen-Zusicherung in `pruefeSchnellansicht`. Die Gegenprobe am synthetischen
+   *  DOM steht in `pruefeAusnahmenGegenprobe`. */
+  function ueberlagerungSitztAufDemElement(element, oben) {
+    const dialog = oben.closest('[role="dialog"]:not([aria-modal="true"])')
+    if (!dialog || dialog.contains(element)) return false
+    const d = dialog.getBoundingClientRect()
+    const e = element.getBoundingClientRect()
+    return d.left >= e.left - 1 && d.right <= e.right + 1 && d.top >= e.top - 1 && d.bottom <= e.bottom + 1
+  }
+
   const verdeckt = []
   const auswahl = 'button, input, select, textarea, a[href], [role="button"], [tabindex]:not([tabindex="-1"])'
   for (const el of document.querySelectorAll(auswahl)) {
@@ -1058,6 +1104,13 @@ function pruefeVerdeckung() {
     // `aria-hidden` irgendwo im Baum. Er SOLL verdeckt sein.
     if (el.getAttribute('tabindex') === '-1') continue
     if (el.closest('[aria-hidden="true"]')) continue
+    // Benannte Ausnahme (ADR-0039 Punkt 7, PO-2026-11-24-005): ein Element in
+    // einem `[inert]`-Teilbaum ist weder bedienbar noch fokussierbar (wie
+    // `aria-hidden`: kein Tippziel, das etwas verdecken könnte). Weil das einen
+    // echten Befund verschlucken kann, steht die harte Gegen-Zusicherung in
+    // `pruefeSchnellansicht` (Marker unter der Schnellansicht sind `inert` und
+    // genau die).
+    if (el.closest('[inert]')) continue
     const kasten = el.getBoundingClientRect()
     if (kasten.width < 4 || kasten.height < 4) continue
     // Komplett außerhalb des Ansichtsfensters (oben/unten wie bisher, jetzt
@@ -1081,6 +1134,7 @@ function pruefeVerdeckung() {
     ]
 
     for (const [x, y] of pruefpunkte) {
+      if (liegtAusserhalbDesSichtbarenStreifens(el, x)) continue
       // Jenseits der Viewport-BREITE ist in dieser App nie vorgesehen
       // (ADR-0012) — anders als vertikales Scrollen (das Dokument darf
       // länger sein als der Bildschirm) ist das immer ein Befund, sofort
@@ -1104,6 +1158,7 @@ function pruefeVerdeckung() {
       if (istOffeneAuswahlliste(oben)) continue
       if (stil.position !== 'fixed' && istFixierteChrome(oben)) continue
       if (!el.closest('[aria-modal="true"]') && istHinterOffenemModalenDialog(oben)) continue
+      if (ueberlagerungSitztAufDemElement(el, oben)) continue
       verdeckt.push(`${bezeichner(el)} verdeckt von ${bezeichner(oben)}`)
       break
     }
@@ -1145,10 +1200,20 @@ function pruefeUeberlauf() {
    *  PO-2026-09-12-002), bleibt ein Befund. */
   function wirdSichtbarAbgeschnitten(el) {
     for (let vorfahr = el.parentElement; vorfahr && vorfahr !== document.body; vorfahr = vorfahr.parentElement) {
-      const ueberlaufX = getComputedStyle(vorfahr).overflowX
-      if (ueberlaufX === 'hidden' || ueberlaufX === 'clip') {
+      const stil = getComputedStyle(vorfahr)
+      const ueberlaufX = stil.overflowX
+      // PO-2026-11-24-005: ein reiner Horizontal-Scroller (`overflow-x: auto|scroll`
+      // bei `overflow-y: hidden|clip`, der Bildstreifen der Schnellansicht)
+      // schneidet sichtbar ab wie `hidden`; ein vertikal scrollender Container
+      // (`overflow-y: auto`, die Master-Detail-Spalten) gehört bewusst NICHT dazu.
+      const horizontalerStreifen =
+        (ueberlaufX === 'auto' || ueberlaufX === 'scroll') && (stil.overflowY === 'hidden' || stil.overflowY === 'clip')
+      if (ueberlaufX === 'hidden' || ueberlaufX === 'clip' || horizontalerStreifen) {
         const rahmen = vorfahr.getBoundingClientRect()
-        return rahmen.left >= -1 && rahmen.right <= breite + 1
+        // Der sichtbare Teil ist der Schnitt ALLER Abschneider: liegt einer vollständig im
+        // Bildschirm, ist der Überstand nie zu sehen — auch wenn ein näherer Abschneider
+        // (die Bildkachel mit `overflow: hidden`) selbst im Streifen herausragt.
+        if (rahmen.left >= -1 && rahmen.right <= breite + 1) return true
       }
     }
     return false
@@ -2840,13 +2905,36 @@ async function warteAufKartenmarker(seite, anzahl) {
   await seite.waitForTimeout(900)
 }
 
-async function fokussiereUndOeffneMarker(seite, name) {
+/** Marker per Fokus (ohne Scrollen) + Enter aktivieren: öffnet seit
+ *  PO-2026-11-24-005 die Schnellansicht (nicht mehr das Detail). Treiberaktion;
+ *  wartet, bis die Schnellansicht samt Verschieben der Karte (240ms) zur Ruhe kam. */
+async function oeffneMarkerSchnellansicht(seite, name) {
   await seite.evaluate((n) => {
     document.querySelector(`.karte-marker[aria-label^="${n}"]`)?.focus({ preventScroll: true })
   }, name)
   await seite.keyboard.press('Enter')
+  await seite.getByRole('dialog', { name: new RegExp(`^Schnellansicht: ${escapeRegExp(name)}`) }).waitFor({ state: 'visible', timeout: 10000 })
+  await seite.waitForTimeout(700)
+}
+
+/** Schnellansicht über ihr „×" schließen (Treiberaktion). */
+async function schliesseSchnellansicht(seite) {
+  await seite.getByRole('button', { name: 'Schnellansicht schließen' }).click()
+  await seite.locator('.schnellansicht').waitFor({ state: 'detached', timeout: 10000 })
+  await seite.waitForTimeout(300)
+}
+
+/** Detail eines Markers über Schnellansicht -> „Bearbeiten" öffnen. Liefert die
+ *  Markerlage VOR dem Klick, also nach dem Verschieben der Karte durch das Öffnen —
+ *  das ist der Ausschnitt, der „zuletzt zu sehen war" (ADR-0038 Punkt 3) und nach
+ *  dem Rückweg wieder dastehen muss. */
+async function fokussiereUndOeffneMarker(seite, name) {
+  await oeffneMarkerSchnellansicht(seite, name)
+  const lage = await leseMarkerLage(seite)
+  await seite.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
   await seite.waitForURL(/\/orte\/[^/?]+/, { timeout: 10000 })
   await seite.waitForTimeout(500)
+  return lage
 }
 
 /** Der eine Weg zurück je Breite (pruefeAbschlussKombination): ab lg „Detailansicht
@@ -2896,29 +2984,36 @@ async function pruefeKartenausschnittBleibtErhalten(browser, breite, befunde) {
     }
 
     const markiere = () => seite.evaluate(() => { document.querySelector('.karte-container').dataset.rauchtestAlt = '1' })
+    // Erwartet wird nicht mehr der Stand von `gesetzt`, sondern der Ausschnitt, der
+    // nach dem Öffnen der Schnellansicht zu sehen war (PO-2026-11-24-005: das
+    // Öffnen verschiebt die Karte minimal, wenn der Marker darunter läge) — das
+    // ist der Stand, der „zuletzt zu sehen war" und wiederhergestellt werden muss.
+    let erwartet = gesetzt
     const pruefeNachRueckweg = async (weg) => {
       await warteAufKartenmarker(seite, 3)
       const neuAufgebaut = await seite.evaluate(() => document.querySelector('.karte-container')?.dataset.rauchtestAlt === undefined)
       if (!neuAufgebaut) befunde.push(`${kontext}: ${weg} — Vorbedingung nicht erreicht, die Karte wurde nicht neu aufgebaut`)
       const lage = await leseMarkerLage(seite)
-      const ab = maxAbweichung(gesetzt, lage)
+      const ab = maxAbweichung(erwartet, lage)
       if (!(ab <= KARTENAUSSCHNITT_TOLERANZ_PX)) {
         const eingep = maxAbweichung(eingepasst, lage)
         befunde.push(`${kontext}: ${weg} — Ausschnitt nicht wiederhergestellt (Abweichung ${ab === Infinity ? 'unvergleichbar' : ab.toFixed(1) + 'px'} > ${KARTENAUSSCHNITT_TOLERANZ_PX}px${eingep <= KARTENAUSSCHNITT_TOLERANZ_PX ? ', stattdessen eingepasst' : ''})`)
       }
     }
 
-    // Rückweg 1: Detail über Marker öffnen, über „Detailansicht schließen" zurück
+    // Rückweg 1: Detail über Marker + „Bearbeiten" öffnen, über „Detailansicht schließen" zurück
     await markiere()
-    await fokussiereUndOeffneMarker(seite, 'Ka-A')
+    erwartet = await fokussiereUndOeffneMarker(seite, 'Ka-A')
     await schliesseDetailAnsicht(seite)
     await pruefeNachRueckweg('Schließen')
+    await schliesseSchnellansicht(seite)
 
     // Rückweg 2: Detail, dann Browser-Zurück
     await markiere()
-    await fokussiereUndOeffneMarker(seite, 'Ka-B')
+    erwartet = await fokussiereUndOeffneMarker(seite, 'Ka-B')
     await seite.goBack({ waitUntil: 'networkidle' })
     await pruefeNachRueckweg('goBack aus dem Detail')
+    await schliesseSchnellansicht(seite)
 
     // Rückweg 3: Liste und zurück zur Karte
     await markiere()
@@ -4793,6 +4888,821 @@ async function pruefeMehrzeiligesFeldBeiBreitenwechsel(seite, befunde) {
   }
 }
 
+/**
+ * Gegenprobe zu den benannten Ausnahmen aus PO-2026-11-24-005 (ADR-0023 Punkt 7:
+ * eine Ausnahme kann einen echten Befund verschlucken, deshalb gehört zu jeder
+ * eine Probe, dass die Prüfung weiterhin anschlägt, wo sie anschlagen soll).
+ * Synthetisches DOM auf einer leeren Seite, beide Prüffunktionen unverändert:
+ *   `pruefeUeberlauf`   — ein reiner Horizontal-Scroller im Bildschirm ist kein
+ *                         Befund; dagegen bleiben: ein nicht abschneidender
+ *                         Container (Muster der Koordinatenzeile), eine vertikal
+ *                         scrollende Spalte und ein Streifen, der selbst zu breit ist.
+ *   `pruefeVerdeckung`  — eine nicht modale Überlagerung AUF der Fläche eines
+ *                         großen Elements ist kein Befund (die Schnellansicht auf
+ *                         dem Kartencontainer); dagegen bleiben: ein kleines Element,
+ *                         das nur teilweise unter ihr liegt, und ein Element jenseits
+ *                         der Viewport-Breite ohne Streifen. `inert` nimmt das
+ *                         verdeckte Element aus der Prüfung.
+ */
+async function pruefeAusnahmenGegenprobe(browser, befunde) {
+  const seite = await browser.newPage({ viewport: { width: 390, height: 700 } })
+  try {
+    const fall = async (name, html, funktion, erwartetBefund) => {
+      await seite.setContent(`<!doctype html><html><body style="margin:0">${html}</body></html>`)
+      const gefunden = await seite.evaluate(funktion)
+      if (!erwartetBefund && gefunden.length > 0) {
+        befunde.push(`ausnahmen-gegenprobe/${name}: unerwartet ${gefunden.length} Befund(e): ${gefunden.slice(0, 2).join('; ')}`)
+      }
+      if (erwartetBefund && gefunden.length === 0) {
+        befunde.push(`ausnahmen-gegenprobe/${name}: kein Befund, obwohl die Prüfung hier anschlagen muss (die Ausnahme ist zu weit)`)
+      }
+    }
+    const streifen = 'overflow-x:auto;overflow-y:hidden;display:flex'
+    // Überlauf
+    await fall('ueberlauf-streifen-im-bildschirm', `<div style="${streifen};width:300px"><div style="flex:none;width:200px;height:20px;background:red"></div><div style="flex:none;width:200px;height:20px;background:red"></div></div>`, pruefeUeberlauf, false)
+    await fall('ueberlauf-container-ohne-abschneiden', '<div style="width:300px"><div style="width:200px;height:20px;margin-left:250px;background:red"></div></div>', pruefeUeberlauf, true)
+    await fall('ueberlauf-vertikal-scrollende-spalte', '<div style="overflow-y:auto;height:50px;width:300px"><div style="width:500px;height:20px;background:red"></div></div>', pruefeUeberlauf, true)
+    await fall('ueberlauf-streifen-selbst-zu-breit', `<div style="${streifen};width:600px"><div style="flex:none;width:700px;height:20px;background:red"></div></div>`, pruefeUeberlauf, true)
+    // Verdeckung
+    await fall('verdeckung-ueberlagerung-auf-der-flaeche', '<div tabindex="0" style="position:relative;width:300px;height:300px"><div role="dialog" style="position:absolute;left:0;right:0;bottom:0;height:200px;background:#ccc"></div></div>', pruefeVerdeckung, false)
+    const teilweise = '<button style="position:absolute;left:10px;top:10px;width:100px;height:40px">B</button><div role="dialog" style="position:absolute;left:0;top:30px;width:200px;height:100px;background:#ccc"></div>'
+    await fall('verdeckung-kleines-element-teilweise-darunter', teilweise, pruefeVerdeckung, true)
+    await fall('verdeckung-inert-nimmt-aus', teilweise.replace('<button ', '<button inert '), pruefeVerdeckung, false)
+    await fall('verdeckung-streifen-im-bildschirm', `<div style="${streifen};width:300px"><button style="flex:none;width:200px">a</button><button style="flex:none;width:200px">b</button></div>`, pruefeVerdeckung, false)
+    await fall('verdeckung-jenseits-der-breite-ohne-streifen', '<div style="width:300px"><button style="margin-left:250px;width:200px">c</button></div>', pruefeVerdeckung, true)
+    console.log('  ausnahmen-gegenprobe — geprüft (Horizontal-Streifen, Überlagerung auf der Fläche, inert, jeweils samt Gegenfall)')
+  } catch (fehler) {
+    befunde.push(`ausnahmen-gegenprobe: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}`)
+  } finally {
+    await seite.close()
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PO-2026-11-24-005: Schnellansicht (Quick-Look-Bottom-Sheet auf der Karte)
+// ---------------------------------------------------------------------------
+
+/** Höhen der drei Zustände (design-conventions.md „Karte: Quick-Look-Sheet"),
+ *  hier bewusst NOCHMAL aus dem Design abgeleitet statt aus `lib/schnellansichtHoehen.ts`
+ *  importiert: Messgröße und Erwartung sollen nicht dieselbe Funktion sein.
+ *  `bereich` ist die gemessene Höhe des Kartenbereichs (Elternknoten der Schnellansicht). */
+const SCHNELLANSICHT_TOLERANZ_PX = 2
+function erwarteteSchnellansichtHoehen(bereich) {
+  return { eingeklappt: 80, halb: Math.max(Math.round(bereich / 2), 280), voll: Math.max(bereich - 56, 80) }
+}
+/** Abstand Marker zur Oberkante nach dem Verschieben (design-conventions.md: 24px). */
+const SCHNELLANSICHT_PAN_ABSTAND_PX = 24
+
+const SN_LANGE_NOTIZ = 'Schnellansicht-Notiz-ohne-Leerzeichen-die-deutlich-laenger-ist-als-eine-Zeile-breit-sein-kann-1234'
+
+/**
+ * Bestand der Schnellansicht. Geometrie: Alpha und Beta liegen im Süden
+ * nebeneinander, Nord weit im Norden — beim Einpassen stehen Alpha/Beta unten
+ * (UNTER der Schnellansicht in „halb"), Nord oben. Öffnet Alpha, schiebt die
+ * Karte minimal nach oben; Beta bleibt dabei NEBEN Alpha und damit darüber
+ * erreichbar (Wechsel), Nord verlässt den Ausschnitt.
+ *   Alpha — Bilder (hoch/quer), lange Kommentare, Anfangsnotiz, Adresse, Tag sa,
+ *           Ambiente 8 / Zeit 7, Geschmack und Preis/Leistung nicht bewertet
+ *   Beta  — nichts bewertet (Punkt statt Zahl), keine Bilder, Tag sb
+ *   Nord  — Geschmack 9, Tag sa
+ *   Ohne  — keine Koordinaten (kein Marker, „nicht sichtbar" für `?ort=`)
+ */
+const SN_ORTE = [
+  { name: 'Sn-Alpha', breite: 52.519, laenge: 13.405, tag: 'sa', achsen: { 0: 8, 1: 7 }, kommentare: true, notiz: true, adresse: 'Schnellansichtstraße 1, 10115 Berlin', bilder: 6 },
+  { name: 'Sn-Beta', breite: 52.519, laenge: 13.4095, tag: 'sb' },
+  { name: 'Sn-Nord', breite: 52.5225, laenge: 13.4072, tag: 'sa', achsen: { 2: 9 } },
+  { name: 'Sn-Ohne' },
+]
+const SN_FORMATE = [
+  [300, 600],
+  [600, 300],
+  [300, 600],
+  [600, 300],
+  [300, 600],
+  [600, 300],
+]
+
+async function legeSchnellansichtOrtAn(seite, ort) {
+  await legeOrtAnUndOeffneIhn(seite, ort.name)
+  if (ort.tag) {
+    await seite.locator('.tag-eingabe__feld').fill(ort.tag)
+    await seite.keyboard.press('Enter')
+    await seite.waitForTimeout(300)
+  }
+  if (ort.breite !== undefined) {
+    await seite.getByRole('button', { name: 'Koordinaten von Hand eintragen' }).click()
+    await seite.locator('#ortsdetail-breite').fill(String(ort.breite))
+    await seite.locator('#ortsdetail-laenge').fill(String(ort.laenge))
+    await seite.keyboard.press('Tab')
+    await seite.waitForTimeout(400)
+  }
+  for (const [index, wert] of Object.entries(ort.achsen ?? {})) {
+    await seite.locator('.bewertungsachse').nth(Number(index)).locator('input[type="number"]').fill(String(wert))
+    await seite.keyboard.press('Tab')
+    await seite.waitForTimeout(100)
+  }
+  if (ort.kommentare) {
+    const achsen = await seite.locator('.bewertungsachse').all()
+    for (const [i, achse] of achsen.entries()) {
+      await achse.getByRole('button', { name: 'Kommentar hinzufügen' }).click()
+      const text = i === 0 ? `${LANGE_ZEICHENFOLGE_OHNE_LEERZEICHEN} ${LANGER_KOMMENTAR}` : LANGER_KOMMENTAR
+      await achse.locator('.bewertungsachse__kommentar-feld').fill(text)
+      await seite.keyboard.press('Tab')
+      await seite.waitForTimeout(150)
+    }
+  }
+  if (ort.notiz) {
+    await seite.locator('#ortsdetail-anfangsnotiz').fill(SN_LANGE_NOTIZ)
+    await seite.keyboard.press('Tab')
+    await seite.waitForTimeout(200)
+  }
+  if (ort.adresse) {
+    await seite.locator('#ortsdetail-adresse').fill(ort.adresse)
+    await seite.keyboard.press('Tab')
+    await seite.waitForTimeout(200)
+  }
+  if (ort.bilder) {
+    const dateien = await erzeugeTestbilder(seite, SN_FORMATE.slice(0, ort.bilder))
+    await seite.locator('input[type="file"]').setInputFiles(dateien)
+    await seite.locator('.bildkachel').nth(ort.bilder - 1).waitFor({ state: 'visible', timeout: 15000 })
+    await seite.waitForTimeout(300)
+  }
+  await seite.waitForTimeout(300)
+  await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+}
+
+async function legeSchnellansichtBestandAn(seite, orte = SN_ORTE) {
+  await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+  for (const ort of orte) await legeSchnellansichtOrtAn(seite, ort)
+}
+
+/** Öffnet die Karte frisch (volle Navigation = Ausschnitt eingepasst, nichts gemerkt). */
+async function oeffneSchnellansichtKarte(seite, markerAnzahl = 3) {
+  await seite.goto(BASIS + '/orte?ansicht=karte', { waitUntil: 'networkidle' })
+  await warteAufKartenmarker(seite, markerAnzahl)
+}
+
+const SN_ZUSTAENDE = ['eingeklappt', 'halb', 'voll']
+
+/** Vorbedingung über alle Breiten: Bei mindestens einer ragte die Karte unter die feste Tab-Leiste. */
+const SN_BEOBACHTUNG = { hochgesetzt: 0 }
+
+/** Stellt den Zustand OHNE Geste ein (Treiberaktion über den Griff-Button, Pfeiltasten). */
+async function setzeSchnellansichtZustand(seite, ziel) {
+  for (let i = 0; i < 3; i += 1) {
+    const label = await seite.locator('.schnellansicht__griff').getAttribute('aria-label')
+    const aktuell = SN_ZUSTAENDE.find((z) => label?.endsWith(`aktuell ${z}`))
+    if (aktuell === ziel) break
+    await seite.locator('.schnellansicht__griff').focus()
+    await seite.keyboard.press(SN_ZUSTAENDE.indexOf(ziel) > SN_ZUSTAENDE.indexOf(aktuell) ? 'ArrowUp' : 'ArrowDown')
+    await seite.waitForTimeout(450)
+  }
+  await seite.waitForTimeout(300)
+}
+
+function bereiteSchnellansichtVor(zustand) {
+  return async (seite) => {
+    await legeSchnellansichtBestandAn(seite, SN_ORTE.slice(0, 2))
+    await oeffneSchnellansichtKarte(seite, 2)
+    await oeffneMarkerSchnellansicht(seite, 'Sn-Alpha')
+    if (zustand !== 'halb') await setzeSchnellansichtZustand(seite, zustand)
+  }
+}
+
+function leseSchnellansicht(seite) {
+  return seite.evaluate(() => {
+    const d = document.querySelector('.schnellansicht')
+    if (!d) return null
+    const r = d.getBoundingClientRect()
+    const huelle = d.parentElement.getBoundingClientRect()
+    const aktiv = document.activeElement
+    return {
+      hoehe: r.height,
+      oben: r.top,
+      unten: r.bottom,
+      links: r.left,
+      rechts: r.right,
+      huelle: { oben: huelle.top, hoehe: huelle.height, links: huelle.left, unten: huelle.bottom },
+      versatzUnten: huelle.bottom - r.bottom,
+      position: getComputedStyle(d).position,
+      ariaModal: d.getAttribute('aria-modal'),
+      name: d.getAttribute('aria-label'),
+      griff: d.querySelector('.schnellansicht__griff')?.getAttribute('aria-label') ?? null,
+      fokus: aktiv
+        ? {
+            tag: aktiv.tagName,
+            text: (aktiv.textContent ?? '').trim().slice(0, 40),
+            label: aktiv.getAttribute('aria-label') ?? '',
+            istMarker: aktiv.classList.contains('karte-marker'),
+            kachelId: aktiv.getAttribute('data-bild-id'),
+          }
+        : null,
+    }
+  })
+}
+
+function leseSchnellansichtMarker(seite) {
+  return seite.evaluate(() => {
+    const c = document.querySelector('.karte-container').getBoundingClientRect()
+    return [...document.querySelectorAll('.karte-marker')].map((el) => {
+      const r = el.getBoundingClientRect()
+      const koerper = el.querySelector('.karte-marker__koerper')
+      const kr = koerper?.getBoundingClientRect()
+      const ks = koerper ? getComputedStyle(koerper) : null
+      const label = el.querySelector('.karte-marker__label')
+      const name = el.getAttribute('aria-label') ?? ''
+      const x = r.left + r.width / 2
+      const y = r.top + r.height / 2
+      return {
+        name,
+        basis: name.replace(/, (Gesamtnote |keine Gesamtnote).*$/, ''),
+        x,
+        y,
+        cx: x - c.left,
+        cy: y - c.top,
+        inert: el.hasAttribute('inert'),
+        gewaehlt: el.classList.contains('karte-marker--gewaehlt'),
+        istPunkt: koerper?.classList.contains('karte-marker__punkt') ?? false,
+        durchmesser: kr ? Math.round(kr.width * 10) / 10 : null,
+        ring: ks?.borderTopWidth ?? null,
+        schatten: ks?.boxShadow ?? null,
+        labelAus: label?.classList.contains('karte-marker__label--aus') ?? true,
+        labelDeckkraft: label ? getComputedStyle(label).opacity : null,
+      }
+    })
+  })
+}
+
+function ortParameter(seite) {
+  return new URL(seite.url()).searchParams.get('ort')
+}
+
+function historyLaenge(seite) {
+  return seite.evaluate(() => history.length)
+}
+
+/** Ziehgeste an einem Element per Maus (Pointer Events). `dyHoch` > 0 zieht nach
+ *  oben. `pauseMs` > 0 = langsam (unter der Schnapp-Geschwindigkeit von 0,5px/ms),
+ *  0 = Flick. Liefert die Höhe der Schnellansicht VOR dem Loslassen. */
+async function ziehe(seite, selektor, dyHoch, schritte, pauseMs) {
+  const kasten = await seite.locator(selektor).first().boundingBox()
+  const x = kasten.x + kasten.width / 2 - Math.min(40, kasten.width / 4)
+  const y = kasten.y + kasten.height / 2
+  await seite.mouse.move(x, y)
+  await seite.mouse.down()
+  for (let i = 1; i <= schritte; i += 1) {
+    await seite.mouse.move(x, y - (dyHoch * i) / schritte)
+    if (pauseMs > 0) await seite.waitForTimeout(pauseMs)
+  }
+  const zwischen = (await leseSchnellansicht(seite))?.hoehe ?? null
+  await seite.mouse.up()
+  await seite.waitForTimeout(500)
+  return zwischen
+}
+
+/** Ein freier Punkt auf der Karte (Fensterkoordinaten): nicht unter der
+ *  Schnellansicht, nicht nahe einem Marker oder einem Bedienelement. */
+async function findeFreienKartenpunkt(seite) {
+  return seite.evaluate(() => {
+    const c = document.querySelector('.karte-container').getBoundingClientRect()
+    const d = document.querySelector('.schnellansicht')?.getBoundingClientRect()
+    const marker = [...document.querySelectorAll('.karte-marker')].map((el) => el.getBoundingClientRect())
+    const obergrenze = d ? d.top : c.bottom
+    for (let y = c.top + 90; y < obergrenze - 20; y += 12) {
+      for (const anteil of [0.5, 0.35, 0.65, 0.8, 0.2]) {
+        const x = c.left + c.width * anteil
+        const nah = marker.some((m) => x > m.left - 60 && x < m.right + 60 && y > m.top - 60 && y < m.bottom + 60)
+        if (nah) continue
+        const treffer = document.elementFromPoint(x, y)
+        if (treffer && treffer.closest('.leaflet-container') && !treffer.closest('.leaflet-control, .karte-marker')) return { x, y }
+      }
+    }
+    return null
+  })
+}
+
+/** Gegen-Zusicherung zur Ausnahme `[inert]` in `pruefeVerdeckung` (ADR-0039 Punkt 7):
+ *  jeder Marker, dessen Mittelpunkt unter der gerenderten Schnellansicht liegt
+ *  (Oberkante und Seiten), ist `inert` — und kein anderer. Gemessen wird am
+ *  gerenderten Rechteck der Schnellansicht, nicht an einem Rechenwert der App.
+ *  `gesehen` zählt, welche Klassen überhaupt vorkamen (Vorbedingung: beide). */
+async function pruefeMarkerInertGegenZusicherung(seite, wo, befunde, gesehen) {
+  const sheet = await leseSchnellansicht(seite)
+  const marker = await leseSchnellansichtMarker(seite)
+  if (!sheet) {
+    befunde.push(`${wo}: keine Schnellansicht zum Prüfen von inert`)
+    return
+  }
+  for (const m of marker) {
+    const darunter = m.y >= sheet.oben && m.x >= sheet.links && m.x <= sheet.rechts
+    if (darunter) gesehen.inert += 1
+    else gesehen.aktiv += 1
+    if (m.inert !== darunter) {
+      befunde.push(`${wo}: „${m.basis}" liegt ${darunter ? 'UNTER' : 'nicht unter'} der Schnellansicht (Mittelpunkt y ${Math.round(m.y)}, Oberkante ${Math.round(sheet.oben)}), ist aber ${m.inert ? '' : 'nicht '}inert`)
+    }
+    if (darunter) {
+      // Sie ist wirklich verdeckt (sonst wäre inert unnötig) und nicht erreichbar.
+      const oben = await seite.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('.schnellansicht') != null, [m.x, m.y])
+      if (!oben) befunde.push(`${wo}: „${m.basis}" ist inert, liegt aber gar nicht unter der Schnellansicht`)
+    }
+  }
+}
+
+/**
+ * PO-2026-11-24-005 (ADR-0039), harte Zusicherungen der Schnellansicht — je Breite
+ * aus BREITEN, frische Seite, eigener Bestand (`SN_ORTE`). Eigenschaften:
+ *   1. Marker öffnet ein NICHT modales Sheet (kein aria-modal, position absolute,
+ *      Karte bedienbar, Tipp auf leere Karte schließt nicht) im Zustand halb;
+ *      Öffnen legt GENAU einen Verlaufseintrag an; der ausgewählte Marker ist über
+ *      Größe UND Ringstärke erkennbar (Scheibe 48/Ring 4, Punkt 24), sein Name
+ *      immer sichtbar; Fokus auf der Überschrift; die Karte schiebt den Marker
+ *      über die Oberkante (24px), ohne zu zoomen.
+ *   2. Inhalt nur lesend: Bezeichnung, Gesamtnote ohne Zonenfarbe, vier Achsen,
+ *      Kommentare (halb geklemmt, voll vollständig), Anfangsnotiz, Adresse, Tags,
+ *      Bildstreifen (ohne Bilder: nichts); „Bearbeiten" ist sekundär.
+ *   3. Jeder Zustand ist per ZIEHGESTE erreichbar und rastet ein (Vorbedingung: die
+ *      Höhe beim Loslassen ist nicht die Zielhöhe); ein schneller Flick schnappt in
+ *      Wischrichtung; im Inhalt zieht nichts; der Griff-Button und die Pfeiltasten
+ *      erreichen jeden Zustand ohne Geste.
+ *   4. Wechsel auf einen anderen Marker: Inhalt springt, Zustand bleibt, `replace`
+ *      (kein zusätzlicher Verlaufseintrag), Fokus auf die Überschrift.
+ *   5. „×" und Esc schließen, der Fokus liegt auf dem Marker; Zurück schließt;
+ *      Neuladen mit gültiger ID öffnet auf „halb"; unbekannte/nicht sichtbare ID:
+ *      Karte ohne Sheet, Parameter per replace entfernt; ein Filter, der den Ort
+ *      ausblendet, schließt das Sheet.
+ *   6. Gegen-Zusicherung zu `[inert]`: jeder Marker unter dem Sheet ist inert, keiner
+ *      sonst — in jedem Zustand, bei verschobener Karte (Vorbedingung: beide Klassen).
+ *   7. „Bearbeiten" öffnet /orte/:id, goBack zeigt das Sheet desselben Ortes in
+ *      „halb" bei unverschobenem Ausschnitt; ein Bild öffnet das Vollbild: Esc
+ *      schließt nur das Vollbild (Fokus auf der Streifen-Kachel des zuletzt
+ *      gezeigten Bildes, Zustand bleibt), goBack ebenso, das zweite goBack das Sheet.
+ *   8. Öffnen, Wechsel und Schließen verschieben den Fenster-Scroll nicht.
+ */
+async function pruefeSchnellansicht(browser, breite, befunde) {
+  const wo = `${breite.name}/schnellansicht`
+  const seite = await browser.newPage({ viewport: { width: breite.width, height: breite.height } })
+  seite.on('pageerror', (fehler) => befunde.push(`${wo}: Laufzeitfehler: ${fehler.message}`))
+  const dialog = (name) => seite.getByRole('dialog', { name: new RegExp(`^Schnellansicht: ${escapeRegExp(name)}`) })
+  const gleich = (a, b, toleranz = SCHNELLANSICHT_TOLERANZ_PX) => Math.abs(a - b) <= toleranz
+  const pruefeHoehe = async (zustand, text) => {
+    const sheet = await leseSchnellansicht(seite)
+    if (!sheet) {
+      befunde.push(`${wo}: ${text} — keine Schnellansicht`)
+      return null
+    }
+    const erwartet = erwarteteSchnellansichtHoehen(sheet.huelle.hoehe - sheet.versatzUnten)[zustand]
+    if (!gleich(sheet.hoehe, erwartet)) befunde.push(`${wo}: ${text} — Höhe ${sheet.hoehe.toFixed(1)}px statt ${erwartet}px („${zustand}")`)
+    return sheet
+  }
+  try {
+    await legeSchnellansichtBestandAn(seite)
+
+    // ===== 1. Öffnen, nicht modal, Auswahl, Verschieben, Inhalt ===================
+    await oeffneSchnellansichtKarte(seite)
+    const markerVorher = await leseSchnellansichtMarker(seite)
+    const alphaVorher = markerVorher.find((m) => m.basis === 'Sn-Alpha')
+    const betaVorher = markerVorher.find((m) => m.basis === 'Sn-Beta')
+    if (!alphaVorher || !betaVorher || markerVorher.length !== 3) {
+      befunde.push(`${wo}: Vorbedingung nicht erreicht — ${markerVorher.length} statt 3 Marker`)
+      return
+    }
+    // Kartenbereich und der Platz, den <main> unten für die feste Tab-Leiste reserviert:
+    // ragt die Karte darunter, steht die Schnellansicht ÜBER der Leiste (Versatz).
+    const messung = await seite.evaluate(() => {
+      const rahmen = document.querySelector('.karte-container').getBoundingClientRect()
+      const reserviert = Number.parseFloat(getComputedStyle(document.querySelector('main')).paddingBottom) || 0
+      return { hoehe: rahmen.height, versatz: Math.max(0, Math.round(rahmen.bottom - (innerHeight - reserviert))), leiste: innerHeight - reserviert }
+    })
+    if (messung.versatz > 0) SN_BEOBACHTUNG.hochgesetzt += 1
+    const bereich = messung.hoehe - messung.versatz
+    const halbHoehe = erwarteteSchnellansichtHoehen(bereich).halb
+    const oberkanteHalb = bereich - halbHoehe
+    if (!(alphaVorher.cy >= oberkanteHalb)) {
+      befunde.push(`${wo}: Vorbedingung nicht erreicht — Alpha liegt vor dem Öffnen nicht unter der künftigen Oberkante (y ${Math.round(alphaVorher.cy)}, Oberkante ${oberkanteHalb}); ohne das beweist das Verschieben nichts`)
+    }
+    const abstandVorher = Math.abs(alphaVorher.x - betaVorher.x)
+    const laengeVorher = await historyLaenge(seite)
+    await seite.evaluate(() => document.querySelector('.karte-marker[aria-label^="Sn-Alpha"]').focus({ preventScroll: true }))
+    await seite.keyboard.press('Enter')
+    await dialog('Sn-Alpha').waitFor({ state: 'visible', timeout: 10000 })
+    await seite.waitForTimeout(800)
+
+    let sheet = await pruefeHoehe('halb', 'Öffnen')
+    const alphaId = ortParameter(seite)
+    if (!alphaId) befunde.push(`${wo}: Öffnen — die Adresse trägt keinen ort-Parameter`)
+    if ((await historyLaenge(seite)) !== laengeVorher + 1) befunde.push(`${wo}: Öffnen legt nicht genau einen Verlaufseintrag an`)
+    if (await seite.getByRole('dialog', { name: /Detail|Ort bearbeiten/ }).count()) befunde.push(`${wo}: Öffnen zeigt ein Ortsdetail statt der Schnellansicht`)
+    if (sheet) {
+      // Über der festen Tab-Leiste, nie dahinter („Bearbeiten" in der Fußzeile bliebe sonst verdeckt).
+      if (!gleich(sheet.versatzUnten, messung.versatz)) befunde.push(`${wo}: die Schnellansicht steht ${sheet.versatzUnten.toFixed(1)}px über der Kartenunterkante statt ${messung.versatz}px (über der Tab-Leiste)`)
+      if (sheet.unten > messung.leiste + 1) befunde.push(`${wo}: die Unterkante der Schnellansicht (${Math.round(sheet.unten)}) liegt unter der Oberkante der festen Leiste (${Math.round(messung.leiste)})`)
+      if (sheet.ariaModal !== null || (await seite.locator('[aria-modal="true"]').count()) > 0) befunde.push(`${wo}: die Schnellansicht ist modal (aria-modal)`)
+      if (sheet.position !== 'absolute') befunde.push(`${wo}: die Schnellansicht ist ${sheet.position} positioniert statt absolute (ADR-0039 Punkt 8)`)
+      if (!(sheet.fokus?.tag === 'H2' && sheet.fokus.text === 'Sn-Alpha')) befunde.push(`${wo}: Öffnen — der Fokus liegt nicht auf der Überschrift (${sheet.fokus?.tag} „${sheet.fokus?.text}")`)
+    }
+    if ((await seite.locator('.sheet-backdrop').count()) > 0) befunde.push(`${wo}: die Schnellansicht liegt auf einem Backdrop`)
+
+    // Auswahl: Größe UND Ringstärke
+    let marker = await leseSchnellansichtMarker(seite)
+    const gewaehlt = marker.filter((m) => m.gewaehlt)
+    if (gewaehlt.length !== 1 || gewaehlt[0].basis !== 'Sn-Alpha') befunde.push(`${wo}: ausgewählt ist nicht genau Alpha (${gewaehlt.map((m) => m.basis).join(', ') || 'keiner'})`)
+    const alpha = marker.find((m) => m.basis === 'Sn-Alpha')
+    const beta = marker.find((m) => m.basis === 'Sn-Beta')
+    if (alpha) {
+      if (alpha.istPunkt || alpha.durchmesser !== 48 || alpha.ring !== '4px') befunde.push(`${wo}: ausgewählter Marker mit Note ist ${alpha.durchmesser}px mit Ring ${alpha.ring} statt 48px/4px`)
+      if (alpha.labelAus || alpha.labelDeckkraft !== '1') befunde.push(`${wo}: der Name des ausgewählten Markers ist nicht sichtbar`)
+      // Verschieben: Marker mindestens 24px über der Oberkante, kein Zoom
+      if (!(alpha.cy <= oberkanteHalb - SCHNELLANSICHT_PAN_ABSTAND_PX + SCHNELLANSICHT_TOLERANZ_PX)) {
+        befunde.push(`${wo}: Alpha liegt nach dem Öffnen bei y ${Math.round(alpha.cy)} (Oberkante ${oberkanteHalb}) — nicht ≥ ${SCHNELLANSICHT_PAN_ABSTAND_PX}px darüber (die Karte wurde nicht verschoben)`)
+      }
+      if (alpha.inert) befunde.push(`${wo}: der ausgewählte Marker ist inert`)
+    }
+    if (beta) {
+      if (beta.gewaehlt || !beta.istPunkt || beta.durchmesser !== 16) befunde.push(`${wo}: nicht ausgewählter Marker ohne Note hat ${beta.durchmesser}px statt 16px`)
+    }
+    if (marker.filter((m) => !m.gewaehlt && !m.istPunkt && m.durchmesser !== 40).length) {
+      befunde.push(`${wo}: ein nicht ausgewählter Marker mit Note ist nicht 40px groß`)
+    }
+    if (beta) {
+      if (!gleich(Math.abs(alpha.x - beta.x), abstandVorher, 1.5)) befunde.push(`${wo}: das Öffnen hat gezoomt (Abstand Alpha–Beta ${Math.abs(alpha.x - beta.x).toFixed(1)}px statt ${abstandVorher.toFixed(1)}px)`)
+    }
+    // Der andere Marker bleibt bedienbar (nicht modal): Beta liegt über der Oberkante und ist aktiv.
+    if (beta && beta.cy < oberkanteHalb && beta.inert) befunde.push(`${wo}: Beta liegt über der Schnellansicht und ist trotzdem inert`)
+
+    // Inhalt (halb)
+    const inhaltHalb = await seite.evaluate(() => {
+      const d = document.querySelector('.schnellansicht')
+      const titel = d.querySelector('.schnellansicht__titel')
+      const note = d.querySelector('.schnellansicht__note')
+      const klemm = [...d.querySelectorAll('.schnellansicht__klemmbar')]
+      const bearbeiten = [...d.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Bearbeiten')
+      const bs = bearbeiten ? getComputedStyle(bearbeiten) : null
+      return {
+        titel: titel?.textContent?.trim(),
+        note: note?.textContent?.trim() ?? null,
+        noteFarbe: note ? getComputedStyle(note).color : null,
+        noteFlaeche: note ? getComputedStyle(note).backgroundColor : null,
+        titelFarbe: titel ? getComputedStyle(titel).color : null,
+        achsen: [...d.querySelectorAll('.schnellansicht__achse')].map((a) => ({
+          name: a.querySelector('.schnellansicht__achse-name')?.textContent?.trim(),
+          zahl: a.querySelector('.intensitaetsbalken__zahl')?.textContent?.trim() ?? null,
+          platzhalter: a.querySelector('.intensitaetsbalken__platzhalter')?.textContent?.trim() ?? null,
+          kommentar: a.querySelector('.schnellansicht__klemmbar') != null,
+        })),
+        klemmbar: klemm.map((k) => ({ geklemmt: k.scrollHeight > k.clientHeight + 1, ueberstand: k.scrollWidth > k.clientWidth + 1, zeilen: getComputedStyle(k).webkitLineClamp })),
+        adresse: d.querySelector('.schnellansicht__adresse')?.textContent?.trim() ?? null,
+        tags: [...d.querySelectorAll('.schnellansicht__tag')].map((t) => t.textContent.trim()),
+        kacheln: d.querySelectorAll('.streifenkachel').length,
+        bearbeiten: bs ? { flaeche: bs.backgroundColor, rahmen: bs.borderTopWidth, text: bs.color } : null,
+        bearbeitenImFuss: bearbeiten?.closest('.schnellansicht__fuss') != null,
+      }
+    })
+    if (inhaltHalb.titel !== 'Sn-Alpha') befunde.push(`${wo}: Überschrift „${inhaltHalb.titel}" statt „Sn-Alpha"`)
+    if (!/^\d+,\d$/.test(inhaltHalb.note ?? '')) befunde.push(`${wo}: Gesamtnote „${inhaltHalb.note}" ist keine Zahl mit Komma`)
+    if (inhaltHalb.note && (inhaltHalb.noteFarbe !== inhaltHalb.titelFarbe || inhaltHalb.noteFlaeche !== 'rgba(0, 0, 0, 0)')) befunde.push(`${wo}: die Gesamtnote trägt eine Zonenfarbe (${inhaltHalb.noteFarbe} auf ${inhaltHalb.noteFlaeche})`)
+    if (inhaltHalb.achsen.length !== 4) befunde.push(`${wo}: ${inhaltHalb.achsen.length} statt 4 Achsen`)
+    const erwarteteWerte = ['8', '7', null, null]
+    for (const [i, achse] of inhaltHalb.achsen.entries()) {
+      if (achse.zahl !== erwarteteWerte[i] || (erwarteteWerte[i] === null && achse.platzhalter !== 'Noch nicht bewertet')) befunde.push(`${wo}: Achse „${achse.name}" zeigt ${achse.zahl ?? achse.platzhalter ?? 'nichts'}`)
+      if (!achse.kommentar) befunde.push(`${wo}: Achse „${achse.name}" zeigt ihren Kommentar nicht`)
+    }
+    if (inhaltHalb.klemmbar.length !== 5) befunde.push(`${wo}: ${inhaltHalb.klemmbar.length} statt 5 Textblöcke (Anfangsnotiz + vier Kommentare)`)
+    if (!inhaltHalb.klemmbar.some((k) => k.geklemmt)) befunde.push(`${wo}: in „halb" ist kein Kommentar auf 2 Zeilen geklemmt (Vorbedingung/Klemmung)`)
+    if (inhaltHalb.klemmbar.some((k) => k.zeilen !== '2')) befunde.push(`${wo}: ein Textblock ist in „halb" nicht auf 2 Zeilen geklemmt`)
+    if (inhaltHalb.adresse !== 'Schnellansichtstraße 1, 10115 Berlin') befunde.push(`${wo}: Adresse „${inhaltHalb.adresse}"`)
+    if (inhaltHalb.tags.join(',') !== 'sa') befunde.push(`${wo}: Tags „${inhaltHalb.tags.join(',')}" statt „sa"`)
+    if (inhaltHalb.kacheln !== 6) befunde.push(`${wo}: ${inhaltHalb.kacheln} statt 6 Kacheln im Bildstreifen`)
+    if (!inhaltHalb.bearbeiten || !inhaltHalb.bearbeitenImFuss) befunde.push(`${wo}: „Bearbeiten" fehlt in „halb"`)
+    else if (inhaltHalb.bearbeiten.flaeche !== 'rgba(0, 0, 0, 0)' || inhaltHalb.bearbeiten.rahmen !== '1px') befunde.push(`${wo}: „Bearbeiten" ist kein Sekundär-Button (Fläche ${inhaltHalb.bearbeiten.flaeche}, Rahmen ${inhaltHalb.bearbeiten.rahmen})`)
+    await seite.screenshot({ path: `${FOTOS}/${breite.name}-schnellansicht-halb.png` })
+
+    // Tipp auf leere Karte schließt nicht; die Karte bleibt bedienbar (Mausrad zoomt)
+    const frei = await findeFreienKartenpunkt(seite)
+    if (!frei) {
+      befunde.push(`${wo}: Vorbedingung nicht erreicht — kein freier Kartenpunkt für „Tipp auf leere Karte"`)
+    } else {
+      await seite.mouse.click(frei.x, frei.y)
+      await seite.waitForTimeout(400)
+      if (!(await leseSchnellansicht(seite)) || ortParameter(seite) !== alphaId) befunde.push(`${wo}: ein Tipp auf die leere Karte schließt die Schnellansicht`)
+      const vorZoom = await leseSchnellansichtMarker(seite)
+      await seite.mouse.move(frei.x, frei.y)
+      await seite.mouse.wheel(0, -240)
+      await seite.waitForTimeout(900)
+      const nachZoom = await leseSchnellansichtMarker(seite)
+      const a1 = vorZoom.find((m) => m.basis === 'Sn-Alpha')
+      const b1 = vorZoom.find((m) => m.basis === 'Sn-Beta')
+      const a2 = nachZoom.find((m) => m.basis === 'Sn-Alpha')
+      const b2 = nachZoom.find((m) => m.basis === 'Sn-Beta')
+      if (!(Math.abs(b2.x - a2.x) > Math.abs(b1.x - a1.x) + 5)) befunde.push(`${wo}: die Karte lässt sich bei offener Schnellansicht nicht zoomen (nicht modal)`)
+    }
+
+    // ===== 2. Zustände per Ziehgeste ================================================
+    await oeffneSchnellansichtKarte(seite)
+    await oeffneMarkerSchnellansicht(seite, 'Sn-Alpha')
+    const hoehen = erwarteteSchnellansichtHoehen(bereich)
+    // halb -> voll an der KOPFZEILE (nicht am Griff), langsam und zu kurz: nächstgelegen = voll
+    let zwischen = await ziehe(seite, '.schnellansicht__kopf', hoehen.voll - hoehen.halb - 25, 12, 40)
+    await pruefeHoehe('voll', 'Ziehen an der Kopfzeile nach oben')
+    if (zwischen === null || Math.abs(zwischen - hoehen.voll) < 5) befunde.push(`${wo}: Vorbedingung nicht erreicht — die Höhe beim Loslassen (${zwischen}) war schon die Zielhöhe, „Einrasten" ist so nicht belegt`)
+    // voll -> eingeklappt am Griff, langsam, nur bis 30px über eingeklappt
+    zwischen = await ziehe(seite, '.schnellansicht__griff', -(hoehen.voll - hoehen.eingeklappt - 30), 12, 40)
+    await pruefeHoehe('eingeklappt', 'Ziehen am Griff nach unten')
+    if (zwischen === null || Math.abs(zwischen - hoehen.eingeklappt) < 5) befunde.push(`${wo}: Vorbedingung nicht erreicht — beim Ziehen nach unten rastete nichts ein`)
+    // eingeklappt -> halb, langsam bis 30px unter halb
+    zwischen = await ziehe(seite, '.schnellansicht__griff', hoehen.halb - hoehen.eingeklappt - 30, 12, 40)
+    await pruefeHoehe('halb', 'Ziehen nach oben auf halb')
+    if (zwischen === null || Math.abs(zwischen - hoehen.halb) < 5) befunde.push(`${wo}: Vorbedingung nicht erreicht — beim Ziehen auf „halb" rastete nichts ein`)
+    // Flick: nur 40px, aber schnell -> der nächste größere Zustand (voll), obwohl „halb" näher läge
+    zwischen = await ziehe(seite, '.schnellansicht__griff', 40, 2, 0)
+    await pruefeHoehe('voll', 'schneller Flick nach oben')
+    if (zwischen === null || !(Math.abs(zwischen - hoehen.halb) < Math.abs(zwischen - hoehen.voll))) befunde.push(`${wo}: Vorbedingung nicht erreicht — der Flick endete nicht näher an „halb" als an „voll" (${zwischen})`)
+    // Flick nach unten aus voll: schneller Wisch schnappt auf halb
+    zwischen = await ziehe(seite, '.schnellansicht__griff', -40, 2, 0)
+    await pruefeHoehe('halb', 'schneller Flick nach unten')
+    // Im Inhalt zieht nichts (nie im scrollenden Inhalt)
+    const inhaltKasten = await seite.locator('.schnellansicht__inhalt').boundingBox()
+    await seite.mouse.move(inhaltKasten.x + inhaltKasten.width / 2, inhaltKasten.y + inhaltKasten.height - 20)
+    await seite.mouse.down()
+    for (let i = 1; i <= 8; i += 1) {
+      await seite.mouse.move(inhaltKasten.x + inhaltKasten.width / 2, inhaltKasten.y + inhaltKasten.height - 20 - i * 8)
+      await seite.waitForTimeout(30)
+    }
+    const waehrendInhaltZug = await leseSchnellansicht(seite)
+    await seite.mouse.up()
+    // Das Ziehen im Inhalt markiert Text (Treiberaktion) — die Markierung würde in den Bildschirmfotos stehen.
+    await seite.evaluate(() => window.getSelection()?.removeAllRanges())
+    await seite.waitForTimeout(400)
+    if (waehrendInhaltZug && !gleich(waehrendInhaltZug.hoehe, hoehen.halb)) befunde.push(`${wo}: eine Geste im Inhalt verändert die Höhe (${waehrendInhaltZug.hoehe}px)`)
+    await pruefeHoehe('halb', 'Geste im Inhalt')
+
+    // ===== 3. Griff-Button und Pfeiltasten ohne Geste ==========================
+    const griffSchritte = [
+      ['Enter', 'voll'],
+      ['Enter', 'halb'],
+      ['ArrowDown', 'eingeklappt'],
+      ['ArrowDown', 'eingeklappt'],
+      ['ArrowUp', 'halb'],
+      ['ArrowUp', 'voll'],
+      ['ArrowUp', 'voll'],
+    ]
+    await seite.locator('.schnellansicht__griff').focus()
+    for (const [taste, erwartet] of griffSchritte) {
+      await seite.keyboard.press(taste)
+      await seite.waitForTimeout(450)
+      const st = await pruefeHoehe(erwartet, `Griff: ${taste}`)
+      if (st && !st.griff?.endsWith(`aktuell ${erwartet}`)) befunde.push(`${wo}: Griff: ${taste} — Beschriftung „${st.griff}" nennt nicht „aktuell ${erwartet}"`)
+    }
+    // Ein echter Tipp (Maus, keine Bewegung) auf den Griff schaltet ebenfalls (kein verschluckter Klick nach einer Geste)
+    await seite.locator('.schnellansicht__griff').click()
+    await seite.waitForTimeout(450)
+    await pruefeHoehe('halb', 'Tipp auf den Griff (aus voll zurück auf halb)')
+    // Eingeklappt: nur Zeile, Inhalt weder sichtbar noch fokussierbar, kein „Bearbeiten"
+    await setzeSchnellansichtZustand(seite, 'eingeklappt')
+    const eingeklappt = await seite.evaluate(() => {
+      const d = document.querySelector('.schnellansicht')
+      const inhalt = d.querySelector('.schnellansicht__inhalt')
+      return {
+        sichtbar: getComputedStyle(inhalt).visibility,
+        inert: inhalt.hasAttribute('inert'),
+        bearbeiten: [...d.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Bearbeiten'),
+        titel: d.querySelector('.schnellansicht__titel').getBoundingClientRect().height,
+        note: d.querySelector('.schnellansicht__note') != null,
+      }
+    })
+    if (eingeklappt.sichtbar !== 'hidden' || !eingeklappt.inert) befunde.push(`${wo}: eingeklappt ist der Inhalt noch sichtbar/fokussierbar (visibility ${eingeklappt.sichtbar}, inert ${eingeklappt.inert})`)
+    if (eingeklappt.bearbeiten) befunde.push(`${wo}: eingeklappt zeigt „Bearbeiten"`)
+    if (!eingeklappt.note) befunde.push(`${wo}: eingeklappt fehlt die Gesamtnote in der Zeile`)
+    await seite.screenshot({ path: `${FOTOS}/${breite.name}-schnellansicht-eingeklappt.png` })
+    await setzeSchnellansichtZustand(seite, 'voll')
+    const inhaltVoll = await seite.evaluate(() =>
+      [...document.querySelectorAll('.schnellansicht__klemmbar')].map((k) => ({ abgeschnitten: k.scrollHeight > k.clientHeight + 1, ueberstand: k.scrollWidth > k.clientWidth + 1 })),
+    )
+    if (inhaltVoll.some((k) => k.abgeschnitten || k.ueberstand)) befunde.push(`${wo}: in „voll" ist ein Kommentar/die Anfangsnotiz abgeschnitten oder ragt heraus`)
+    await seite.screenshot({ path: `${FOTOS}/${breite.name}-schnellansicht-voll.png` })
+
+    // ===== 4. „×", Esc, Fokus auf dem Marker ===========================================
+    await oeffneSchnellansichtKarte(seite)
+    await oeffneMarkerSchnellansicht(seite, 'Sn-Alpha')
+    await seite.getByRole('button', { name: 'Schnellansicht schließen' }).click()
+    await seite.locator('.schnellansicht').waitFor({ state: 'detached', timeout: 10000 })
+    await seite.waitForTimeout(400)
+    if (ortParameter(seite) !== null) befunde.push(`${wo}: nach „×" steht noch ein ort-Parameter in der Adresse`)
+    let fokus = (await seite.evaluate(() => ({ istMarker: document.activeElement?.classList.contains('karte-marker'), label: document.activeElement?.getAttribute('aria-label') ?? '' })))
+    if (!fokus.istMarker || !fokus.label.startsWith('Sn-Alpha')) befunde.push(`${wo}: nach „×" liegt der Fokus nicht auf dem Marker (${fokus.label || 'anderes Element'})`)
+    await oeffneMarkerSchnellansicht(seite, 'Sn-Alpha')
+    await seite.keyboard.press('Escape')
+    await seite.locator('.schnellansicht').waitFor({ state: 'detached', timeout: 10000 })
+    await seite.waitForTimeout(400)
+    if (ortParameter(seite) !== null) befunde.push(`${wo}: nach Esc steht noch ein ort-Parameter in der Adresse`)
+    fokus = await seite.evaluate(() => ({ istMarker: document.activeElement?.classList.contains('karte-marker'), label: document.activeElement?.getAttribute('aria-label') ?? '' }))
+    if (!fokus.istMarker || !fokus.label.startsWith('Sn-Alpha')) befunde.push(`${wo}: nach Esc liegt der Fokus nicht auf dem Marker (${fokus.label || 'anderes Element'})`)
+    // Schließen entfernt den eigenen Eintrag: ein weiteres Zurück öffnet nichts mehr
+    await seite.goBack({ waitUntil: 'networkidle' }).catch(() => {})
+    await seite.waitForTimeout(400)
+    // goBack schließt
+    await oeffneSchnellansichtKarte(seite)
+    await oeffneMarkerSchnellansicht(seite, 'Sn-Alpha')
+    await seite.goBack({ waitUntil: 'networkidle' })
+    await seite.locator('.schnellansicht').waitFor({ state: 'detached', timeout: 10000 }).catch(() => befunde.push(`${wo}: goBack schließt die Schnellansicht nicht`))
+    if (ortParameter(seite) !== null) befunde.push(`${wo}: nach goBack steht noch ein ort-Parameter in der Adresse`)
+
+    // ===== 5. Wechsel auf einen anderen Marker: Zustand bleibt, replace =========
+    await oeffneSchnellansichtKarte(seite)
+    await oeffneMarkerSchnellansicht(seite, 'Sn-Alpha')
+    await setzeSchnellansichtZustand(seite, 'eingeklappt')
+    const laengeVorWechsel = await historyLaenge(seite)
+    await seite.evaluate(() => document.querySelector('.karte-marker[aria-label^="Sn-Beta"]').focus({ preventScroll: true }))
+    await seite.keyboard.press('Enter')
+    await dialog('Sn-Beta').waitFor({ state: 'visible', timeout: 10000 })
+    await seite.waitForTimeout(600)
+    const betaId = ortParameter(seite)
+    if (!betaId || betaId === alphaId) befunde.push(`${wo}: Wechsel — der ort-Parameter zeigt nicht auf Beta`)
+    if ((await historyLaenge(seite)) !== laengeVorWechsel) befunde.push(`${wo}: Wechsel legt einen zusätzlichen Verlaufseintrag an (replace erwartet)`)
+    await pruefeHoehe('eingeklappt', 'Wechsel (der Zustand bleibt)')
+    const nachWechsel = await leseSchnellansicht(seite)
+    if (nachWechsel && !(nachWechsel.fokus?.tag === 'H2' && nachWechsel.fokus.text === 'Sn-Beta')) befunde.push(`${wo}: Wechsel — der Fokus liegt nicht auf der Überschrift (${nachWechsel.fokus?.tag} „${nachWechsel.fokus?.text}")`)
+    marker = await leseSchnellansichtMarker(seite)
+    const gewaehltNachWechsel = marker.filter((m) => m.gewaehlt)
+    if (gewaehltNachWechsel.length !== 1 || gewaehltNachWechsel[0].basis !== 'Sn-Beta') befunde.push(`${wo}: Wechsel — ausgewählt ist nicht genau Beta`)
+    const betaGewaehlt = marker.find((m) => m.basis === 'Sn-Beta')
+    if (betaGewaehlt && (!betaGewaehlt.istPunkt || betaGewaehlt.durchmesser !== 24 || !/3px/.test(betaGewaehlt.schatten ?? ''))) {
+      befunde.push(`${wo}: ausgewählter Marker ohne Note ist kein 24px-Punkt mit 3px-Außenring (${betaGewaehlt.durchmesser}px, ${betaGewaehlt.istPunkt ? 'Punkt' : 'Scheibe'})`)
+    }
+    if (betaGewaehlt && (betaGewaehlt.labelAus || betaGewaehlt.labelDeckkraft !== '1')) befunde.push(`${wo}: der Name des ausgewählten Punkts ist nicht sichtbar`)
+    if (await seite.locator('.bildstreifen').count()) befunde.push(`${wo}: ein Ort ohne Bilder zeigt trotzdem einen Bildstreifen`)
+    await setzeSchnellansichtZustand(seite, 'halb')
+    const betaInhalt = await seite.evaluate(() => ({
+      note: document.querySelector('.schnellansicht__note')?.textContent ?? null,
+      ohneNote: document.querySelector('.schnellansicht__ohne-note')?.textContent?.trim() ?? null,
+      kacheln: document.querySelectorAll('.streifenkachel').length,
+      achsenOhneWert: document.querySelectorAll('.schnellansicht__achse .intensitaetsbalken__platzhalter').length,
+    }))
+    if (betaInhalt.note !== null || betaInhalt.ohneNote !== 'Noch nicht bewertet') befunde.push(`${wo}: ein Ort ohne Bewertung zeigt „${betaInhalt.note ?? betaInhalt.ohneNote}" statt „Noch nicht bewertet"`)
+    if (betaInhalt.kacheln !== 0 || betaInhalt.achsenOhneWert !== 4) befunde.push(`${wo}: Beta zeigt ${betaInhalt.kacheln} Kacheln und ${betaInhalt.achsenOhneWert} Achsen ohne Wert (erwartet 0 und 4)`)
+
+    // ===== 6. Gegen-Zusicherung inert ==================================================
+    await oeffneSchnellansichtKarte(seite)
+    await oeffneMarkerSchnellansicht(seite, 'Sn-Alpha')
+    const inertGesehen = { inert: 0, aktiv: 0 }
+    for (const zustandName of ['halb', 'voll', 'eingeklappt']) {
+      await setzeSchnellansichtZustand(seite, zustandName)
+      await pruefeMarkerInertGegenZusicherung(seite, `${wo} (inert, ${zustandName})`, befunde, inertGesehen)
+    }
+    // Karte verschieben (Treiberaktion): Alpha/Beta rutschen unter die Schnellansicht, Nord in den Ausschnitt
+    await setzeSchnellansichtZustand(seite, 'halb')
+    const freiZiehen = await findeFreienKartenpunkt(seite)
+    if (!freiZiehen) {
+      befunde.push(`${wo}: Vorbedingung nicht erreicht — kein freier Punkt zum Verschieben der Karte`)
+    } else {
+      await seite.mouse.move(freiZiehen.x, freiZiehen.y)
+      await seite.mouse.down()
+      await seite.mouse.move(freiZiehen.x, freiZiehen.y + 170, { steps: 10 })
+      await seite.mouse.up()
+      await seite.waitForTimeout(800)
+      for (const zustandName of ['halb', 'voll', 'eingeklappt']) {
+        await setzeSchnellansichtZustand(seite, zustandName)
+        await pruefeMarkerInertGegenZusicherung(seite, `${wo} (inert, ${zustandName}, Karte verschoben)`, befunde, inertGesehen)
+      }
+    }
+    if (inertGesehen.inert === 0 || inertGesehen.aktiv === 0) {
+      befunde.push(`${wo}: Vorbedingung nicht erreicht — inert-Gegenprobe sah ${inertGesehen.inert} Marker unter und ${inertGesehen.aktiv} nicht unter der Schnellansicht (beide Klassen nötig)`)
+    }
+
+    // ===== 7. Bilder: Vollbild aus der Schnellansicht ==================================
+    await oeffneSchnellansichtKarte(seite)
+    await oeffneMarkerSchnellansicht(seite, 'Sn-Alpha')
+    await setzeSchnellansichtZustand(seite, 'voll')
+    const kachelIds = await seite.locator('.streifenkachel').evaluateAll((els) => els.map((el) => el.getAttribute('data-bild-id')))
+    const kachelName = await seite.locator('.streifenkachel').first().getAttribute('aria-label')
+    if (kachelIds.length !== 6 || kachelName !== 'Bild 1 von 6 vergrößern') befunde.push(`${wo}: Bildstreifen: ${kachelIds.length} Kacheln, erste heißt „${kachelName}"`)
+    const laengeVorVorschau = await historyLaenge(seite)
+    await seite.locator('.streifenkachel').first().focus({ preventScroll: true })
+    await seite.keyboard.press('Enter')
+    const vorschau = seite.getByRole('dialog', { name: 'Bildvorschau' })
+    await vorschau.waitFor({ state: 'visible', timeout: 10000 })
+    await seite.waitForTimeout(400)
+    if ((await historyLaenge(seite)) !== laengeVorVorschau + 1) befunde.push(`${wo}: das Vollbild legt nicht genau einen Verlaufseintrag an`)
+    if (ortParameter(seite) !== alphaId) befunde.push(`${wo}: das Vollbild verändert den ort-Parameter`)
+    const zaehler = () => vorschau.locator('.bildvorschau__zaehler').innerText()
+    if ((await zaehler()) !== '1 von 6') befunde.push(`${wo}: das Vollbild zeigt „${await zaehler()}" statt „1 von 6" (Blättern über die Bilder DIESES Ortes)`)
+    await seite.keyboard.press('ArrowRight')
+    await seite.waitForTimeout(200)
+    if ((await zaehler()) !== '2 von 6') befunde.push(`${wo}: im Vollbild blättert die Pfeiltaste nicht (${await zaehler()})`)
+    await seite.keyboard.press('Escape')
+    await vorschau.waitFor({ state: 'detached', timeout: 10000 })
+    await seite.waitForTimeout(400)
+    if (!(await leseSchnellansicht(seite))) befunde.push(`${wo}: Esc im Vollbild schließt auch die Schnellansicht`)
+    const nachEsc = await leseSchnellansicht(seite)
+    if (nachEsc?.fokus?.kachelId !== kachelIds[1]) befunde.push(`${wo}: nach Esc im Vollbild liegt der Fokus nicht auf der Streifen-Kachel des zuletzt gezeigten Bildes (2)`)
+    if (nachEsc) await pruefeHoehe('voll', 'Schließen des Vollbilds (Zustand bleibt)')
+    if (ortParameter(seite) !== alphaId) befunde.push(`${wo}: nach Esc im Vollbild ist der ort-Parameter weg`)
+    // goBack: erstes Zurück schließt NUR das Vollbild, zweites die Schnellansicht
+    await seite.locator('.streifenkachel').nth(2).focus({ preventScroll: true })
+    await seite.keyboard.press('Enter')
+    await vorschau.waitFor({ state: 'visible', timeout: 10000 })
+    await seite.waitForTimeout(300)
+    await seite.goBack({ waitUntil: 'networkidle' })
+    await vorschau.waitFor({ state: 'detached', timeout: 10000 }).catch(() => befunde.push(`${wo}: das erste Zurück schließt das Vollbild nicht`))
+    await seite.waitForTimeout(400)
+    if (!(await leseSchnellansicht(seite)) || ortParameter(seite) !== alphaId) befunde.push(`${wo}: das erste Zurück schließt mehr als das Vollbild`)
+    await seite.goBack({ waitUntil: 'networkidle' })
+    await seite.locator('.schnellansicht').waitFor({ state: 'detached', timeout: 10000 }).catch(() => befunde.push(`${wo}: das zweite Zurück schließt die Schnellansicht nicht`))
+
+    // ===== 8. „Bearbeiten" und zurück =====================================================
+    await oeffneSchnellansichtKarte(seite)
+    await oeffneMarkerSchnellansicht(seite, 'Sn-Alpha')
+    await setzeSchnellansichtZustand(seite, 'voll')
+    const lageVorBearbeiten = await leseMarkerLage(seite)
+    await seite.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
+    await seite.waitForURL(/\/orte\/[^/?]+/, { timeout: 10000 })
+    await seite.waitForTimeout(500)
+    if (!new URL(seite.url()).pathname.endsWith(`/orte/${alphaId}`)) befunde.push(`${wo}: „Bearbeiten" öffnet nicht das Ortsdetail dieses Ortes (${seite.url()})`)
+    await seite.goBack({ waitUntil: 'networkidle' })
+    await dialog('Sn-Alpha').waitFor({ state: 'visible', timeout: 10000 }).catch(() => befunde.push(`${wo}: Zurück aus dem Ortsdetail zeigt die Schnellansicht nicht`))
+    await seite.waitForTimeout(900)
+    await pruefeHoehe('halb', 'Zurück aus dem Ortsdetail (Zustand halb, nicht der vorherige voll)')
+    const lageNachBearbeiten = await leseMarkerLage(seite)
+    const abBearbeiten = maxAbweichung(lageVorBearbeiten, lageNachBearbeiten)
+    if (!(abBearbeiten <= KARTENAUSSCHNITT_TOLERANZ_PX)) befunde.push(`${wo}: Zurück aus dem Ortsdetail — Ausschnitt nicht wiederhergestellt oder erneut verschoben (Abweichung ${abBearbeiten === Infinity ? 'unvergleichbar' : abBearbeiten.toFixed(1) + 'px'})`)
+    // Neuladen mit gültiger ID öffnet auf halb (auch wenn vorher voll)
+    await setzeSchnellansichtZustand(seite, 'voll')
+    await seite.reload({ waitUntil: 'networkidle' })
+    await dialog('Sn-Alpha').waitFor({ state: 'visible', timeout: 10000 }).catch(() => befunde.push(`${wo}: Neuladen mit gültiger Ort-ID öffnet die Schnellansicht nicht`))
+    await seite.waitForTimeout(800)
+    await pruefeHoehe('halb', 'Neuladen mit Ort-ID')
+
+    // ===== 9. Unbekannte / nicht sichtbare ID ==============================================
+    await seite.goto(BASIS + '/orte', { waitUntil: 'networkidle' })
+    const ohneId = await seite
+      .locator('a.ortszeile', { hasText: 'Sn-Ohne' })
+      .getAttribute('href')
+      .then((href) => href?.split('/').pop() ?? null)
+    for (const [label, id] of [['unbekannte', 'rauchtest-gibt-es-nicht'], ['nicht sichtbare (ohne Koordinaten)', ohneId]]) {
+      if (!id) {
+        befunde.push(`${wo}: Vorbedingung nicht erreicht — keine ID für die ${label} Ort-ID`)
+        continue
+      }
+      await seite.goto(`${BASIS}/orte?ansicht=karte&ort=${id}`, { waitUntil: 'networkidle' })
+      const entfernt = await seite.waitForFunction(() => !location.search.includes('ort='), null, { timeout: 5000 }).then(() => true, () => false)
+      await seite.waitForTimeout(500)
+      if (!entfernt) befunde.push(`${wo}: ${label} Ort-ID — der Parameter wird nicht entfernt`)
+      if (await seite.locator('.schnellansicht').count()) befunde.push(`${wo}: ${label} Ort-ID öffnet eine Schnellansicht`)
+      if (!new URL(seite.url()).search.includes('ansicht=karte')) befunde.push(`${wo}: ${label} Ort-ID — die Kartenansicht ging verloren (${seite.url()})`)
+      if ((await seite.locator('.karte-marker').count()) !== 3) befunde.push(`${wo}: ${label} Ort-ID — die Karte zeigt keine 3 Marker`)
+    }
+
+    // ===== 10. Filter, der den Ort ausblendet, schließt das Sheet =========================
+    await oeffneSchnellansichtKarte(seite)
+    await oeffneMarkerSchnellansicht(seite, 'Sn-Alpha')
+    await seite.locator('.tag-filterleiste__pill', { hasText: /^\s*sb\s*$/ }).click()
+    await seite.locator('.schnellansicht').waitFor({ state: 'detached', timeout: 10000 }).catch(() => befunde.push(`${wo}: ein Filter, der den Ort ausblendet, schließt die Schnellansicht nicht`))
+    await seite.waitForTimeout(400)
+    if (ortParameter(seite) !== null) befunde.push(`${wo}: nach dem Filter steht noch ein ort-Parameter in der Adresse`)
+
+    // ===== 11. Fenster-Scroll bleibt ======================================================
+    await oeffneSchnellansichtKarte(seite)
+    await seite.evaluate(() => {
+      // Treiberaktion: die Seite scrollbar machen und einen Stand anfahren — gemessen wird danach nur der Stand.
+      const abstandhalter = document.createElement('div')
+      abstandhalter.style.height = '900px'
+      abstandhalter.setAttribute('aria-hidden', 'true')
+      document.body.appendChild(abstandhalter)
+      window.scrollTo(0, 120)
+    })
+    await seite.waitForTimeout(300)
+    const scrollStart = await seite.evaluate(() => window.scrollY)
+    if (!(scrollStart >= 100)) {
+      befunde.push(`${wo}: Vorbedingung nicht erreicht — Scroll-Stand ${scrollStart} statt ~120`)
+    } else {
+      const scrollNach = async (was) => {
+        await seite.waitForTimeout(700)
+        const jetzt = await seite.evaluate(() => window.scrollY)
+        if (Math.abs(jetzt - scrollStart) > 1) befunde.push(`${wo}: ${was} verschiebt den Fenster-Scroll (${scrollStart} -> ${jetzt})`)
+      }
+      await seite.evaluate(() => document.querySelector('.karte-marker[aria-label^="Sn-Alpha"]').focus({ preventScroll: true }))
+      await seite.keyboard.press('Enter')
+      await dialog('Sn-Alpha').waitFor({ state: 'visible', timeout: 10000 })
+      await scrollNach('Öffnen')
+      await setzeSchnellansichtZustand(seite, 'eingeklappt')
+      await seite.evaluate(() => document.querySelector('.karte-marker[aria-label^="Sn-Beta"]').focus({ preventScroll: true }))
+      await seite.keyboard.press('Enter')
+      await dialog('Sn-Beta').waitFor({ state: 'visible', timeout: 10000 })
+      await scrollNach('Wechsel')
+      await seite.keyboard.press('Escape')
+      await seite.locator('.schnellansicht').waitFor({ state: 'detached', timeout: 10000 })
+      await scrollNach('Schließen')
+    }
+
+    console.log(`  ${wo} — geprüft (Öffnen, Zustände per Geste/Griff, Wechsel, Schließen, inert, Bilder, Bearbeiten, Adresse, Scroll), Bildschirmfotos in ${FOTOS}/`)
+  } catch (fehler) {
+    befunde.push(`${wo}: unerwarteter Abbruch — ${fehler.message.split('\n')[0]}${process.env.SMOKE_DEBUG ? ' @ ' + String(fehler.stack).split('\n').slice(1, 3).join(' | ') : ''}`)
+    if (process.env.SMOKE_DEBUG) await seite.screenshot({ path: `${FOTOS}/${breite.name}-schnellansicht-abbruch.png` }).catch(() => {})
+  } finally {
+    await seite.close()
+  }
+}
+
+
 async function main() {
   const playwright = await ladePlaywright()
   if (!playwright) {
@@ -4920,6 +5830,18 @@ async function main() {
     // Breite aus BREITEN, jeweils auf frischer Seite mit eigenem Bestand.
     for (const breite of BREITEN) {
       await pruefeKartenMarker(browser, breite, befunde)
+    }
+
+    // Gegenprobe zu den benannten Ausnahmen aus PO-2026-11-24-005 (synthetisches DOM).
+    await pruefeAusnahmenGegenprobe(browser, befunde)
+
+    // Zusicherungen ab PO-2026-11-24-005 (ADR-0039), s. `pruefeSchnellansicht` — für
+    // JEDE Breite aus BREITEN, jeweils auf frischer Seite mit eigenem Bestand.
+    for (const breite of BREITEN) {
+      await pruefeSchnellansicht(browser, breite, befunde)
+    }
+    if (SN_BEOBACHTUNG.hochgesetzt === 0) {
+      befunde.push('schnellansicht: Vorbedingung nicht erreicht — bei keiner Breite ragte die Karte unter die feste Tab-Leiste, „über der Tab-Leiste" ist so nicht belegt')
     }
 
     // Zusicherung ab PO-2026-11-24-001 (ADR-0037), s. Funktionskommentar —
@@ -5050,6 +5972,12 @@ async function main() {
   console.log('/daten erhalten, nach einem Neuladen gilt wieder der eingepasste Startausschnitt;')
   console.log('liegt im gemerkten Ausschnitt kein sichtbarer Marker, und bei einer Filteränderung in')
   console.log('der Kartenansicht, wird eingepasst (PO-2026-11-24-003, ADR-0038).')
+  console.log('Die Schnellansicht (Quick-Look auf der Karte) öffnet per Marker nicht modal im Zustand halb')
+  console.log('(ein Verlaufseintrag, Karte bedienbar, Marker über Größe und Ring erkennbar, Karte schiebt')
+  console.log('den Marker über die Oberkante), erreicht jeden Zustand per Ziehgeste und ohne Geste, wechselt')
+  console.log('per replace, schließt per „×"/Esc/Zurück (Fokus auf dem Marker), hält Marker darunter inert')
+  console.log('(und nur diese), öffnet das Vollbild für Bilder, kehrt aus „Bearbeiten" in „halb" zurück und')
+  console.log('verschiebt den Fenster-Scroll nie (PO-2026-11-24-005, ADR-0039).')
   console.log('Zusicherungen über engine-abhängige Darstellung sind auf WebKit ungeprüft')
   console.log('(ADR-0029) — geprüft ist ausschließlich Chromium.')
 }

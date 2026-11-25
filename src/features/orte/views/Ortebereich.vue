@@ -101,6 +101,22 @@
  * `:key="ortId"` (ADR-0035 Punkt 5) — das Abholen läuft im Route-Guard, also
  * VOR dem Remount, ein Entwurf von Ort A kann dadurch nicht in Ort B landen.
  *
+ * Schnellansicht (PO-2026-11-24-005, ADR-0039): Ein Marker öffnet nicht mehr das
+ * Ortsdetail, sondern die nicht modale `Schnellansicht.vue` über der Karte —
+ * fünfter Zweig im Kartenbereich, keine neue Route. Die offene ID wird
+ * AUSSCHLIESSLICH aus `route.query.ort` abgeleitet (`leiteOrtIdAusAdresse`, nur
+ * zusammen mit `ansicht=karte`; kein zweites Flag, ADR-0011 Punkt 4,
+ * ADR-0019 Punkt 7). Öffnen ist `push`, der Wechsel auf einen anderen Marker
+ * `replace`, Schließen per „×"/Esc `router.back()` (wenn der Eintrag davor die
+ * Karte ohne `ort` ist) sonst `replace` ohne `ort`; „Bearbeiten" ist ein `push`
+ * auf das Ortsdetail. Eine unbekannte oder nicht sichtbare ID wird ERST NACH
+ * dem Laden des Stores per `replace` entfernt (sonst wäre beim Neuladen jede ID
+ * „unbekannt"); dasselbe gilt, wenn der Ort durch eine Filteränderung
+ * herausfällt. Der Sheet-Zustand (eingeklappt/halb/voll) ist lokal in der
+ * Komponente. `karte` bekommt nur Darstellungsgrößen: die ausgewählte ID, den
+ * verdeckten Bereich und einen Pan-Auftrag NUR bei Öffnen/Wechsel durch eine
+ * Nutzeraktion (nie bei Rückkehr über den Verlauf).
+ *
  * Scroll-Versatz der Detail-Spalte bei A→B (PO-2026-09-26-003, ADR-0033,
  * Korrektur zu ADR-0011 Punkt 6): Der Scroll-Container gehört
  * `MasterDetail.vue`, nur diese Ansicht kennt die Route — deshalb löst sie
@@ -141,6 +157,7 @@ import ZonenLegende from '../components/ZonenLegende.vue'
 import TagFilterleiste from '../../tags/components/TagFilterleiste.vue'
 import TagEingabe from '../../tags/components/TagEingabe.vue'
 import Bilderbereich from '../../medien/components/Bilderbereich.vue'
+import Schnellansicht from '../components/Schnellansicht.vue'
 import type { OrtssucheZustand, OrtsvorschlagWerte } from '../lib/geocoding'
 import {
   findeGewichtungsSzenario,
@@ -150,9 +167,9 @@ import {
   type SortierKriterium,
   type TagVerknuepfung,
 } from '../model/ansicht'
-import { leiteAnsichtAusAdresse } from '../lib/ansichtAusAdresse'
+import { leiteAnsichtAusAdresse, leiteOrtIdAusAdresse, tragtOrtParameterMitBedeutung } from '../lib/ansichtAusAdresse'
 import { filtereOrteMitKoordinaten } from '../../karte/lib/koordinatenFilter'
-import type { KartenOrt } from '../../karte/model/karte.types'
+import type { KartenOrt, KartenPanAuftrag, KartenVerdeckung } from '../../karte/model/karte.types'
 import { bestimmeKartenLeerzustand } from '../../karte/lib/leerzustand'
 import { useOrteStore, type AchsenName } from '../stores/orte.store'
 
@@ -268,10 +285,91 @@ function aufAnsichtUmgeschaltet(): void {
   else wechsleZuKarte()
 }
 
-/** Marker-Klick = push auf die Detailadresse (ADR-0019 Punkt 6) — dieselbe
- * Navigation wie ein Klick auf eine Listenzeile. */
+// --- Schnellansicht (PO-2026-11-24-005, ADR-0039) -------------------------
+
+/** Ort-ID aus `?ort=` — nur zusammen mit `ansicht=karte` (ADR-0039 Punkt 1). */
+const ortIdAusAdresse = computed(() => leiteOrtIdAusAdresse(route.name, route.query.ansicht, route.query.ort))
+
+/** Trägt die Adresse einen `ort`-Parameter mit Bedeutung (auch einen unbrauchbaren)? */
+const traegtOrtParameter = computed(() =>
+  tragtOrtParameterMitBedeutung(route.name, route.query.ansicht, route.query.ort),
+)
+
+/** Der geöffnete Ort: nur, wenn die Karte ihn zeigt (nicht herausgefiltert, mit
+ * beiden Koordinaten). Sonst `undefined`, und die Adresse wird bereinigt (s. u.). */
+const offenerOrt = computed<OrtDatensatz | undefined>(() => {
+  const id = ortIdAusAdresse.value
+  if (!id || !zeigeKartenbereich.value || kartenLeerzustand.value === 'ohne_koordinaten') return undefined
+  return kartenOrte.value.some((kartenOrt) => kartenOrt.id === id) ? store.ortNachId(id) : undefined
+})
+const offeneOrtId = computed(() => offenerOrt.value?.id ?? null)
+
+/** Von der Schnellansicht gemeldetes Zielmaß (relativ zum Kartenbereich). */
+const schnellansichtMass = ref<KartenVerdeckung | null>(null)
+const kartenVerdeckung = computed<KartenVerdeckung | null>(() => (offeneOrtId.value ? schnellansichtMass.value : null))
+/** Ein neues Objekt je Nutzeraktion (Öffnen, Wechsel) — nie aus der Adresse abgeleitet. */
+const panAuftrag = ref<KartenPanAuftrag | null>(null)
+/** „×"/Esc haben geschlossen: Der Fokus geht danach auf den Marker (ADR-0038 Punkt 7). */
+let fokusAnMarkerNachSchliessen = false
+
+function entferneOrtParameter(): Record<string, unknown> {
+  const query: Record<string, unknown> = {}
+  for (const [name, wert] of Object.entries(route.query)) {
+    if (name !== 'ort') query[name] = wert
+  }
+  return query
+}
+
+// Unbekannte oder nicht sichtbare ID, oder der Ort fällt durch eine
+// Filteränderung heraus: `ort` wird per `replace` entfernt, kein toter
+// Verlaufseintrag (ADR-0039 Punkt 2). Erst NACH dem Laden des Stores, sonst
+// wäre beim Neuladen jede ID „unbekannt".
+watch(
+  [() => store.istGeladen, traegtOrtParameter, offeneOrtId],
+  ([geladen, traegt, offeneId]) => {
+    if (geladen && traegt && !offeneId) {
+      void router.replace({ name: 'orte', query: entferneOrtParameter() as Record<string, string> })
+    }
+  },
+  { immediate: true },
+)
+
+watch(offeneOrtId, (neu, alt) => {
+  if (neu) return
+  schnellansichtMass.value = null
+  if (alt && fokusAnMarkerNachSchliessen) fokusMarkerId.value = alt
+  fokusAnMarkerNachSchliessen = false
+})
+
+/** Marker-Aktivierung öffnet die Schnellansicht (löst ADR-0019 Punkt 6 für den
+ * Marker-Klick ab): `push`, wenn keine offen ist, sonst `replace` auf den
+ * anderen Ort (kein zusätzlicher Verlaufseintrag). Derselbe Marker erneut:
+ * nichts. Der Pan-Auftrag entsteht nur hier, nie aus der Adresse. */
 function aufMarkerAusgewaehlt(gewaehlteOrtId: string): void {
-  void router.push({ name: 'ort-detail', params: { ortId: gewaehlteOrtId } })
+  if (gewaehlteOrtId === offeneOrtId.value) return
+  panAuftrag.value = { ortId: gewaehlteOrtId }
+  const ziel = { name: 'orte', query: { ...route.query, ort: gewaehlteOrtId } as Record<string, string> }
+  if (offeneOrtId.value) void router.replace(ziel)
+  else void router.push(ziel)
+}
+
+/** „×" oder Esc. `router.back()` nur, wenn der Eintrag davor die Karte OHNE
+ * `ort` ist — so landet man nie versehentlich auf einer fremden Seite (z. B. nach
+ * Neuladen mit `?ort=`); sonst `replace` ohne `ort`. */
+function aufSchnellansichtSchliessen(): void {
+  fokusAnMarkerNachSchliessen = true
+  const historyState = window.history.state as { back?: string | null } | null
+  const davor = historyState?.back ? router.resolve(historyState.back) : null
+  const davorIstKarteOhneOrt =
+    !!davor && davor.name === 'orte' && davor.query.ansicht === 'karte' && davor.query.ort === undefined
+  if (davorIstKarteOhneOrt) router.back()
+  else void router.replace({ name: 'orte', query: entferneOrtParameter() as Record<string, string> })
+}
+
+/** „Bearbeiten": `push` auf das Ortsdetail dieses Ortes; Zurück landet wieder auf der Schnellansicht. */
+function aufSchnellansichtBearbeiten(): void {
+  const id = offeneOrtId.value
+  if (id) void router.push({ name: 'ort-detail', params: { ortId: id } })
 }
 
 function formatiereTagAufzaehlung(tags: readonly string[]): string {
@@ -536,7 +634,9 @@ watch(ortId, async (neu, alt) => {
     // landet immer auf der Liste (`replace('/orte')`, kein Sonderfall) und
     // nimmt diesen Zweig deshalb nie.
     if (ansicht.value === 'karte') {
-      fokusMarkerId.value = alt
+      // Kehrt die Adresse auf die Schnellansicht desselben Ortes zurück, gehört der
+      // Fokus der Überschrift im Sheet (sie fokussiert sich beim Einhängen selbst).
+      if (ortIdAusAdresse.value !== alt) fokusMarkerId.value = alt
     } else {
       fokussiereListeNachSchliessen(alt)
     }
@@ -927,13 +1027,32 @@ async function aufLoeschenBestaetigt(): Promise<void> {
           Zur Ortsliste
         </PrimaerButton>
       </div>
-      <Kartenflaeche
+      <!-- Hülle um Karte UND Schnellansicht (ADR-0039 Punkt 8): die Schnellansicht
+           ist `absolute` in diesem Kartenbereich positioniert, nicht `fixed`. -->
+      <div
         v-else
-        :orte="kartenOrte"
-        :fokussierter-ort-id="fokusMarkerId"
-        @ort-ausgewaehlt="aufMarkerAusgewaehlt"
-        @fokus-uebernommen="aufKartenfokusUebernommen"
-      />
+        class="ortebereich__karte-huelle"
+      >
+        <Kartenflaeche
+          :orte="kartenOrte"
+          :fokussierter-ort-id="fokusMarkerId"
+          :ausgewaehlte-ort-id="offeneOrtId"
+          :verdeckung="kartenVerdeckung"
+          :pan-auftrag="panAuftrag"
+          @ort-ausgewaehlt="aufMarkerAusgewaehlt"
+          @fokus-uebernommen="aufKartenfokusUebernommen"
+        />
+        <Transition name="schnellansicht">
+          <Schnellansicht
+            v-if="offenerOrt"
+            :ort="offenerOrt"
+            :gesamtnote="gesamtnoteVon(offenerOrt)"
+            @schliessen="aufSchnellansichtSchliessen"
+            @bearbeiten="aufSchnellansichtBearbeiten"
+            @verdeckung-geaendert="(mass) => (schnellansichtMass = mass)"
+          />
+        </Transition>
+      </div>
     </div>
 
     <MasterDetail
@@ -1461,6 +1580,14 @@ async function aufLoeschenBestaetigt(): Promise<void> {
   max-width: var(--container-max-width);
   margin: 0 auto;
   padding: var(--space-16);
+}
+
+/* Kartenbereich H für die Schnellansicht (ADR-0039 Punkt 8): Containing Block der
+   `absolute` positionierten Überlagerung. `isolation` hält deren `z-index` lokal,
+   die feste Tab-Leiste bleibt darüber. */
+.ortebereich__karte-huelle {
+  position: relative;
+  isolation: isolate;
 }
 
 /* Dritter Kartenleerzustand (design-conventions.md „Karte"): gleiches

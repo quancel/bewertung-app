@@ -24,7 +24,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useNetzzustand } from '../../../shared/composables/useNetzzustand'
 import { useLeafletKarte } from '../composables/useLeafletKarte'
-import type { KartenOrt } from '../model/karte.types'
+import type { KartenOrt, KartenPanAuftrag, KartenVerdeckung } from '../model/karte.types'
 
 const props = defineProps<{
   orte: readonly KartenOrt[]
@@ -36,9 +36,17 @@ const props = defineProps<{
    * Aufbau der Kartenansicht). */
   fokussierterOrtId?: string | null
   /** Ort-ID des ausgewählten Markers (größere Scheibe, stärkerer Ring, Etikett
-   * immer sichtbar, PO-2026-11-24-004). `Ortebereich.vue` setzt sie erst ab
-   * PO-2026-11-24-005 (Schnellansicht), bis dahin `null`/`undefined`. */
+   * immer sichtbar, PO-2026-11-24-004). `Ortebereich.vue` setzt sie seit
+   * PO-2026-11-24-005 auf den Ort der geöffneten Schnellansicht, sonst `null`. */
   ausgewaehlteOrtId?: string | null
+  /** Von unten verdeckter Bereich (Schnellansicht, PO-2026-11-24-005, ADR-0039
+   * Punkt 5): Marker darunter werden `inert`, Bedienelemente und Quellenangabe
+   * unten rücken um die Höhe nach oben. `null`/`undefined` = nichts verdeckt. */
+  verdeckung?: KartenVerdeckung | null
+  /** Ein neues Objekt je Nutzeraktion (Öffnen/Wechsel) verschiebt die Karte
+   * minimal, falls der Marker unter der Überlagerung läge. Nie bei Rückkehr
+   * über den Verlauf. */
+  panAuftrag?: KartenPanAuftrag | null
 }>()
 
 const emit = defineEmits<{
@@ -55,6 +63,9 @@ const containerRef = ref<HTMLDivElement | null>(null)
 // DATENAUSWAHL, „Marker werden aus den Props nachgeführt").
 const orteRef = computed(() => props.orte)
 const ausgewaehlteOrtIdRef = computed(() => props.ausgewaehlteOrtId ?? null)
+const verdeckungRef = computed(() => props.verdeckung ?? null)
+const panAuftragRef = computed(() => props.panAuftrag ?? null)
+const verdecktUnten = computed(() => `${props.verdeckung?.hoehe ?? 0}px`)
 
 const { online } = useNetzzustand()
 
@@ -64,6 +75,7 @@ const { fokussiereMarker } = useLeafletKarte(
   (ortId) => emit('ort-ausgewaehlt', ortId),
   online,
   ausgewaehlteOrtIdRef,
+  { verdeckung: verdeckungRef, panAuftrag: panAuftragRef },
 )
 
 function uebernehmeFokusWunsch(): void {
@@ -80,7 +92,10 @@ watch(() => props.fokussierterOrtId, uebernehmeFokusWunsch)
 </script>
 
 <template>
-  <div class="karte-wrapper">
+  <div
+    class="karte-wrapper"
+    :style="{ '--karte-verdeckt-unten': verdecktUnten }"
+  >
     <div
       ref="containerRef"
       class="karte-container"
@@ -118,10 +133,16 @@ watch(() => props.fokussierterOrtId, uebernehmeFokusWunsch)
   background-color: var(--color-neutral-100);
 }
 
+/* Schnellansicht offen (ADR-0039 Punkt 5): Bedienelemente und Quellenangabe
+   unten stehen über der Überlagerung statt darunter. */
+.karte-wrapper :deep(.leaflet-bottom) {
+  bottom: var(--karte-verdeckt-unten, 0px);
+}
+
 .karte-offline-hinweis {
   position: absolute;
   z-index: 1000;
-  bottom: var(--space-16);
+  bottom: calc(var(--space-16) + var(--karte-verdeckt-unten, 0px));
   left: var(--space-16);
   padding: var(--space-4) var(--space-12);
   border-radius: var(--radius-full);
@@ -136,6 +157,12 @@ watch(() => props.fokussierterOrtId, uebernehmeFokusWunsch)
      Leaflet erzeugtes DOM trägt kein `data-v-*`-Attribut — `<style scoped>`
      würde hier wortlos wirkungslos bleiben. -->
 <style>
+/* Obere Bedienelemente, die die Schnellansicht überdecken würde (der
+   Zoom-Knopf bei „voll"): ausgeblendet UND `inert` (useLeafletKarte.ts). */
+.karte-steuerung--verdeckt {
+  visibility: hidden;
+}
+
 /* Leaflets `L.divIcon` trägt selbst die Klasse `.leaflet-div-icon` mit
    einer weißen Kachel + grauem Rahmen als Vorgabe (leaflet.css) — genau die
    Bilddatei-Optik, die ADR-0018 Punkt 4 mit `L.divIcon` vermeiden soll.

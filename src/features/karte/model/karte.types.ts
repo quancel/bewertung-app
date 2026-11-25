@@ -44,3 +44,27 @@ export interface KartenOrtNote {
 }
 
 export interface KartenOrt extends KartenOrtBasis, KartenOrtNote {}
+
+/**
+ * Von unten verdeckter Bereich der Kartenfläche (PO-2026-11-24-005, ADR-0039
+ * Punkt 5): eine nicht modale Überlagerung (die Schnellansicht), die `karte`
+ * nicht kennt. Nur Maße in px relativ zum Kartencontainer, unten bündig: die
+ * Höhe, und der horizontale Bereich (`links`/`rechts`), den die Überlagerung
+ * belegt — ab `md` ist sie schmaler als die Karte, ein Marker daneben ist nicht
+ * verdeckt. `null` = nichts verdeckt.
+ */
+export interface KartenVerdeckung {
+  hoehe: number
+  links: number
+  rechts: number
+}
+
+/**
+ * Auftrag, die Karte minimal zu verschieben, damit ein Marker über einer
+ * Überlagerung liegt. Ein NEUES Objekt je Nutzeraktion (Öffnen, Wechsel) — die
+ * Karte reagiert auf den Wechsel des Objekts, nie auf den Zustand der Adresse
+ * (Rückkehr über den Verlauf verschiebt nicht, ADR-0039 Punkt 5).
+ */
+export interface KartenPanAuftrag {
+  ortId: string
+}

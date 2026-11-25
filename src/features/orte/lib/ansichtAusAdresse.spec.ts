@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { leiteAnsichtAusAdresse } from './ansichtAusAdresse'
+import { leiteAnsichtAusAdresse, leiteOrtIdAusAdresse, tragtOrtParameterMitBedeutung } from './ansichtAusAdresse'
 
 describe('leiteAnsichtAusAdresse', () => {
   it('liefert "karte" auf /orte mit ansicht=karte', () => {
@@ -28,5 +28,38 @@ describe('leiteAnsichtAusAdresse', () => {
 
   it('behandelt ein Array (mehrfacher Query-Parameter) als unbekannten Wert', () => {
     expect(leiteAnsichtAusAdresse('orte', ['karte', 'karte'])).toBe('liste')
+  })
+})
+
+describe('leiteOrtIdAusAdresse (ADR-0039)', () => {
+  it('liefert die ID nur auf /orte mit ansicht=karte', () => {
+    expect(leiteOrtIdAusAdresse('orte', 'karte', 'abc')).toBe('abc')
+  })
+
+  it('ignoriert den Parameter in der Liste und auf der Detailadresse', () => {
+    expect(leiteOrtIdAusAdresse('orte', undefined, 'abc')).toBeNull()
+    expect(leiteOrtIdAusAdresse('orte', 'liste', 'abc')).toBeNull()
+    expect(leiteOrtIdAusAdresse('ort-detail', 'karte', 'abc')).toBeNull()
+    expect(leiteOrtIdAusAdresse('daten', 'karte', 'abc')).toBeNull()
+  })
+
+  it('liefert null bei fehlendem, leerem oder mehrfachem Wert', () => {
+    expect(leiteOrtIdAusAdresse('orte', 'karte', undefined)).toBeNull()
+    expect(leiteOrtIdAusAdresse('orte', 'karte', '')).toBeNull()
+    expect(leiteOrtIdAusAdresse('orte', 'karte', ['a', 'b'])).toBeNull()
+  })
+})
+
+describe('tragtOrtParameterMitBedeutung (ADR-0039 Punkt 2)', () => {
+  it('ja, sobald der Parameter in der Kartenansicht steht — auch leer oder mehrfach', () => {
+    expect(tragtOrtParameterMitBedeutung('orte', 'karte', 'abc')).toBe(true)
+    expect(tragtOrtParameterMitBedeutung('orte', 'karte', '')).toBe(true)
+    expect(tragtOrtParameterMitBedeutung('orte', 'karte', ['a', 'b'])).toBe(true)
+  })
+
+  it('nein ohne Parameter, in der Liste und auf anderen Routen (dort wird nichts korrigiert)', () => {
+    expect(tragtOrtParameterMitBedeutung('orte', 'karte', undefined)).toBe(false)
+    expect(tragtOrtParameterMitBedeutung('orte', undefined, 'abc')).toBe(false)
+    expect(tragtOrtParameterMitBedeutung('ort-detail', 'karte', 'abc')).toBe(false)
   })
 })

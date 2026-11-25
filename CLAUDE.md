@@ -471,9 +471,9 @@ Abschottung, sondern nur dafür, dass nie genug Inhalt vorlag.
 
 Ab PO-2026-11-24-006 (ADR-0036, Bildvorschau im Vollbild) kommt eine weitere
 Gruppe harter Zusicherungen dazu (`pruefeBildvorschau()`, `scripts/smoke.mjs`
-ab Zeile 2039, je Breite aus `BREITEN` in einem eigenen Kontext mit
+ab Zeile 2104, je Breite aus `BREITEN` in einem eigenen Kontext mit
 `hasTouch`; dazu die Ansicht `bildvorschau` in `ANSICHTEN`, Zeile 372, mit drei
-im Browser erzeugten PNGs hoch/quer/hoch, `legeOrtMitBildernAn()` Zeile 806).
+im Browser erzeugten PNGs hoch/quer/hoch, `legeOrtMitBildernAn()` Zeile 814).
 Geprüft werden Eigenschaften: Öffnen legt **genau einen** Verlaufseintrag mit
 unveränderter Adresse an, Blättern keinen; jedes Bild ist vollständig sichtbar
 (im Ansichtsfenster, nicht von einem Button geschnitten); Pfeiltaste,
@@ -516,11 +516,11 @@ Ansichten und eine harte Zusicherung dazu. `ortsliste-gewichtung-hinweis`,
 378–380) zeigen die drei Einstiege je mit dem **längsten** Szenarionamen
 („Fokus Preis-Leistung") und laufen so durch Verdeckung, Überlauf und
 Button-Umbruch bei allen `BREITEN`. Neu ist die optionale Ansichts-Eigenschaft
-`aufraeumen` (Zeile 3457): Die Gewichtung ist persistiert und würde sonst für
+`aufraeumen` (Zeile 3552): Die Gewichtung ist persistiert und würde sonst für
 den Rest des Laufs gelten und Noten und Zonen späterer Ansichten verschieben;
-`setzeGewichtungZurueck` (Zeile 915) stellt Ausgewogen wieder her. Die harte
+`setzeGewichtungZurueck` (Zeile 923) stellt Ausgewogen wieder her. Die harte
 Zusicherung `pruefeGewichtungWirktUeberallUndUeberstehtNeuladen` (ab Zeile
-2309, nur bei 1280px, eigener Bestand auf frischer Seite) prüft Eigenschaften:
+2374, nur bei 1280px, eigener Bestand auf frischer Seite) prüft Eigenschaften:
 Das Prüfbeispiel (Fokus Geschmack, Geschmack 10, Ambiente 6 → „8,7", bei
 Ausgewogen „8,0") zeigt Zeile **und** Detail **sofort** und nach einem
 Neuladen; die Reihenfolge nach Gesamtnote kippt von B-vor-A zu A-vor-B (das
@@ -604,17 +604,17 @@ dazu. Die Ansicht `gewichtung-eigene` (`scripts/smoke.mjs` Zeile 386) zeigt das
 Sheet mit offenem Block „Eigene" im **widersprüchlichsten** Zustand: Eine Achse
 „zählt nicht", die letzte trägt „100 % · muss zählen", und die Statuszeile
 steht nach einem abgefangenen Versuch — bei allen `BREITEN` durch Verdeckung,
-Überlauf und Button-Umbruch. `setzeGewichtungZurueck` (Zeile 915) stellt für
+Überlauf und Button-Umbruch. `setzeGewichtungZurueck` (Zeile 923) stellt für
 **alle** Gewichtungs-Ansichten jetzt auch die **eigenen** Gewichte auf 1:1:1:1
 zurück: Sie überstehen die Wahl eines festen Szenarios (das ist Absicht,
 ADR-0037 Punkt 2) und würden sonst für die nächste „Eigene"-Vorbereitung bei
 einer anderen Breite stehen bleiben. Die Erweiterung: `pruefeReglerGreifbarkeit`
-(Zeile 1304) läuft nicht mehr über den Ansichtsnamen `ortsdetail`, sondern über
+(Zeile 1369) läuft nicht mehr über den Ansichtsnamen `ortsdetail`, sondern über
 die **benannte Bedingung** „die Ansicht enthält einen `input[type="range"]`" —
 dadurch deckt sie die Gewichtsregler im Sheet ohne weiteres Zutun mit ab, und
 jeder künftige Regler ebenso. Die Befundzeile benennt einen Regler ohne `id`
 über sein `aria-label`. Die harte Zusicherung
-`pruefeEigeneGewichteUndEndgruppen` (ab Zeile 2504, nur bei 1280px, eigener
+`pruefeEigeneGewichteUndEndgruppen` (ab Zeile 2569, nur bei 1280px, eigener
 Browser-Kontext = frische IndexedDB, eigener Bestand mit drei Orten)
 prüft Eigenschaften: Die Erstbelegung ist 1:1:1:1 und das Sheet **bleibt bei
 „Eigene" offen**; mit Ambiente 9 / Zeit 1 / Geschmack 10 / Preis-Leistung 1
@@ -634,7 +634,7 @@ bisherigen Wert zurück, die letzte Achse über 0 bleibt bei „0" auf „1" (Ze
 „100 % · muss zählen", Regler `min="1"`, Statuszeile `role="status"` bis zur
 nächsten Änderung, auch Pos1 am Regler bleibt bei 1, danach darf die vorher
 „letzte" Achse auf 0). Die zweite Zusicherung
-`pruefeGewichtsreglerCommitWaehrendZiehens` (ab Zeile 2695, nur bei 1280px)
+`pruefeGewichtsreglerCommitWaehrendZiehens` (ab Zeile 2760, nur bei 1280px)
 hält die Maustaste am Regler der Zeile „Zeit" gedrückt und prüft **vor** dem
 Loslassen, dass das Zahlenfeld denselben Wert zeigt, der Anteil stimmt und die
 Gesamtnote in der Liste dahinter sich geändert hat (Vorbedingung: der Regler
@@ -672,21 +672,21 @@ Regler und Zahlenfeld sichtbar).
 Ab PO-2026-11-24-007 (prägnantere Zonen, ADR-0034/0037, Nutzerentscheidung:
 Plakette und 1px-Hairline sind zulässig) kommen eine Ansicht, drei harte
 Zusicherungen und eine bewusste Messung dazu. Die Ansicht `ortsliste-keine-treffer`
-(`scripts/smoke.mjs` Zeile 367, `bereiteOrtslisteKeineTrefferVor()` Zeile 747,
+(`scripts/smoke.mjs` Zeile 367, `bereiteOrtslisteKeineTrefferVor()` Zeile 755,
 `aufraeumen` setzt den Tag-Filter zurück) erzeugt den Null-Treffer-Zustand der
 Liste (zwei Orte, Tag-Filter UND auf beide) — er hat eine **eigene**
 Kopfzeile mit Legenden-Auslöser neben der der Master-Detail-Liste. Die Tags
 heißen bewusst nur `ka`/`kb`: Lange Tag-Namen blieben im Bestand und ließen die
 Filter-Pillen in allen späteren Ansichten aus dem Bildschirm ragen (ein erster
 Lauf meldete 23 solcher Befunde, durch meinen Rauchtest erzeugt, nicht durch die
-App). `pruefeLegendenAusloeser()` (Zeile 1657) läuft auf **jeder** Ansicht über
+App). `pruefeLegendenAusloeser()` (Zeile 1722) läuft auf **jeder** Ansicht über
 die benannte Bedingung „Listen-Kopfzeile mit Legende" und prüft, dass der
 Auslöser **gerenderten, nicht leeren Text** zeigt (`innerText`, nicht
 `aria-label`), das Label den sichtbaren Text enthält, kein Icon darin steckt,
 ≥ 44 × 44 px groß ist, nicht aus dem Bildschirm ragt und ab `lg` die Kopfzeile
 **einzeilig** bleibt; die Vorbedingung („beide Kopfzeilen-Varianten wurden je
 Breite wirklich untersucht", Zähler `legendenGesehen`) steht in der Zusicherung
-selbst. `pruefeZonenPlakette()` (Zeile 1713, auf `ortsliste-zonen`, alle
+selbst. `pruefeZonenPlakette()` (Zeile 1778, auf `ortsliste-zonen`, alle
 `BREITEN`) prüft Eigenschaften: Eine Zone hat eine Plakettenfläche, eine Zeile
 ohne Zone keine (damit ist 8,0 von „kein Wert in einer Zone" eindeutig
 unterscheidbar); Zahl auf Fläche ≥ 4,5:1; Höhe und Padding der Zahl sind in
@@ -696,7 +696,7 @@ fluchten; die fünf Flächen werden streng dunkler; ein Hervorhebungs-Schatten t
 Hervorhebung keinen; **Zeilenabstand ≥ 8px** — das war die Auflage der
 Design-Konvention („Zeilenabstände ≥ `--space-8`"), die `Ortebereich.vue` mit
 `gap: var(--space-4)` verletzte; der Wert steht jetzt auf `--space-8`.
-`pruefeBalkenfuellungInZonenfarbe()` (Zeile 1789, nur 1280px) sortiert nach
+`pruefeBalkenfuellungInZonenfarbe()` (Zeile 1854, nur 1280px) sortiert nach
 Ambiente und prüft, dass die Füllung bei einem Wert in einer Zone der
 Plakettenfläche entspricht (flach), bei einem Wert unter 8 weder Zonenfüllung
 noch Fläche hat und dass der Balken im **Ortsdetail** keine Zonenfarbe trägt
@@ -731,7 +731,7 @@ Breiten) wurden angesehen und gehen zur Graustufen-Begutachtung an den
 
 Ab PO-2026-11-24-003 (ADR-0038, Kartenausschnitt merken, Sitzung = JS-Lebensdauer)
 kommt eine weitere Gruppe harter Zusicherungen dazu
-(`pruefeKartenausschnittBleibtErhalten()`, `scripts/smoke.mjs` ab Zeile 2861,
+(`pruefeKartenausschnittBleibtErhalten()`, `scripts/smoke.mjs` ab Zeile 2949,
 je Breite aus `BREITEN` auf frischer Seite mit eigenem Bestand: drei Orte mit
 Koordinaten — Berlin, München (Tag „ka"), Athen (Tag „kb") —, die über den
 Koordinaten-Notnagel angelegt werden). Die Umsetzung ist ein nicht-reaktives
@@ -756,7 +756,10 @@ Liste → Karte, Karte → `/daten` → goBack), danach ein echtes `reload()`
 der Liste auf einen Ort außerhalb des gemerkten Ausschnitts → eingepasst, der
 Marker liegt in der Mitte) und die Filteränderung **in** der Kartenansicht
 (passt neu ein). Die Marker werden per Fokus mit `preventScroll` + Enter
-geöffnet. Der Klick auf „Daten" war hier zunächst programmatisch, weil bei
+geöffnet — seit PO-2026-11-24-005 öffnet das die Schnellansicht, das Detail
+folgt über „Bearbeiten", und erwartet wird nach dem Rückweg der Ausschnitt
+**nach dem Öffnen** des Sheets (das Öffnen verschiebt die Karte minimal, s.
+dort). Der Klick auf „Daten" war hier zunächst programmatisch, weil bei
 320px die Leaflet-Quellenangabe über der festen Tab-Leiste lag und Playwrights
 Klick abfing; mit PO-2026-11-24-004 ist er ein echter Klick (s. dort). **Rot-Nachweis**
 (ADR-0027 Punkt 8; je eine kompilierbare Mutation an `useLeafletKarte.ts`,
@@ -777,7 +780,7 @@ gemessen). Nur Chromium.
 Ab PO-2026-11-24-004 (Karten-Marker: Namen über dem
 Punkt, Gesamtnote als Zahl im Kreis, Kollisionsausblendung) kommen eine Ansicht
 und eine Gruppe harter Zusicherungen dazu. Die Ansicht `karten-marker`
-(`scripts/smoke.mjs` Zeile 395, `bereiteKartenMarkerVor()` Zeile 3143) steht bewusst **zuletzt**
+(`scripts/smoke.mjs` Zeile 395, `bereiteKartenMarkerVor()` Zeile 3238) steht bewusst **zuletzt**
 in `ANSICHTEN` und läuft über die neue Eigenschaft `eigenerKontext` in einem
 **frischen Browser-Kontext** (eigene IndexedDB) statt auf der gemeinsamen Seite: Ihr
 Bestand trägt Koordinaten, und acht zusätzliche Orte verlängerten dort die Liste so,
@@ -844,6 +847,125 @@ unerwarteter Abbruch — locator.click: Timeout 5000ms exceeded". **Unbelegt:** 
 immer sichtbar) — `Kartenflaeche.vue` hat dafür die Prop `ausgewaehlteOrtId`, aber
 `Ortebereich.vue` setzt sie erst mit PO-2026-11-24-005 (Schnellansicht), im
 Browser ist der Zustand bis dahin nicht erzeugbar; die Abnahme des Kriteriums „über
-Größe und Ringstärke erkennbar" gehört nach -005. Ebenso ungeprüft: dass die
+Größe und Ringstärke erkennbar" gehört nach -005 (dort geprüft, s. PO-2026-11-24-005
+unten). Ebenso ungeprüft: dass die
 Markerpositionen bei Hover/Auswahl über benachbarten Markern liegen (`z-index`).
 Nur Chromium.
+
+Ab PO-2026-11-24-005 (ADR-0039, Schnellansicht: einklappbares Bottom-Sheet auf
+der Karte) kommen drei Ansichten, eine große harte Zusicherung, eine Gegenprobe
+und zwei benannte Ausnahmen dazu. Die Ansichten `schnellansicht-eingeklappt`,
+`-halb` und `-voll` (`scripts/smoke.mjs` Zeilen 401–403,
+`bereiteSchnellansichtVor()` Zeile 5063) zeigen das Sheet je Zustand mit langen
+Kommentaren, einer 100-Zeichen-Anfangsnotiz, einem Tag und sechs Bildern (der
+Bildstreifen läuft bei jeder Breite über), jede in einem frischen
+Browser-Kontext (`eigenerKontext`), weil der Bestand Koordinaten trägt. Die
+harte Zusicherung `pruefeSchnellansicht()` (ab Zeile 5241, je Breite aus
+`BREITEN`, frische Seite, eigener Bestand `SN_ORTE` ab Zeile 4970: Alpha und
+Beta nebeneinander im Süden, Nord weit im Norden, ein Ort ohne Koordinaten)
+prüft Eigenschaften, keine Stellen: (1) Ein Marker öffnet ein **nicht modales**
+Sheet (kein `aria-modal`, kein Backdrop, `position: absolute` statt `fixed`, die
+Karte lässt sich per Mausrad weiter zoomen, ein Tipp auf die leere Karte
+schließt nicht) im Zustand „halb" mit **genau einem** Verlaufseintrag, Fokus auf
+der Überschrift. Der ausgewählte Marker ist über **Größe und Ringstärke**
+erkennbar (Scheibe 48px/Ring 4px, Punkt 24px mit 3px-Außenring, Name immer
+sichtbar, alle anderen 40px bzw. 16px) — das aus -004 übertragene, dort
+unbelegte Kriterium ist damit geprüft. Die Karte schiebt den Marker mindestens
+24px über die Oberkante, ohne zu zoomen (Vorbedingung: er lag vorher darunter).
+(2) Inhalt nur lesend: Bezeichnung, Gesamtnote **ohne** Zonenfarbe, vier Achsen
+mit Wert oder „Noch nicht bewertet", Kommentare (in „halb" auf zwei Zeilen
+geklemmt — Vorbedingung: mindestens einer ist es wirklich —, in „voll"
+vollständig), Anfangsnotiz, Adresse, Tags, Bildstreifen; ein Ort ohne Bilder
+zeigt keinen; „Bearbeiten" hat keine Füllung und einen 1px-Rahmen (Sekundär).
+(3) Jeder Zustand ist per **Ziehgeste** (Maus-Pointer-Events) erreichbar und
+rastet ein — Vorbedingung: die Höhe beim Loslassen ist nicht die Zielhöhe —; ein
+Flick von nur 40px schnappt in Wischrichtung auf „voll", obwohl „halb" näher
+läge; eine Geste im Inhalt verändert nichts; Griff-Button und Pfeiltasten
+erreichen jeden Zustand ohne Geste, auch nach einem Tipp, der einer Geste folgt.
+(4) Wechsel auf einen anderen Marker: `replace` (kein zusätzlicher
+Verlaufseintrag), der Zustand bleibt (Vorbedingung: nicht der Anfangszustand),
+Fokus auf der Überschrift. (5) „×", Esc und goBack schließen, nach „×"/Esc liegt
+der Fokus auf dem Marker; Neuladen mit gültiger ID öffnet auf „halb" (auch wenn
+vorher „voll"); eine unbekannte und eine nicht sichtbare ID (Ort ohne
+Koordinaten) werden per `replace` entfernt, ohne Sheet; ein Tag-Filter, der den
+Ort ausblendet, schließt das Sheet. (6) **Gegen-Zusicherung zu `[inert]`**
+(`pruefeMarkerInertGegenZusicherung()`, Zeile 5189): in jedem Zustand und bei
+verschobener Karte ist jeder Marker, dessen Mittelpunkt unter dem **gerenderten**
+Rechteck des Sheets liegt, `inert` — und kein anderer (ab `md` ist das Sheet
+schmaler als die Karte, ein Marker daneben bleibt aktiv); Vorbedingung: beide
+Klassen kamen vor. (7) „Bearbeiten" öffnet `/orte/:id`, goBack zeigt das Sheet
+desselben Ortes im Zustand „halb" (nicht dem vorherigen „voll") bei
+unverschobenem Ausschnitt; ein Bild öffnet das Vollbild aus -006: Esc schließt
+nur das Vollbild (Fokus auf der Streifen-Kachel des zuletzt gezeigten Bildes,
+Zustand bleibt), das erste goBack ebenso, das zweite das Sheet. (8) Öffnen,
+Wechsel und Schließen verschieben den Fenster-Scroll nicht
+(`app/router/index.ts`, `scrollBehavior`: gleicher `path`, `name` und
+`ansicht`-Wert → kein Scroll; Liste ↔ Karte bleibt unberührt). (9) Das Sheet
+steht **über** der festen Tab-Leiste: Ragt die Karte (feste Höhe 480px) auf einem
+niedrigen Telefon darunter, wird die Fläche um den Überstand angehoben (gemessen
+am `padding-bottom` von `<main>`, dem für feste Leisten reservierten Platz);
+Vorbedingung über alle Breiten: bei mindestens einer war das der Fall (320×700).
+Dieser Fund kam aus dem Bildschirmfoto, nicht aus einer der bestehenden
+Prüfungen: „Bearbeiten" saß bei 320×700 halb hinter der Leiste, und die
+Ausnahme „fixierte Chrome" in `pruefeVerdeckung()` hat das bewusst nicht
+gemeldet.
+
+Zwei **benannte Ausnahmen** (ADR-0023 Punkt 7), jede mit Gegenprobe am
+synthetischen DOM (`pruefeAusnahmenGegenprobe()`, Zeile 4907: je Ausnahme samt
+einem Fall, in dem die Prüfung weiter anschlagen muss): `pruefeVerdeckung()`
+überspringt Elemente in einem `[inert]`-Teilbaum (ADR-0039 Punkt 7) und
+Elemente, deren Prüfpunkt von einer nicht modalen Überlagerung verdeckt wird,
+die **vollständig auf der Fläche des Elements** sitzt (der fokussierbare
+Kartencontainer unter dem Sheet; ein kleines, nur teilweise überdecktes Element
+bleibt ein Befund). Beide Prüfungen, `pruefeVerdeckung()` und
+`pruefeUeberlauf()`, behandeln den nicht sichtbaren Teil eines **horizontalen
+Scroll-Streifens** (`overflow-x: auto|scroll` bei `overflow-y: hidden|clip`)
+nicht als Überstand; eine vertikal scrollende Spalte (`overflow-y: auto`)
+gehört bewusst nicht dazu. Der Streifen steht deshalb in `Bildstreifen.vue` mit
+`overflow-y: hidden`. `pruefeUeberlauf()` wertet dabei jetzt den Schnitt
+**aller** Abschneider: Liegt irgendein Vorfahr mit `overflow-x: hidden|clip|…`
+vollständig im Bildschirm, ist der Überstand nie sichtbar (zuvor entschied nur
+der nächste — die Bildkachel mit `overflow: hidden` ragte selbst aus dem
+Streifen und löste 16–50px-Befunde aus).
+
+Drei Bauformen sind Absicht: Die Marker werden per Fokus ohne Scrollen + Enter
+aktiviert (nicht per Klick); `pruefeKartenausschnittBleibtErhalten()` öffnet das
+Detail jetzt über Marker → „Bearbeiten" (`fokussiereUndOeffneMarker()`) und
+erwartet nach dem Rückweg den Ausschnitt **nach dem Öffnen** des Sheets, und
+zwischen den Rückwegen schließt der Test das Sheet über „×", damit der nächste
+Marker nicht darunter liegt; und das Fenster wird für die Scroll-Prüfung über
+einen angehängten Abstandshalter scrollbar gemacht (`html, body { height: 100% }`
+— Padding am `<html>` verlängert die Seite nicht): Treiberaktion, gemessen wird
+nur der Stand danach.
+
+**Rot-Nachweis** (ADR-0027 Punkt 8; je eine **kompilierbare** Mutation,
+gekürzte temporäre Smoke-Kopie bei 320px, danach Quelle zurückgesetzt, jeweils
+Exit 1): `liegtUnterVerdeckung` nie wahr → „… liegt UNTER der Schnellansicht …,
+ist aber nicht inert" (7 Befunde; die generische Verdeckungsprüfung bleibt dabei
+grün, deshalb ist die Gegen-Zusicherung nötig); `berechnePanVersatz` immer 0 →
+„Alpha liegt nach dem Öffnen bei y …, nicht ≥ 24px darüber"; Wechsel per `push`
+statt `replace` → „Wechsel legt einen zusätzlichen Verlaufseintrag an"; Esc-Zweig
+entfernt → Abbruch „Timeout … to be detached"; `ort`-Bereinigung entfernt → „…
+der Parameter wird nicht entfernt" (unbekannte und nicht sichtbare ID);
+Fokusrückgabe auf den Marker entfernt → „nach „×" liegt der Fokus nicht auf dem
+Marker" (und nach Esc); Wischtempo ignoriert → „schneller Flick nach oben — Höhe
+280.0px statt 392px"; Sheet `position: fixed` → „positioniert statt absolute"
+samt Tab-Leisten-Befunden (10); `aria-modal="true"` → „die Schnellansicht ist
+modal"; Zustand beim Wechsel zurückgesetzt → „Wechsel (der Zustand bleibt) —
+Höhe 280.0px statt 80px"; generische `scrollBehavior`-Bedingung entfernt →
+„Öffnen verschiebt den Fenster-Scroll (120 -> 0)"; Anhebung über die Leiste
+entfernt → „steht 0.0px über der Kartenunterkante statt 32px" (10 Befunde);
+Bildstreifen rendert ohne Bilder → „ein Ort ohne Bilder zeigt trotzdem einen
+Bildstreifen"; Klemmung in „halb" entfernt → „in „halb" ist kein Kommentar auf 2
+Zeilen geklemmt". Die Gegenprobe der Ausnahmen wurde gegen zwei Mutationen rot
+(Überlagerungs-Ausnahme ohne Flächenbedingung → „kleines Element teilweise
+darunter: kein Befund"; Streifen-Ausnahme ohne `overflow-y`-Bedingung →
+„vertikal scrollende Spalte: kein Befund"). Zwei erste Mutationen kompilierten
+nicht (`noUnusedParameters`, ein Narrowing) und wurden durch andere ersetzt.
+**Unbelegt:** dass die Ziehgeste per **Touch** wirkt (nur Maus-Pointer-Events,
+anders als bei -006 kein CDP-Touch), das Ausblenden des Zoom-Knopfs bei „voll"
+(`karte-steuerung--verdeckt`, nur im Bildschirmfoto gesehen) und die Regel „Esc
+schließt nicht bei einem offenen modalen Dialog" im Browser (nur Vitest,
+`Schnellansicht.spec.ts`). Nur Chromium. Die Bildschirmfotos
+`.smoke/*-schnellansicht-{eingeklappt,halb,voll}.png` wurden je Breite
+angesehen.

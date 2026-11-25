@@ -24,8 +24,9 @@ import {
   liegtMarkerImAusschnitt,
 } from '../lib/kartenausschnitt'
 import { bestimmeSichtbareEtiketten, type EtikettKandidat, type Rechteck } from '../lib/etikettKollision'
+import { berechnePanVersatz, liegtUnterVerdeckung } from '../lib/verdeckung'
 import { leseGemerktenAusschnitt, merkeAusschnitt } from './kartenausschnittSitzung'
-import type { KartenOrt } from '../model/karte.types'
+import type { KartenOrt, KartenPanAuftrag, KartenVerdeckung } from '../model/karte.types'
 
 /**
  * 1×1 transparentes GIF als `errorTileUrl` (Constraint KACHELAUSFALL): keine
@@ -47,6 +48,14 @@ const MARKER_TREFFERFLAECHE = 44
 /** Abstand Etikett zum Rand der Kartenfläche in px (design-conventions.md: 8px = `--space-8`). */
 const ETIKETT_RANDABSTAND = 8
 
+/** Von der Überlagerung (Schnellansicht, PO-2026-11-24-005) abhängige Eingaben. */
+export interface LeafletKarteUeberlagerung {
+  /** Von unten verdeckter Bereich, `null` = nichts verdeckt. */
+  verdeckung: Ref<KartenVerdeckung | null | undefined>
+  /** Ein neues Objekt je Nutzeraktion (Öffnen/Wechsel) löst das minimale Verschieben aus. */
+  panAuftrag: Ref<KartenPanAuftrag | null | undefined>
+}
+
 export interface LeafletKarteApi {
   /** Bewegt den Tastaturfokus auf den Marker mit dieser Ort-ID, sofern er
    * aktuell existiert — no-op sonst (z. B. weil der Ort inzwischen aus dem
@@ -60,6 +69,7 @@ export function useLeafletKarte(
   aufOrtAusgewaehlt: (ortId: string) => void,
   online: Ref<boolean>,
   ausgewaehlteOrtId: Ref<string | null | undefined>,
+  ueberlagerung: LeafletKarteUeberlagerung,
 ): LeafletKarteApi {
   let karte: L.Map | null = null
   let kachelEbene: L.TileLayer | null = null
@@ -75,6 +85,9 @@ export function useLeafletKarte(
   // Änderung der Menge der Marker-IDs eingepasst.
   let ersterAufbauErledigt = false
   let letzteMengenKennung: string | null = null
+  // Pan-Auftrag, der auf die Höhe der Überlagerung wartet (sie meldet sich erst
+  // nach dem Einhängen): beim Öffnen kommt der Auftrag vor dem Maß.
+  let ausstehenderPanOrtId: string | null = null
 
   function navigiere(ortId: string): void {
     aufOrtAusgewaehlt(ortId)
@@ -326,17 +339,75 @@ export function useLeafletKarte(
    * erste Aufbau mit Markern ist oder sich die ID-Menge ändert (ADR-0038). */
   function synchronisiere(): void {
     aktualisiereMarker()
-    if (!karte || orte.value.length === 0) return
+    if (!karte || orte.value.length === 0) {
+      aktualisiereVerdeckung()
+      return
+    }
     const kennung = bildeMengenKennung(orte.value)
     if (!ersterAufbauErledigt) {
       ersterAufbauErledigt = true
       letzteMengenKennung = kennung
       if (!stelleGemerktenAusschnittWiederHer()) wendeKartenausschnittAn()
+      aktualisiereVerdeckung()
       return
     }
-    if (kennung === letzteMengenKennung) return
-    letzteMengenKennung = kennung
-    wendeKartenausschnittAn()
+    if (kennung !== letzteMengenKennung) {
+      letzteMengenKennung = kennung
+      wendeKartenausschnittAn()
+    }
+    aktualisiereVerdeckung()
+  }
+
+  /**
+   * PO-2026-11-24-005 (ADR-0039 Punkt 5/7): Marker, deren Mittelpunkt unter der
+   * Überlagerung liegt, sind `inert` (aus Tab-Folge und Zeigerereignissen) und
+   * wieder aktiv, sobald sie darüber liegen. Gleiches gilt für Leaflets
+   * Bedienelemente oben (der Zoom-Knopf bei „voll"): die Überlagerung würde
+   * sie überdecken, ohne dass sie ausweichen können — sie werden ausgeblendet
+   * UND `inert`. Unten rücken Bedienelemente und Quellenangabe per
+   * CSS-Variable (`--karte-verdeckt-unten`, `Kartenflaeche.vue`) nach oben.
+   * Läuft nach `moveend`, Prop-Änderung und Bestandswechsel.
+   */
+  function aktualisiereVerdeckung(): void {
+    const container = containerRef.value
+    if (!karte || !container) return
+    const verdeckung = ueberlagerung.verdeckung.value ?? null
+    const hoehe = container.clientHeight
+    for (const marker of markerJeId.values()) {
+      const element = marker.getElement()
+      if (!element) continue
+      const verdeckt = liegtUnterVerdeckung(karte.latLngToContainerPoint(marker.getLatLng()), hoehe, verdeckung)
+      if (verdeckt) element.setAttribute('inert', '')
+      else element.removeAttribute('inert')
+    }
+    const rahmen = container.getBoundingClientRect()
+    for (const steuerung of container.querySelectorAll<HTMLElement>('.leaflet-top .leaflet-control')) {
+      const kasten = steuerung.getBoundingClientRect()
+      const verdeckt =
+        !!verdeckung &&
+        verdeckung.hoehe > 0 &&
+        kasten.bottom - rahmen.top > hoehe - verdeckung.hoehe &&
+        kasten.right - rahmen.left > verdeckung.links &&
+        kasten.left - rahmen.left < verdeckung.rechts
+      steuerung.classList.toggle('karte-steuerung--verdeckt', verdeckt)
+      if (verdeckt) steuerung.setAttribute('inert', '')
+      else steuerung.removeAttribute('inert')
+    }
+  }
+
+  /** Verschiebt die Karte minimal, bis der Marker über der Überlagerung liegt (nie Zoom). */
+  function fuehrePanAus(ortId: string): void {
+    const container = containerRef.value
+    const marker = markerJeId.get(ortId)
+    if (!karte || !container || !marker) return
+    const versatz = berechnePanVersatz(
+      karte.latLngToContainerPoint(marker.getLatLng()),
+      container.clientHeight,
+      ueberlagerung.verdeckung.value ?? null,
+    )
+    if (versatz <= 0) return
+    const reduziert = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+    karte.panBy([0, versatz], { animate: !reduziert, duration: 0.24 })
   }
 
   function merkeAktuellenAusschnitt(): void {
@@ -363,6 +434,7 @@ export function useLeafletKarte(
     // er gelesen wird (ADR-0038 Punkt 3: gemerkt wird, was zuletzt zu sehen war).
     karte.on('moveend', merkeAktuellenAusschnitt)
     karte.on('moveend', planeEtikettBerechnung)
+    karte.on('moveend', aktualisiereVerdeckung)
     karte.on('zoomend', planeEtikettBerechnung)
 
     synchronisiere()
@@ -376,6 +448,27 @@ export function useLeafletKarte(
       marker.getElement()?.classList.toggle('karte-marker--gewaehlt', id === neueId)
     }
     planeEtikettBerechnung()
+  })
+
+  // Überlagerung (ADR-0039 Punkt 5): Maß ändert sich -> inert neu bestimmen und
+  // einen wartenden Pan-Auftrag ausführen; ein neuer Auftrag wartet, bis ein Maß da ist.
+  watch(ueberlagerung.verdeckung, (verdeckung) => {
+    aktualisiereVerdeckung()
+    if (ausstehenderPanOrtId && verdeckung && verdeckung.hoehe > 0) {
+      const ortId = ausstehenderPanOrtId
+      ausstehenderPanOrtId = null
+      fuehrePanAus(ortId)
+    }
+  })
+
+  watch(ueberlagerung.panAuftrag, (auftrag) => {
+    if (!auftrag) {
+      ausstehenderPanOrtId = null
+      return
+    }
+    const verdeckung = ueberlagerung.verdeckung.value
+    if (verdeckung && verdeckung.hoehe > 0) fuehrePanAus(auftrag.ortId)
+    else ausstehenderPanOrtId = auftrag.ortId
   })
 
   // ADR-0021 Punkt 2b: einen bereits sichtbar fehlgeschlagenen Fremd-Abruf
@@ -392,6 +485,7 @@ export function useLeafletKarte(
     etikettBerechnungGeplant = 0
     karte?.off('moveend', merkeAktuellenAusschnitt)
     karte?.off('moveend', planeEtikettBerechnung)
+    karte?.off('moveend', aktualisiereVerdeckung)
     karte?.off('zoomend', planeEtikettBerechnung)
     karte?.remove()
     karte = null
