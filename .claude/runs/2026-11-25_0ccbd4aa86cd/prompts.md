@@ -90,3 +90,12 @@
     - `CLAUDE.md`
 </agent-message>
 ```
+
+## 2026-11-25T01:21:03Z
+
+```
+<task-notification>
+<status>stopped</status>
+<summary>The container running this session was restarted before background work reported back: "Architekt Nachpflege nach Umsetzung" (task ae3fa37be911317eb). That work is lost — no result or further notification will arrive for it. Re-create it if still needed (a long-running server or watcher that nothing is waiting on does not need restarting now), or tell the user what was lost.</summary>
+</task-notification>
+```
