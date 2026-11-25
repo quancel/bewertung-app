@@ -16,3 +16,4 @@ den JSON-Dateien daneben.
 | 2026-11-25T05:48:46Z | 004 | `frontend-lead` | — | — | — | `004-frontend-lead.json` |
 | 2026-11-25T05:50:28Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (<agent-message from="a6550d04134813ab1">) |
 | 2026-11-25T06:24:07Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (<agent-message from="ab49c4f552e54aef1">) |
+| 2026-11-25T06:24:25Z | 005 | `product-owner` | — | — | — | `005-product-owner.json` |
