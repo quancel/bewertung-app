@@ -463,3 +463,11 @@
   Als Nächstes ist nichts offen: Beide Pakete sind angenommen, `user_questions` ist leer.
 </agent-message>
 ```
+
+## 2026-11-25T10:47:16Z
+
+```
+Merge es auf den Main. Dann deployen. 
+
+Danach kannst du mal die Design conventions anpassen. Dabei Dinge die unwichtig oder veraltet sind entfernen und zur Not neue Md files erstellen und auf die referenzieren.
+```
