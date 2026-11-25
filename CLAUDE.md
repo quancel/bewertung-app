@@ -632,7 +632,14 @@ Fokus Zeit und zurück, bei Fokus Zeit entfällt die leere Gruppe; das Gate:
 „99" im Zahlenfeld wird „10", ein geleertes Feld kehrt beim Verlassen zum
 bisherigen Wert zurück, die letzte Achse über 0 bleibt bei „0" auf „1" (Zeile
 „100 % · muss zählen", Regler `min="1"`, Statuszeile `role="status"` bis zur
-nächsten Änderung, auch Pos1 am Regler bleibt bei 1, danach darf die vorher
+nächsten Änderung — **auch am Regler, bei jedem Versuch**: Pos1, Pfeil links
+und Ziehen nach links über das Minimum hinaus lassen den Wert bei 1 und zeigen
+die Statuszeile (bei `min=1` feuert dort kein `input`; `GewichtungSheet.vue`
+erkennt den Versuch an der Geste und meldet ihn als 0 über denselben
+`gewicht-geaendert`-Emit an das Gate, `setzeEigenesGewicht` bleibt der einzige
+Schreibpfad; Vorbedingung je Versuch in der Messgröße: Achse ist die letzte
+zählende, Statuszeile vorher leer, Regler auf 1; das Ziehen wird VOR dem
+Loslassen geprüft), danach darf die vorher
 „letzte" Achse auf 0). Die zweite Zusicherung
 `pruefeGewichtsreglerCommitWaehrendZiehens` (ab Zeile 2760, nur bei 1280px)
 hält die Maustaste am Regler der Zeile „Zeit" gedrückt und prüft **vor** dem
@@ -660,7 +667,7 @@ eigenen Gewichte → „1/1/1/1 statt 0/1/10/1" nach der Rückkehr; Statuszeile
 wird nie zurückgenommen → zwei Befunde; ein Thumb mit `opacity: 0` **nur im
 Sheet** → vier Befunde je Breite an `gewichtung-eigene` (und keiner an
 `ortsdetail`, d. h. die benannte Bedingung erreicht die Gewichtsregler
-wirklich). Zwei erste Mutationsversuche kompilierten nicht (ein Typfehler
+wirklich). Regler-Versuch erkennen (Tasten- und Zeigerzweig in `GewichtungSheet.vue` stillgelegt, gekürzte Smoke-Kopie) → drei Befunde „Statuszeile fehlt“ (Pos1, Pfeil links, Ziehen — Letzteres vor dem Loslassen). Zwei erste Mutationsversuche kompilierten nicht (ein Typfehler
 durch Narrowing, ein `noUnusedParameters`) und wurden durch andere ersetzt —
 eine Mutation, die nicht baut, beweist nichts. Auch hier: nur Chromium; die
 Thumb-/Bahn-Darstellung der **gemeinsamen Regler-Bauform** (`shared/ui/Regler.vue`,
@@ -880,7 +887,8 @@ zeigt keinen; „Bearbeiten" hat keine Füllung und einen 1px-Rahmen (Sekundär)
 (3) Jeder Zustand ist per **Ziehgeste** (Maus-Pointer-Events) erreichbar und
 rastet ein — Vorbedingung: die Höhe beim Loslassen ist nicht die Zielhöhe —; ein
 Flick von nur 40px schnappt in Wischrichtung auf „voll", obwohl „halb" näher
-läge; eine Geste im Inhalt verändert nichts; Griff-Button und Pfeiltasten
+läge (unter `FLICK_MIN_WEG_PX = 10` Weg wird das Tempo ignoriert und der
+nächstgelegene Zustand gewählt, nur per Vitest belegt, `rasteEin`); eine Geste im Inhalt verändert nichts; Griff-Button und Pfeiltasten
 erreichen jeden Zustand ohne Geste, auch nach einem Tipp, der einer Geste folgt.
 (4) Wechsel auf einen anderen Marker: `replace` (kein zusätzlicher
 Verlaufseintrag), der Zustand bleibt (Vorbedingung: nicht der Anfangszustand),

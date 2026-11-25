@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   begrenzeHoehe,
   bestimmeHoehen,
+  FLICK_MIN_WEG_PX,
   rasteEin,
   zustandGroesser,
   zustandKleiner,
@@ -44,6 +45,14 @@ describe('rasteEin', () => {
     expect(rasteEin(400, hoehen, -0.9)).toBe('halb')
     expect(rasteEin(270, hoehen, -0.9)).toBe('eingeklappt')
     expect(rasteEin(90, hoehen, -0.9)).toBe('eingeklappt')
+  })
+
+  it('unter dem Flick-Mindestweg zählt das Tempo nicht: 5px in 8ms rasten nicht in Wischrichtung ein', () => {
+    // 5px / 8ms = 0,625 px/ms (> Schwelle), aber nur 5px Weg: nächstgelegener Zustand.
+    expect(rasteEin(285, hoehen, 5 / 8, 5)).toBe('halb')
+    expect(rasteEin(285, hoehen, 5 / 8)).toBe('voll')
+    expect(rasteEin(275, hoehen, -5 / 8, 5)).toBe('halb')
+    expect(rasteEin(285, hoehen, 5 / 8, FLICK_MIN_WEG_PX)).toBe('voll')
   })
 
   it('genau auf der Schwelle gilt noch „langsam"', () => {

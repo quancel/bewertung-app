@@ -271,7 +271,7 @@ function beendeZug(event: PointerEvent, abgebrochen: boolean): void {
   const dauer = Math.max(letzte.t - erste.t, 1)
   // Positiv = die Höhe wächst (Finger/Maus nach oben).
   const tempo = abgebrochen ? 0 : (erste.y - letzte.y) / dauer
-  const ziel = rasteEin(ziehHoehe.value, hoehen.value, tempo)
+  const ziel = rasteEin(ziehHoehe.value, hoehen.value, tempo, Math.abs(aktuell.startY - letzte.y))
   zustand.value = ziel
   ziehHoehe.value = null
 }

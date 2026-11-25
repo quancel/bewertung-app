@@ -25,6 +25,11 @@ function mounte(teil: Partial<{ szenario: string; eigeneGewichte: Gewichte; muss
   })
 }
 
+/** jsdom kennt kein `PointerEvent`: ein `MouseEvent` mit dem Typnamen genügt dem Handler. */
+function zeiger(ziel: Element, typ: string, clientX: number): void {
+  ziel.dispatchEvent(new MouseEvent(typ, { clientX, bubbles: true }))
+}
+
 describe('GewichtungSheet: Szenarioliste', () => {
   it('zeigt sechs Szenarien, „Eigene" zuletzt', () => {
     const sheet = mounte({ szenario: 'ausgewogen' })
@@ -116,5 +121,51 @@ describe('GewichtungSheet: eigene Gewichte', () => {
     expect(status.text()).toBe('')
     await sheet.setProps({ mussZaehlenHinweis: true })
     expect(sheet.find('[role="status"]').text()).toBe('Mindestens eine Achse muss zählen.')
+  })
+
+  describe('Versuch am Regler der letzten zählenden Achse', () => {
+    const NUR_GESCHMACK: Gewichte = { ambiente: 0, zeit: 0, geschmack: 1, preisLeistung: 0 }
+    const reglerGeschmack = (sheet: ReturnType<typeof mounte>) =>
+      sheet.findAll('.gewicht-zeile')[2]!.find('input[type="range"]')
+
+    it.each(['ArrowLeft', 'ArrowDown', 'Home', 'PageDown'])('%s am Minimum meldet 0 (das Gate klemmt)', async (key) => {
+      const sheet = mounte({ eigeneGewichte: NUR_GESCHMACK })
+      await reglerGeschmack(sheet).trigger('keydown', { key })
+      expect(sheet.emitted('gewicht-geaendert')).toEqual([['geschmack', 0]])
+    })
+
+    it('Pfeil rechts und andere Tasten melden nichts', async () => {
+      const sheet = mounte({ eigeneGewichte: NUR_GESCHMACK })
+      await reglerGeschmack(sheet).trigger('keydown', { key: 'ArrowRight' })
+      await reglerGeschmack(sheet).trigger('keydown', { key: 'End' })
+      expect(sheet.emitted('gewicht-geaendert')).toBeUndefined()
+    })
+
+    it('Pfeil links über dem Minimum meldet keinen Versuch (das `input` übernimmt)', async () => {
+      const sheet = mounte({ eigeneGewichte: { ...NUR_GESCHMACK, geschmack: 5 } })
+      await reglerGeschmack(sheet).trigger('keydown', { key: 'ArrowLeft' })
+      expect(sheet.emitted('gewicht-geaendert')).toBeUndefined()
+    })
+
+    it('eine Achse, die nicht die letzte zählende ist, meldet bei Pos1 nichts', async () => {
+      const sheet = mounte()
+      await sheet.findAll('.gewicht-zeile')[0]!.find('input[type="range"]').trigger('keydown', { key: 'Home' })
+      expect(sheet.emitted('gewicht-geaendert')).toBeUndefined()
+    })
+
+    it('Ziehen nach links bis an den Bahnrand meldet 0, bloßes Greifen und Loslassen nicht', async () => {
+      const sheet = mounte({ eigeneGewichte: NUR_GESCHMACK })
+      const regler = reglerGeschmack(sheet)
+      regler.element.getBoundingClientRect = () => ({ left: 100 }) as DOMRect
+      zeiger(regler.element, 'pointerdown', 112)
+      zeiger(regler.element, 'pointerup', 112)
+      expect(sheet.emitted('gewicht-geaendert')).toBeUndefined()
+      zeiger(regler.element, 'pointerdown', 112)
+      zeiger(regler.element, 'pointermove', 60)
+      expect(sheet.emitted('gewicht-geaendert')).toEqual([['geschmack', 0]])
+      zeiger(regler.element, 'pointerup', 60)
+      zeiger(regler.element, 'pointermove', 50)
+      expect(sheet.emitted('gewicht-geaendert')).toHaveLength(1)
+    })
   })
 })

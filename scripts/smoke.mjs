@@ -2729,11 +2729,45 @@ async function pruefeEigeneGewichteUndEndgruppen(browser, befunde) {
     await seite.waitForTimeout(200)
     erwarte('letzte-bleibt-auf-1', await gewichtFeld(dialog, 'geschmack').inputValue(), '1')
     erwarte('status-nach-versuch', (await dialog.locator('[role="status"]').innerText()).trim(), 'Mindestens eine Achse muss zählen.')
-    // Der Regler-Pfad läuft durch dasselbe Gate: Pos1 am Regler (min=1) bleibt bei 1.
-    await zeileGeschmack.locator('input[type="range"]').focus()
-    await seite.keyboard.press('Home')
-    await seite.waitForTimeout(150)
-    erwarte('letzte-regler-pos1', await gewichtFeld(dialog, 'geschmack').inputValue(), '1')
+    // Der Regler-Pfad läuft durch dasselbe Gate UND zeigt die Statuszeile bei
+    // JEDEM Versuch (design-conventions.md „Letztes Gewicht über 0"; bei min=1
+    // feuert am Minimum kein `input`, der Versuch wird an der Geste erkannt).
+    // Vorbedingung je Versuch: Geschmack ist die letzte zählende Achse (Zeile
+    // „muss zählen", min=1), die Statuszeile ist VORHER leer und der Regler
+    // steht auf 1 — sonst wäre „erscheint" kein Beleg für den Versuch.
+    const reglerGeschmack = zeileGeschmack.locator('input[type="range"]')
+    const statusText = async () => (await dialog.locator('[role="status"]').innerText()).trim()
+    const bringeAufEinsOhneHinweis = async (name, taste) => {
+      await gewichtFeld(dialog, 'geschmack').fill('2')
+      await seite.waitForTimeout(150)
+      await reglerGeschmack.focus()
+      await seite.keyboard.press(taste)
+      await seite.waitForTimeout(150)
+      erwarte(`${name}-vorbedingung-wert`, await gewichtFeld(dialog, 'geschmack').inputValue(), '1')
+      erwarte(`${name}-vorbedingung-status-leer`, await statusText(), '')
+      erwarte(`${name}-vorbedingung-letzte`, (await zeileGeschmack.locator('.gewicht-zeile__anteil').innerText()).trim(), '100 % · muss zählen')
+    }
+    for (const taste of ['Home', 'ArrowLeft']) {
+      await bringeAufEinsOhneHinweis(`regler-${taste}`, taste)
+      await seite.keyboard.press(taste)
+      await seite.waitForTimeout(150)
+      erwarte(`letzte-regler-${taste}-wert`, await gewichtFeld(dialog, 'geschmack').inputValue(), '1')
+      erwarte(`letzte-regler-${taste}-status`, await statusText(), 'Mindestens eine Achse muss zählen.')
+    }
+    {
+      // Ziehen nach links über das Minimum hinaus, Status geprüft VOR dem Loslassen.
+      await bringeAufEinsOhneHinweis('regler-ziehen', 'Home')
+      const kasten = await reglerGeschmack.boundingBox()
+      if (!kasten) throw new Error('Regler der letzten Achse hat keine Box')
+      const y = kasten.y + kasten.height / 2
+      await seite.mouse.move(kasten.x + 12, y)
+      await seite.mouse.down()
+      await seite.mouse.move(kasten.x - 40, y, { steps: 8 })
+      await seite.waitForTimeout(150)
+      erwarte('letzte-regler-ziehen-status-waehrend', await statusText(), 'Mindestens eine Achse muss zählen.')
+      await seite.mouse.up()
+      erwarte('letzte-regler-ziehen-wert', await gewichtFeld(dialog, 'geschmack').inputValue(), '1')
+    }
     // Die nächste Änderung nimmt die Statuszeile zurück (kein Timer).
     await gewichtFeld(dialog, 'ambiente').fill('3')
     await seite.waitForTimeout(200)

@@ -22,6 +22,9 @@ export const ABSTAND_VOLL_OBEN = 56
 /** Wischtempo (px/ms), ab dem in Wischrichtung eingerastet wird statt zum nächstgelegenen. */
 export const SCHNAPP_TEMPO_PX_PRO_MS = 0.5
 
+/** Flick-Mindestweg (wie `WISCH_MIN_WEG_TEMPO_PX` in `Bildvorschau.vue`). */
+export const FLICK_MIN_WEG_PX = 10
+
 export const SCHNELLANSICHT_ZUSTAENDE: readonly SchnellansichtZustand[] = ['eingeklappt', 'halb', 'voll']
 
 /** Höhen der drei Zustände bei gegebener Höhe `bereich` des Kartenbereichs;
@@ -37,11 +40,19 @@ export function bestimmeHoehen(bereich: number): SchnellansichtHoehen {
  * Geschwindigkeit der Höhenänderung in px/ms (positiv = wächst). Langsam: der
  * nächstgelegene Zustand. Schneller als `SCHNAPP_TEMPO_PX_PRO_MS`: der nächste
  * Zustand in Wischrichtung (der kleinste größere bzw. größte kleinere), am Ende
- * der Skala der äußerste.
+ * der Skala der äußerste. Beträgt der Weg der Geste (`weg`, px, Betrag) weniger
+ * als `FLICK_MIN_WEG_PX`, wird das Tempo ignoriert (design-conventions.md
+ * „Zieh- und Wisch-Schwellen"): ein 5px-Zug in 8ms ist kein Flick. Ohne `weg`
+ * gilt kein Mindestweg.
  */
-export function rasteEin(hoehe: number, hoehen: SchnellansichtHoehen, tempo: number): SchnellansichtZustand {
+export function rasteEin(
+  hoehe: number,
+  hoehen: SchnellansichtHoehen,
+  tempo: number,
+  weg: number = Number.POSITIVE_INFINITY,
+): SchnellansichtZustand {
   const kandidaten = SCHNELLANSICHT_ZUSTAENDE.map((zustand) => ({ zustand, hoehe: hoehen[zustand] }))
-  if (Math.abs(tempo) > SCHNAPP_TEMPO_PX_PRO_MS) {
+  if (weg >= FLICK_MIN_WEG_PX && Math.abs(tempo) > SCHNAPP_TEMPO_PX_PRO_MS) {
     if (tempo > 0) return kandidaten.find((k) => k.hoehe > hoehe + 1)?.zustand ?? 'voll'
     return [...kandidaten].reverse().find((k) => k.hoehe < hoehe - 1)?.zustand ?? 'eingeklappt'
   }

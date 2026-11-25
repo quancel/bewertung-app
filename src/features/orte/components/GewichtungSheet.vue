@@ -106,6 +106,43 @@ function aufReglerTippen(achse: AchsenKriterium, event: Event): void {
   emit('gewicht-geaendert', achse, Number((event.target as HTMLInputElement).value))
 }
 
+/**
+ * Versuch an der Untergrenze der LETZTEN zählenden Achse (design-conventions.md
+ * „Letztes Gewicht über 0": die Statuszeile erscheint bei JEDEM Versuch, auch am
+ * Regler). Bei `min=1` ändert sich der Wert nicht, es feuert kein `input` — der
+ * Versuch wird deshalb an der Geste erkannt (Pfeil links/unten, Pos1, Bild ab am
+ * Minimum; Ziehen nach links bis an den linken Rand der Bahn) und als 0 über
+ * denselben Emit gemeldet. Das Gate im Store-Setter bleibt der einzige
+ * Schreibpfad: es klemmt auf 1 und meldet `mussZaehlen`.
+ */
+const VERSUCH_TASTEN = new Set(['ArrowLeft', 'ArrowDown', 'Home', 'PageDown'])
+/** Halbe Thumb-Breite (24px, `Regler.vue`): Mitte des Thumbs am Minimum. */
+const THUMB_HALB_PX = 12
+let zeigerStartX: number | null = null
+
+function aufReglerTaste(achse: AchsenKriterium, event: KeyboardEvent): void {
+  if (!muessteZaehlen(achse) || !VERSUCH_TASTEN.has(event.key)) return
+  if (Number((event.target as HTMLInputElement).value) > 1) return
+  emit('gewicht-geaendert', achse, 0)
+}
+
+function aufReglerZeigerStart(event: PointerEvent): void {
+  zeigerStartX = event.clientX
+}
+
+function aufReglerZeigerBewegung(achse: AchsenKriterium, event: PointerEvent): void {
+  if (zeigerStartX === null || !muessteZaehlen(achse)) return
+  const regler = event.target as HTMLInputElement
+  if (Number(regler.value) > 1) return
+  if (event.clientX < zeigerStartX && event.clientX <= regler.getBoundingClientRect().left + THUMB_HALB_PX) {
+    emit('gewicht-geaendert', achse, 0)
+  }
+}
+
+function aufReglerZeigerEnde(): void {
+  zeigerStartX = null
+}
+
 function muessteZaehlen(achse: AchsenKriterium): boolean {
   return einzigeZaehlendeAchse(props.eigeneGewichte) === achse
 }
@@ -202,6 +239,11 @@ function anteilText(achse: AchsenKriterium): string {
                     :min="muessteZaehlen(achse) ? 1 : 0"
                     :aria-label="`Gewicht ${SORTIER_KRITERIUM_LABEL[achse]}`"
                     @input="aufReglerTippen(achse, $event)"
+                    @keydown="aufReglerTaste(achse, $event)"
+                    @pointerdown="aufReglerZeigerStart"
+                    @pointermove="aufReglerZeigerBewegung(achse, $event)"
+                    @pointerup="aufReglerZeigerEnde"
+                    @pointercancel="aufReglerZeigerEnde"
                   />
                 </li>
               </ul>
