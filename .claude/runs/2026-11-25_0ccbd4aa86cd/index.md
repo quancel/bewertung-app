@@ -7,3 +7,4 @@ den JSON-Dateien daneben.
 | Zeit (UTC) | Nr. | Rolle | task_id | status | offene Fragen | Datei |
 |---|---|---|---|---|---|---|
 | 2026-11-25T01:16:47Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (<agent-message from="a1deeb9b3740313f9">) |
+| 2026-11-25T01:17:11Z | 001 | `architekt` | — | — | — | `001-architekt.json` |
