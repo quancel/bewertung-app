@@ -19,3 +19,4 @@ den JSON-Dateien daneben.
 | 2026-11-25T06:24:25Z | 005 | `product-owner` | — | — | — | `005-product-owner.json` |
 | 2026-11-25T06:26:24Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (<agent-message from="aac017b9aa87b7377">) |
 | 2026-11-25T10:47:16Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (Merge es auf den Main. Dann deployen. ) |
+| 2026-11-25T10:48:16Z | 006 | `ux-ui-designer` | — | — | — | `006-ux-ui-designer.json` |
