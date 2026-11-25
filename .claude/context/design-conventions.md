@@ -268,8 +268,13 @@ schwer erkennbar und die Legende als nicht vorhanden meldete (PO-2026-11-24-007)
 Plakette, Hairline-Schatten, „Sortierpunkte" = Wert-Slot und „Bearbeiten" als
 Sekundär-Button im Quick-Look sind vom Nutzer bestätigt; der Karten-Ausschnitt
 wird nach Filteränderung wiederhergestellt (Einpassen nur ohne sichtbaren Marker).
+Eine achtzehnte Runde (2026-11-25, Nachpflege nach Abnahme von
+PO-2026-11-24-001…007) hält Ist-Stände fest: verbindliche Texte für Orte ohne
+Gesamtnote (Tabelle unter „Gewichtung"), Zoom-Knopf „voll" ausgeblendet/inert,
+Flick-Regel der Schnellansicht (Nutzer bestätigt), neuer Abschnitt „Zieh- und
+Wisch-Schwellen", Listen-Zeilenabstand `--space-8`, Legendensatz bestätigt.
 
-- **Zuletzt kuratiert**: 2026-11-24
+- **Zuletzt kuratiert**: 2026-11-25
 
 ## Zustände
 
@@ -994,8 +999,10 @@ nicht für Ortsdetail, Kartenansicht, Sheets oder andere Listen.
     0,7 (schwach) bzw. 1,8 (stark) gegen 2,9 beim Sheet (stark ≈ 62 %). Die
     Tokens `--shadow-hervorhebung-schwach/-stark` bekommen diese Werte. Die
     Zeilenabstände der Liste müssen ≥ `--space-8` bleiben, damit der
-    stärkere Schatten keine Nachbarzeile überdeckt (Rauchtest-Bildschirmfoto
-    prüft das).
+    stärkere Schatten keine Nachbarzeile überdeckt. **Ist-Wert seit
+    PO-2026-11-24-007: `gap: var(--space-8)` in `Ortebereich.vue`** (vorher
+    `--space-4`, verletzte diese Auflage; der Rauchtest prüft jetzt ≥ 8px
+    hart).
   - **Beide Achsen ≥ 9**: beide Layer gemeinsam in derselben `box-shadow`-
     Deklaration (schwach- und stark-Layer kommagetrennt nebeneinander) —
     kein dritter, eigens gemischter Wert. Da beide Layer denselben Farbton
@@ -1103,7 +1110,13 @@ nicht für Ortsdetail, Kartenansicht, Sheets oder andere Listen.
     Bewertungs-Rhetorik, der benennt, WAS gefärbt wird — „Gefärbt wird der
     angezeigte Wert: die Gesamtnote ({Gewichtung}) bzw. der Wert der Achse,
     nach der du sortierst." ({Gewichtung} = Name des aktiven Szenarios, bei
-    „Ausgewogen" entfällt die Klammer). Danach fünf Zonenzeilen, je:
+    „Ausgewogen" entfällt die Klammer). **Bestätigt 2026-11-25**: Ist-Stand
+    (`ZonenLegende.vue`, `gewichtungZusatz` = „ ({Name})") entspricht dieser
+    Vorgabe; ein eigener Erklärsatz „Die Gesamtnote ist nach der Gewichtung
+    „{Name}" berechnet." existiert weder im Code noch hier und wird **nicht**
+    eingeführt — die Klammer genügt, die Hinweiszeile über der Liste
+    („Gesamtnote nach Gewichtung „{Name}" · Ändern") trägt die Erklärung
+    ohnehin; zwei Formulierungen derselben Aussage wären Drift. Danach fünf Zonenzeilen, je:
     Plakette mit der Untergrenze als Beispielzahl („8,0", „8,5" …), ein
     64px-Balken mit Füllung in der Zonenfarbe auf der Untergrenze, Text mit
     Wertebereich wie in der Tabelle oben. Darunter zwei Hervorhebungs-Kacheln
@@ -1423,14 +1436,19 @@ Fokus Geschmack, Fokus Ambiente, Fokus Preis-Leistung, Fokus Zeit, Eigene.
   `--text`): „Mindestens eine Achse muss zählen." Sie bleibt bis zur nächsten
   Gewichtsänderung stehen (kein Timer, wie „Rückkehr-Markierung").
 - **Ort ohne Gesamtnote wegen Gewicht 0** ist NICHT derselbe Zustand wie „noch
-  nicht bewertet" (Grundsatz „Zustände"). Sortierung nach Gesamtnote: zwei
-  getrennte Endgruppen, je 32px Abstand + gemutete Überschrift: zuerst „{n}
-  Orte ohne Bewertung in Gesamtnote", dann „{n} Orte ohne Gesamtnote bei
-  dieser Gewichtung"; leere Gruppe entfällt. Ortsdetail: statt „Noch nicht
-  bewertet" der Text „Keine Gesamtnote bei dieser Gewichtung" + Zusatz „Die
-  bewerteten Achsen zählen mit Gewicht 0." (14px `--text-muted`). Karte:
-  Marker wie ohne Note, zugänglicher Name „…, keine Gesamtnote bei dieser
-  Gewichtung".
+  nicht bewertet" (Grundsatz „Zustände"). Verbindliche Texte (2026-11-25,
+  Nachpflege nach Abnahme; Ist-Stand der Umsetzung bestätigt):
+  | Ort | „noch nicht bewertet" | „keine Note wegen Gewicht 0" |
+  |-----|-----------------------|------------------------------|
+  | Gruppenüberschrift (Sortierung nach Gesamtnote, 32px Abstand, gemutet) | „{n} Ort/Orte ohne Bewertung in Gesamtnote" | „{n} Ort/Orte ohne Gesamtnote bei dieser Gewichtung" |
+  | Ortsdetail | „Noch nicht bewertet" | „Keine Gesamtnote bei dieser Gewichtung" + Zusatz „Die bewerteten Achsen zählen mit Gewicht 0." (14px `--text-muted`) |
+  | Schnellansicht (Kopf, rechts) | „Noch nicht bewertet" | „Keine Gesamtnote bei dieser Gewichtung", **ohne** Zusatz (kompakter Kopf) |
+  | Marker, zugänglicher Name | „{Bezeichnung}, keine Gesamtnote" | „{Bezeichnung}, keine Gesamtnote bei dieser Gewichtung" |
+
+  Reihenfolge der Endgruppen: zuerst „ohne Bewertung", dann „ohne Gesamtnote bei
+  dieser Gewichtung"; eine leere Gruppe entfällt; Singular bei n = 1 („1 Ort").
+  Marker sehen in beiden Fällen gleich aus (Punkt ohne Zahl), nur der
+  zugängliche Name unterscheidet sich.
 
 ## Karte: Marker, Namen, Ausschnitt (PO-2026-11-24-003/-004)
 
@@ -1485,14 +1503,30 @@ unmöglich). `role="dialog"`, **ohne** `aria-modal`, `aria-label` „Schnellansi
   bleiben dadurch in jeder Breite gültig). Radius 16px oben, Schatten wie
   `Sheet.vue`. Leaflet-Bedienelemente und Attribution unten rücken um die
   aktuelle Sheet-Höhe nach oben (CSS-Variable), die Quellenangabe bleibt
-  sichtbar.
+  sichtbar. **Zoom-Knopf bei „voll" (entschieden 2026-11-25)**: Bleibt nur ein
+  56px-Streifen Karte, würde der um die Sheet-Höhe angehobene Zoom-Knopf dort
+  hineinragen oder darüber hinaus; er wird in „voll" **ausgeblendet und
+  `inert`** (`karte-steuerung--verdeckt`: `visibility: hidden`, aus Tab-Folge
+  und Zeigerereignissen), in „halb" und „eingeklappt" bleibt er sichtbar und
+  bedienbar. Das blendet ein Bedienelement aus, ersetzt aber keine Funktion:
+  Mausrad-/Pinch-Zoom der Karte bleibt in jedem Zustand möglich, die
+  Quellenangabe bleibt immer sichtbar (Lizenzpflicht).
 - **Zustände** (Höhe vom Karten-Bereich H): eingeklappt 80px (Griff + Zeile
   Bezeichnung links, Gesamtnote rechts, „×"), halb 50 % von H (min 280px),
   voll H − 56px (ein Streifen Karte bleibt). Einrasten nach Loslassen:
   nächstgelegene Höhe; Wischtempo > 0,5px/ms schnappt in Wischrichtung.
-  Settle 240ms ease-out; reduzierte Bewegung: Sprung. Ziehen nur am Griff und
+  **Flick-Regel, vom Nutzer als gültig bestätigt (2026-11-25), eindeutig:**
+  Beim Loslassen mit Tempo **über 0,5px/ms** (strikt größer, Betrag der
+  Höhenänderung) rastet das Sheet auf den **nächsten Zustand in Wischrichtung**
+  ein (nicht übernächsten; am Ende der Skala bleibt es dort) — auch wenn ein
+  anderer Zustand näher läge (Beispiel: 40px-Flick nach oben ab „eingeklappt"
+  → „halb"; ab „halb" → „voll", obwohl „halb" näher läge). Mit Tempo bis
+  0,5px/ms gilt der nächstgelegene Zustand. Abnahmekriterien messen genau
+  diese Regel, nicht „näher liegender Zustand" allein. Settle 240ms ease-out;
+  reduzierte Bewegung: Sprung. Ziehen nur am Griff und
   an der Kopfzeile, nie im scrollenden Inhalt (`overscroll-behavior:
-  contain`).
+  contain`). **Zieh-/Wisch-Schwellen** siehe Abschnitt „Zieh- und
+  Wisch-Schwellen" unten.
 - **Ohne Geste**: Der Griff ist ein Button (44px hoch über die volle Breite,
   sichtbarer Balken 36×4px) mit `aria-label` „Größe der Schnellansicht ändern,
   aktuell {eingeklappt|halb|voll}"; Enter/Leertaste/Tipp = nächstgrößerer
@@ -1546,7 +1580,8 @@ unmöglich). `role="dialog"`, **ohne** `aria-modal`, `aria-label` „Schnellansi
   die Standardfarbe erreicht auf Dunkelgrau keine 3:1 — dialoglokale
   Ausnahme der Farbe, nicht der Stärke).
 - **Blättern**: Pfeile, Pfeiltasten links/rechts, horizontales Wischen
-  (≥ 48px Weg oder > 0,5px/ms). Jeder Wechsel ist ein **Sprung**, kein
+  (≥ 48px Weg, oder Flick: > 0,5px/ms bei mindestens 10px Weg — siehe „Zieh-
+  und Wisch-Schwellen"). Jeder Wechsel ist ein **Sprung**, kein
   Finger-Folgen, keine Slide-Animation (einheitlich mit „Sprung, keine
   Zustandsanimation"). **Kein Umbruch** an den Enden: am ersten/letzten Bild
   ist der jeweilige Pfeil `aria-disabled` mit 40 % Deckkraft (Fokusring bleibt).
@@ -1557,6 +1592,29 @@ unmöglich). `role="dialog"`, **ohne** `aria-modal`, `aria-label` „Schnellansi
   Bildes. Kein Löschen, keine Zoomgeste. Aus dem Quick-Look geöffnet: genau
   gleich, Fokus zurück auf die Streifen-Kachel. Alt-Text „Bild {n} von {m} von
   {Bezeichnung}". Öffnen/Schließen: Fade 180ms.
+
+## Zieh- und Wisch-Schwellen (2026-11-25)
+
+Zwei verschiedene Größen, die bisher beide „Schwelle" hießen — getrennt benannt,
+jede an genau einer Stelle:
+
+- **Tipp-Schwelle: 4px** (`ZIEH_SCHWELLE_PX`, Schnellansicht). Nur dort, wo
+  dasselbe Element auf Tipp **und** Ziehen reagiert (Griff: Tipp schaltet den
+  Zustand, Ziehen ändert die Höhe). Bis 4px Gesamtweg = Tipp, darüber = Zug.
+  In der Bildvorschau gibt es keine Tipp-Aktion auf dem Bild, also auch keine
+  Tipp-Schwelle.
+- **Flick-Mindestweg: 10px** (Bildvorschau-Wischen, **und** — Vorgabe an den
+  `frontend-lead` — die Schnellansicht). Ein Flick (Tempo > 0,5px/ms) zählt nur
+  bei mindestens 10px Weg; darunter wird das Tempo ignoriert (ein
+  Finger-Zucken von 5px in 8ms wäre sonst ein „Flick"). Schnellansicht: unter
+  10px Weg gilt beim Loslassen der nächstgelegene Zustand statt der
+  Wischrichtungs-Regel.
+- **Wisch ohne Flick** (Bildvorschau): ≥ 48px horizontaler Weg, horizontal
+  dominant (|dx| > |dy|). Das Tempo 0,5px/ms ist in beiden Gesten gleich.
+- Warum nicht ein einziger Wert: 4px trennt Tipp von Zug (Treffsicherheit des
+  Griffs, 44px-Ziel), 10px trennt Flick von Zucken — verschiedene Fehler,
+  verschiedene Folgen. Beides ist Entprellung, keine Bedienungsgrenze der
+  Nutzerin.
 
 ## Tokens & Spacing
 
