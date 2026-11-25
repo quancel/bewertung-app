@@ -21,3 +21,4 @@ den JSON-Dateien daneben.
 | 2026-11-25T10:47:16Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (Merge es auf den Main. Dann deployen. ) |
 | 2026-11-25T10:48:16Z | 006 | `ux-ui-designer` | — | — | — | `006-ux-ui-designer.json` |
 | 2026-11-25T10:53:31Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (<agent-message from="af549ddff76d3c80a">) |
+| 2026-11-25T23:06:44Z | — | _Nutzer-Eingabe_ | — | — | — | `prompts.md` (Ja, auch auf main bringen) |
