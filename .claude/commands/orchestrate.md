@@ -146,6 +146,30 @@ nichts falsch gemacht: Er blockiert bewusst nicht.
 
 ## Ablauf
 
+0. **Stand der Vendor-Kopie prüfen** — nur zur Information, blockiert nichts.
+   Hält das Ziel-Repo die Rollen als Projekt-Agents unter `.claude/`, kann die
+   Kopie veraltet oder ohne die Protokoll-Hooks eingerichtet sein. Lauf einmal:
+
+   ```bash
+   python3 .claude/agent-team/scripts/check-vendor-stand.py 2>/dev/null
+   ```
+
+   Danach, ebenfalls nur zur Information:
+
+   ```bash
+   python3 .claude/agent-team/scripts/check-context-size.py 2>/dev/null
+   ```
+
+   Es meldet Gedächtnisdateien über ihrem Größenbudget (`rules/CONTEXT_BUDGET.md`).
+   Gib `DRINGEND`-Zeilen mit weiter und schlag vor, den `architekt` bzw.
+   `ux-ui-designer` im Nachpflege-Modus kuratieren zu lassen — als eigenes Paket,
+   nicht mitten im Feature.
+
+   Gibt es keine Ausgabe (oder das Skript nicht, etwa im Plugin-Betrieb),
+   fahre fort. Gibt es `WARNUNG:`-Zeilen, gib sie dem Nutzer in der ersten
+   Antwort wörtlich weiter und mach dann **ohne Rückfrage** weiter: Ein Sync
+   ändert `.claude/` und gehört nicht in einen laufenden Feature-Durchlauf.
+
 1. **`product-owner`** mit dem Feature-Request aufrufen (sein **Modus A**).
    Ergebnis: Entwurfspakete mit gesetztem `ui_impact` — **noch nicht** die
    finale, vom Nutzer freigegebene Liste.
@@ -320,7 +344,9 @@ nichts falsch gemacht: Er blockiert bewusst nicht.
    welche ADRs der Architekt beim Einordnen angelegt hat, was in Schritt 7b
    an Learnings und Konventionen dazugekommen ist, und was noch
    offen/blockiert ist. **Nenne dabei ausdrücklich, was der
-   `product-owner` bei der Abnahme *nicht* am Code beurteilen konnte** — das
+   `product-owner` bei der Abnahme *nicht* am Code beurteilen konnte** — und welche
+   Kriterien er nur `uebernommen` statt neu `geprueft` hat (`abnahme.status`),
+   sowie jede `criteria_changes` eines Leads — das
    ist der Rest, den nur ein Mensch oder ein Testlauf prüfen kann, und darf
    nicht in einer Erfolgsmeldung untergehen. Wurde in Schritt 1b ein
    Design-Konzept **neu entworfen**, weise ebenfalls darauf hin — es ist eine
@@ -328,6 +354,38 @@ nichts falsch gemacht: Er blockiert bewusst nicht.
 
 ## Hinweise
 
+- **Abbruch eines Leads** (Neustart, Rate-Limit, Fehler; gestartet, aber kein
+  Ergebnis und keine Antwort mehr): nie von vorn beginnen. Lauf
+  ```bash
+  python3 .claude/agent-team/scripts/resume-status.py 2>/dev/null \
+    || python3 "$(find ~/.claude/plugins -name resume-status.py 2>/dev/null | head -1)"
+  ```
+  Es zeigt je Paket die `progress.md` des Leads (`.claude/progress/<task_id>.md`:
+  erledigt, nächster Schritt, Offenes) und `git status`. Lebt der Agent noch,
+  setz ihn per `SendMessage` fort; sonst ruf dieselbe Rolle neu auf, mit dem
+  Handoff-Objekt und dem Satz „Fortsetzung: lies `.claude/progress/<task_id>.md`
+  und prüfe den Arbeitsbaum, bevor du etwas änderst." Eine Fortsetzung ist kein
+  Roundtrip, `roundtrips` bleibt unverändert. Fehlt die Datei, gilt der
+  Arbeitsbaum als einzige Wahrheit — sag das im Auftrag. Nach der Abnahme des
+  Pakets löschst du die `progress.md`.
+- **Commits, solange ein Lead läuft.** Committe nur Dateien, die keine laufende
+  Rolle schreibt (praktisch `.claude/runs/`), nie mit `git add -A` oder
+  `commit -a`, nie `.claude/progress/`. Verlangt ein Hook trotzdem „committe und
+  pushe": antworte kurz, dass ein Lead läuft und der Code-Commit zurückgestellt
+  ist. Ein Commit mitten im Lauf bringt halbfertigen Code ins Remote oder
+  zerreißt die Dateien des Leads.
+- **Antworten des Nutzers gehören ins Objekt.** Beim erneuten Aufruf einer Rolle
+  trägst du die Antworten in `user_answers` ein (je Frage `id`, `antwort`, `art`
+  — Schema). Kam keine Antwort und gilt die `annahme`, steht dort `annahme_gilt`.
+  Ohne das lässt sich später nicht sagen, wer eine Entscheidung getroffen hat.
+- **Behauptungen im Auftrag belegen.** Gibst du einer Rolle einen Ist-Stand mit
+  (Wortlaut, Dateistruktur, „gibt es schon"), nenne die Fundstelle `Datei:Zeile`
+  oder schreib „unverifiziert". Übernimm nichts aus dem Bericht einer anderen Rolle
+  als Tatsache, das du nicht selbst am Code gesehen hast. Ein erfundener Wortlaut
+  ging so schon einmal als Ist-Stand an den Designer (Handoff 2.6).
+- **Pfade statt Auszüge.** Lange Texte (Berichte, Begründungen, Nachweise) gibst du
+  als Dateipfad und Abschnittsname weiter, nicht als Zitat. Die Rolle liest, was sie
+  braucht. Das gilt auch für `docs/pakete/<task_id>.md`.
 - Reiche zwischen den Aufrufen ausschließlich die Handoff-JSON-Objekte
   durch, keinen vollen Gesprächsverlauf.
 - `TodoWrite` nutzen, um den Fortschritt über mehrere Agent-Wechsel hinweg

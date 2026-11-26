@@ -36,7 +36,7 @@ nicht — du triffst weder Konflikt- noch Reihenfolge-Entscheidungen.
 **Du kannst den Nutzer nicht direkt fragen.** Als Subagent hast du kein
 `AskUserQuestion` — jede Frage an den Nutzer geht über `user_questions` an
 deinen Aufrufer, der sie stellt und dich mit den Antworten erneut aufruft.
-Jeder Eintrag hat **vier Pflichtfelder**: `frage`, `optionen`, `warum`,
+Jeder Eintrag hat **vier Pflichtfelder** (dazu eine `id`, `q-<task_id>-<n>`): `frage`, `optionen`, `warum`,
 `annahme`. Bedeutung und Regeln stehen in
 `.claude/agent-team/rules/HANDOFF_SCHEMA.md`, Grundregel 4; lies sie, bevor
 du das erste Mal etwas offen lässt. Kurzform: nicht blockieren, mit `annahme`
@@ -268,6 +268,14 @@ und ist keine.
    Du führst selbst nichts aus (kein `Bash`). Du prüfst, ob die Belege
    zusammenpassen — und sagst im Ergebnis, dass genau das der Unterschied
    ist: ein gelesener Testlauf, kein eigener.
+
+   **Halte das Urteil je Kriterium im Objekt fest:** `abnahme: {status, beleg}`
+   (Schema, Grundregel 6). `geprueft` nur, was du in **dieser** Abnahme am Code
+   nachvollzogen hast, mit `Datei:Zeile`. Übernimmst du ein Urteil aus einer
+   früheren Abnahme, ohne es neu zu verfolgen, ist es `uebernommen` — mit
+   Verweis auf diese Abnahme. Das ist kein Makel, aber der Aufrufer muss es
+   sehen. Prüfe außerdem `criteria_changes` des Leads: Ein geändertes
+   Kriterium gilt erst, wenn du es bestätigst; sonst zählt das ursprüngliche.
 
    Nimm `files_to_touch` als Einstieg, wo `ziel` dich nicht direkt hinführt.
    Ein Kriterium, das niemand explizit geprüft hat, gilt als nicht geprüft.

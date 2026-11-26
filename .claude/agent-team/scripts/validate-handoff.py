@@ -46,6 +46,20 @@ MIT_MODI = PLANER | DESIGNER
 ALLE = PLANER | DESIGNER | LEADS
 
 FRAGE_FELDER = ("frage", "optionen", "warum", "annahme")
+ABNAHME_STATI = ("geprueft", "uebernommen", "nicht_beurteilbar")
+# Das Schema ist geschlossen (HANDOFF_SCHEMA.md, Grundregel 8). Bei Aenderungen
+# an den Tabellen dort diese Liste mitziehen.
+BEKANNTE_FELDER = set("""task_id constraints acceptance_criteria files_to_touch
+bounded_context titel source_role target_role parent_task_id ui_impact design_notes
+design_demo design_open_questions routing depends_on frontend_start backend_contract
+spawn_subtasks subtasks status accepted review_findings blocked_reason
+notes_for_learnings notes_for_conventions roundtrips frage_kontext user_questions
+files_touched criteria_changes user_answers""".split())
+FELD_HINWEISE = {
+    "files_to_touch_tatsaechlich": "`files_touched`",
+    "acceptance_criteria_status": "`ergebnis` je Kriterium",
+    "acceptance_criteria_aenderung": "`criteria_changes`",
+}
 PRUEFARTEN = ("test", "code", "manuell")
 KONTEXT_MAX_SAETZE = 10
 
@@ -102,6 +116,17 @@ def pruefe_ergebnis(rolle_, objs):
     for o in objs:
         tid = o.get("task_id", "?")
 
+        # --- geschlossenes Schema: unbekannte Felder
+        fremd = sorted(k for k in o if k not in BEKANNTE_FELDER)
+        if fremd:
+            m.append(f"{tid}: Felder ausserhalb des Schemas: "
+                     + ", ".join(f"`{k}`" + (f" (stattdessen {FELD_HINWEISE[k]})"
+                                              if k in FELD_HINWEISE else "")
+                                 for k in fremd)
+                     + " — Grundregel 8.")
+        if rolle_ in LEADS and o.get("status") == "done" and "files_touched" not in o:
+            m.append(f"{tid}: `status: done` ohne `files_touched`.")
+
         # --- user_questions: Feld da, je Eintrag vier Felder, Kontext dabei
         if rolle_ in PLANER:
             uq = o.get("user_questions")
@@ -110,6 +135,9 @@ def pruefe_ergebnis(rolle_, objs):
                          "gehoert dort `[]` hin.")
             elif isinstance(uq, list):
                 for i, e in enumerate(uq, 1):
+                    if not (isinstance(e, dict) and str(e.get("id", "")).startswith("q-")):
+                        m.append(f"{tid}: `user_questions`[{i}] ohne `id` "
+                                 "(`q-<task_id>-<n>`).")
                     fehlt = [f for f in FRAGE_FELDER
                              if not (isinstance(e, dict) and e.get(f))]
                     if fehlt:
@@ -145,6 +173,19 @@ def pruefe_ergebnis(rolle_, objs):
                     m.append(f"{tid}: `acceptance_criteria`[{i}] ist `pruefung: "
                              "test`, aber `ergebnis` ist leer — die Abnahme "
                              "wertet das als nicht erfuellt.")
+
+        # --- Abnahme: je Kriterium Status und Beleg
+        if (rolle_ == "product-owner" and o.get("accepted") in (True, False)
+                and isinstance(krit, list)):
+            for i, k in enumerate(krit, 1):
+                if not isinstance(k, dict):
+                    continue
+                a = k.get("abnahme")
+                if not (isinstance(a, dict) and a.get("status") in ABNAHME_STATI
+                        and a.get("beleg")):
+                    m.append(f"{tid}: `acceptance_criteria`[{i}] ohne `abnahme` "
+                             "mit `status` (geprueft | uebernommen | nicht_beurteilbar) "
+                             "und `beleg`.")
 
         # --- Pflichtfelder, die an einem Zustand haengen
         if o.get("status") == "blocked" and not o.get("blocked_reason"):

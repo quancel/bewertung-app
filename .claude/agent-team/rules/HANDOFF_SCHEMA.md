@@ -31,7 +31,7 @@ Agent-Prompt.
 |------|-----|--------------|
 | `task_id` | string | Stabile ID (`PO-<YYYY-MM-DD>-<NNN>`). Vom product-owner vergeben, unverändert über alle Handoffs. |
 | `constraints` | array\<string\> | Technische/architektonische Vorgaben. |
-| `acceptance_criteria` | array\<object\> | Prüfbare Kriterien — keine Prosa. **Je Kriterium ein Objekt** mit `kriterium` (der Satz), `pruefung` (`test` \| `code` \| `manuell`), `ziel` (woran geprüft wird: Testname, erwartete Fundstelle, oder was ein Mensch ansehen muss) und `ergebnis` (vom Lead gefüllt, sonst `null`). Siehe Grundregel 6. Reine Strings sind Altbestand und weiterhin lesbar; wer ein solches Paket anfasst, überführt sie ins Objektformat. |
+| `acceptance_criteria` | array\<object\> | Prüfbare Kriterien — keine Prosa. **Je Kriterium ein Objekt** mit `kriterium` (der Satz), `pruefung` (`test` \| `code` \| `manuell`), `ziel` (woran geprüft wird: Testname, erwartete Fundstelle, oder was ein Mensch ansehen muss) und `ergebnis` (vom Lead gefüllt, sonst `null`) und bei der Abnahme `abnahme` (vom product-owner: `{status, beleg}`). Siehe Grundregel 6. Reine Strings sind Altbestand und weiterhin lesbar; wer ein solches Paket anfasst, überführt sie ins Objektformat. |
 | `files_to_touch` | array\<string\> | Pfade oder Globs. Vom architekt gefüllt, vom Lead präzisierbar. |
 
 ## Optionale Felder
@@ -56,11 +56,14 @@ Agent-Prompt.
 | `accepted` | boolean \| null | product-owner | Ergebnis der Abnahme. `true` = alle `acceptance_criteria` nachvollziehbar erfüllt, `false` = Befunde in `review_findings`. Nur der product-owner setzt `true`/`false`; der Lead setzt es nach Nacharbeit auf `null` zurück, damit erneut abgenommen wird. **`null` heißt zweierlei — `user_questions` unterscheidet:** leer ⇒ noch nicht geprüft; gefüllt ⇒ geprüft, aber eine Entscheidung steht beim Nutzer (Scope verschoben o.ä.). Ohne diesen Blick behandelt der Aufrufer eine Eskalation wie einen offenen Rest. |
 | `review_findings` | array\<string\> | product-owner | Pflicht bei `accepted: false`. Je Eintrag: welches Kriterium, was fehlt oder abweicht, wo im Code. Keine Lösungsvorschläge — die macht der Lead. |
 | `blocked_reason` | string \| null | jeweils | **Pflicht bei `blocked`.** Was blockiert — kollidierende Vorgaben im Wortlaut, nicht paraphrasiert. |
+| `files_touched` | array\<string\> | Lead | Die **tatsächlich** geänderten Dateien — im Unterschied zu `files_to_touch` (Plan). Pflicht bei `status: "done"`. Kein anderer Feldname (nicht `files_to_touch_tatsaechlich`). |
+| `criteria_changes` | array\<object\> | Lead | Jedes Kriterium, das der Lead **inhaltlich geändert, gestrichen oder ergänzt** hat — je Eintrag `kriterium`, `vorher`, `jetzt`, `grund`. Ein Lead ändert Kriterien nie still; der product-owner prüft die Änderung bei der Abnahme und entscheidet, ob sie gilt. Fehlt der Eintrag, gilt das ursprüngliche Kriterium. |
+| `user_answers` | array\<object\> | Orchestrator | Antworten des Nutzers auf frühere `user_questions` — je Eintrag `id` (die der Frage), `antwort` (Wortlaut oder gewählte Option), `art` (`option` \| `frei` \| `annahme_gilt`, letzteres wenn keine Antwort kam). Gibt der Orchestrator beim erneuten Aufruf mit; die Rolle liest sie und trägt sie nicht selbst ein. So lässt sich jede Frage ihrer Antwort zuordnen. |
 | `notes_for_learnings` | array\<string\> | Leads | Kandidaten für `learnings.md`. Nur der architekt übernimmt. |
 | `notes_for_conventions` | array\<string\> | Leads | Beobachtungen zu Struktur/Benennung für `code-conventions.md`. Nur der architekt übernimmt. |
 | `roundtrips` | object | wer zurückschickt | Zähler je Schleifenart: `design`, `blocked`, `review`. **Wer ein Paket zurückgibt, erhöht seinen Zähler im Objekt** — siehe Grundregel 5. Fehlt das Feld, gilt `{"design":0,"blocked":0,"review":0}`. |
 | `frage_kontext` | string | wer `user_questions` füllt | **Pflicht, sobald `user_questions` nicht leer ist.** Kurze Zusammenfassung von Ausgangslage, Problem und Lösung für alle Fragen dieses Objekts — max. **10 Sätze**. Der Nutzer sieht sie unmittelbar vor der Frage; ohne sie klickt er auf die empfohlene Option, weil er nicht weiß, worum es geht. Siehe Grundregel 4. |
-| `user_questions` | array\<object\> | product-owner, architekt, design-concept (**immer**, notfalls `[]`) | Fragen, die **nur der Nutzer** beantworten kann. **Pflicht je Eintrag: alle vier Felder** — `frage`, `optionen` (2–4 konkrete Antwortmöglichkeiten), `warum` (was ohne Antwort geraten würde), `annahme` (womit du weiterarbeitest, falls keine Antwort kommt). Siehe Grundregel 4. **Nicht leer ⇒ das Ergebnis steht unter Vorbehalt** und wird nicht als endgültig behandelt. |
+| `user_questions` | array\<object\> | product-owner, architekt, design-concept (**immer**, notfalls `[]`) | Fragen, die **nur der Nutzer** beantworten kann. **Pflicht je Eintrag: `id` (`q-<task_id>-<n>`, je Paket von 1 hochgezählt) und alle vier Felder** — `frage`, `optionen` (2–4 konkrete Antwortmöglichkeiten), `warum` (was ohne Antwort geraten würde), `annahme` (womit du weiterarbeitest, falls keine Antwort kommt). Siehe Grundregel 4. **Nicht leer ⇒ das Ergebnis steht unter Vorbehalt** und wird nicht als endgültig behandelt. |
 
 ## Beispiel
 
@@ -86,8 +89,8 @@ Agent-Prompt.
     }
   },
   "constraints": [
-    "Bestehenden NgRx-Feature-State 'cart' erweitern, keinen neuen Store anlegen",
-    "Kein direkter HTTP-Call aus der Komponente — über CartFacade"
+    "Bestehenden Cart-State erweitern, keinen neuen Store anlegen",
+    "Kein direkter HTTP-Call aus der Komponente — über die bestehende Cart-Schnittstelle"
   ],
   "acceptance_criteria": [
     {
@@ -146,6 +149,7 @@ Agent-Prompt.
    ```json
    "user_questions": [
      {
+       "id": "q-PO-2026-08-29-003-1",
        "frage": "Soll ein laufender Export weiterlaufen, wenn der Nutzer die Seite verlässt?",
        "optionen": ["Weiterlaufen, Ergebnis später abrufbar", "Abbrechen beim Verlassen"],
        "warum": "Bestimmt, ob der Job serverseitig persistiert werden muss",
@@ -155,7 +159,7 @@ Agent-Prompt.
    ```
 
    Regeln dazu:
-   - **Alle vier Felder, jedes Mal.** Sie sind keine Ausschmückung, sondern
+   - **`id` und alle vier Felder, jedes Mal.** Die `id` ordnet der Nutzer-Antwort (`user_answers`) ihre Frage zu. Sie sind keine Ausschmückung, sondern
      das, woraus der Aufrufer die Frage baut: Ohne `optionen` muss er sich
      die Antwortmöglichkeiten selbst ausdenken — und trifft damit genau die
      Entscheidung, die er dir abnehmen sollte. Ohne `warum` kann der Nutzer
@@ -242,6 +246,15 @@ Agent-Prompt.
    | `code` | erwartete Fundstelle (Pfad oder Glob) | *erfüllt*, wenn die Stelle da ist und trägt, was das Kriterium verlangt |
    | `manuell` | was ein Mensch ansehen muss, und warum es am Code nicht geht | *nicht am Code beurteilbar* — ein legitimes Urteil, keine Ausrede |
 
+   Bei der Abnahme setzt der `product-owner` je Kriterium `abnahme`:
+   `{"status": "geprueft" | "uebernommen" | "nicht_beurteilbar", "beleg": "…"}`.
+   `geprueft` = in dieser Abnahme am Code nachvollzogen, `beleg` ist `Datei:Zeile`
+   oder die Fundstelle des Tests. `uebernommen` = aus einer früheren Abnahme
+   übernommen, nicht neu geprüft; `beleg` verweist auf diese Abnahme. `nicht_beurteilbar`
+   = am Code nicht prüfbar (z. B. `manuell`); `beleg` nennt, was fehlt. Ohne
+   diese Unterscheidung sagt `accepted: true` nicht, wie viel tatsächlich
+   geprüft wurde.
+
    `ergebnis` füllt der **Lead** beim Abschluss: kurz, was er ausgeführt hat
    und wie es ausging (`"grün — 14 Tests, exit 0"`). Bei `manuell` bleibt es
    `null`.
@@ -251,7 +264,30 @@ Agent-Prompt.
    fällt jetzt beim *Zerlegen* auf statt erst bei der Abnahme. `manuell` ist
    dabei kein Ausweichen, sondern die ehrliche dritte Möglichkeit; sie
    braucht nur eine Begründung.
-7. **Single-Writer je Datei.** Jede Datei unter `.claude/context/` hat genau
+7. **Behauptungen im Auftrag sind belegt oder als unverifiziert markiert.**
+   Was der Aufrufer einer Rolle als Ist-Stand des Codes mitgibt (ein Wortlaut,
+   eine Dateistruktur, „das gibt es schon"), stammt oft aus dem Bericht einer
+   anderen Rolle und wurde nie am Code gesehen. Der Aufrufer gibt es deshalb
+   mit Quelle weiter (`Datei:Zeile`) oder schreibt „unverifiziert". Die
+   empfangende **planende** Rolle prüft solche Behauptungen mit `Grep`/`Read`,
+   **bevor** sie darauf aufbaut, und meldet eine falsche im Ergebnis, statt
+   sie zu übernehmen.
+8. **Das Schema ist geschlossen.** Ein Handoff-Objekt trägt nur Felder aus
+   diesen Tabellen. Eigene Felder (`files_touched` unter anderem Namen,
+   `acceptance_criteria_status`, `…_aenderung`) kommen vor, weil etwas
+   Echtes fehlt — melde es über `notes_for_conventions` oder `notes_for_learnings`,
+   statt das Objekt zu erweitern: Ein Feld, das nur eine Rolle kennt, liest
+   niemand.
+9. **Berichte knapp, Nachweise in Dateien.** Die Rückgabe einer Rolle besteht aus
+   einem Kopf (höchstens 10 Zeilen: was getan, was offen, was der Aufrufer wissen
+   muss), dem Handoff-JSON und optional einem Anhang. Was ein Mensch später
+   nachschlagen will — Rot-Nachweise, Mutationslisten, Messwerte, lange
+   Begründungen — gehört nach `docs/pakete/<task_id>.md`, im Bericht steht der Pfad.
+   Der Aufrufer reicht Pfade und Abschnittsnamen weiter, **nicht** Auszüge: Ein
+   Bericht, der den Inhalt der Datei wiederholt, wird beim Weiterreichen mehrfach
+   bezahlt. Gedächtnisdateien lesen heißt: Hauptdatei, dann nur die Themendatei zum
+   Paket (`rules/CONTEXT_BUDGET.md`).
+10. **Single-Writer je Datei.** Jede Datei unter `.claude/context/` hat genau
    eine schreibende Rolle; alle anderen lesen nur.
 
    | Datei | Schreibt | Vorschläge über |

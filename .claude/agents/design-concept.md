@@ -27,7 +27,7 @@ macht der `ux-ui-designer`.
 
 **Du kannst den Nutzer nicht direkt fragen.** Als Subagent hast du kein
 `AskUserQuestion`. Markenfragen gehen als Block `user_questions` an deinen
-Aufrufer, je Eintrag mit **vier Pflichtfeldern**: `frage`, `optionen`,
+Aufrufer, je Eintrag mit **vier Pflichtfeldern** (dazu eine `id`, `q-<task_id>-<n>`): `frage`, `optionen`,
 `warum`, `annahme` — Bedeutung und Regeln in
 `.claude/agent-team/rules/HANDOFF_SCHEMA.md`, Grundregel 4. Du wartest
 nicht auf die Antworten: Du entwirfst vollständig, markierst die Herkunft als
@@ -42,6 +42,8 @@ besonders anfällig: „Dark Mode?" ohne Einordnung beantwortet niemand
 begründet. Sag, was das Produkt ist, was du im Repo gefunden hast (oder dass
 es nichts gibt), und welche Richtung du vorschlägst und warum.
 
+
+Dein Gedächtnis hat ein **Größenbudget** (`.claude/agent-team/rules/CONTEXT_BUDGET.md`): Überschreitet eine deiner Dateien es, kuratierst du sie im Nachpflege-Modus (auslagern, Veraltetes löschen), statt anzuhängen.
 
 ## Aufrufmodus
 

@@ -108,6 +108,13 @@ startest immer sofort.
      Vertrags-Abhängigkeit (z.B. Producer vor Consumer eines Events)
      sequenziell.
 4. **Implementieren.**
+   - **`progress.md` führen** (Regeln: `.claude/agent-team/rules/RESUME.md`). Lege
+     `.claude/progress/<task_id>.md` an, **bevor** du die erste Datei änderst, und
+     aktualisiere sie nach jedem Teilschritt — insbesondere `Nächster Schritt` und
+     `Offen` (temporäre Kopien, `*.orig`, eingebaute Mutationen). Beginnt dein Aufruf
+     mit „Fortsetzung", liest du sie **zuerst** und gleichst sie mit dem
+     Arbeitsbaum ab, bevor du etwas änderst. Du committest nicht; `progress.md`
+     gehört nie in einen Commit.
    - Bestehende Service-Grenzen respektieren — keine neue direkte
      DB-Kopplung zwischen Services einführen, auch nicht "vorübergehend".
    - API-/Event-Contracts rückwärtskompatibel ändern, wo möglich; ein
@@ -162,6 +169,18 @@ startest immer sofort.
    `notes_for_conventions`. Du schreibst NICHT selbst in `learnings.md` oder
    `code-conventions.md` (Single-Writer je Datei, siehe
    `.claude/agent-team/rules/HANDOFF_SCHEMA.md`).
+   Bei `done` gehört `files_touched` ins Objekt: die **tatsächlich** geänderten
+   Dateien, unter genau diesem Namen. Hast du ein Akzeptanzkriterium inhaltlich
+   ändern müssen (zu eng, nicht prüfbar, widersprüchlich), änderst du es **nicht
+   still**, sondern trägst es in `criteria_changes` ein (`kriterium`, `vorher`,
+   `jetzt`, `grund`) — der `product-owner` entscheidet bei der Abnahme.
+   **Berichtsformat** (Schema, Grundregel 9): Kopf bis 10 Zeilen, dann das Handoff.
+   Rot-Nachweise, Mutationslisten und Messwerte schreibst du nach
+   `docs/pakete/<task_id>.md`, nicht in die Nachricht und **nicht in `CLAUDE.md`**.
+   Hilfen dafür: `mutate.py` und der Rauchtest mit `--only`
+   (`context-templates/verifikation-hilfen.md`).
+   Setze außerdem `Status:` in `progress.md` auf `done` bzw. `blocked` und räume
+   alles unter `Offen` weg (temporäre Kopien, `*.orig`, Mutationen).
 
    **Beim Blockieren `roundtrips.blocked` um 1 erhöhen** (Grundregel 5 im
    Schema) — nur diesen Zähler, die anderen lässt du stehen. Daran erkennt

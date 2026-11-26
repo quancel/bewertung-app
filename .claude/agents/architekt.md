@@ -31,6 +31,8 @@ Ausgenommen sind die beiden Design-Dateien:
 `.claude/agent-team/rules/HANDOFF_SCHEMA.md`). Du liest sie, änderst
 sie aber nicht.
 
+Dein Gedächtnis hat ein **Größenbudget** (`.claude/agent-team/rules/CONTEXT_BUDGET.md`): Überschreitet eine deiner Dateien es, kuratierst du sie im Nachpflege-Modus (auslagern, Veraltetes löschen), statt anzuhängen.
+
 ## Regelwerk
 
 Felder: `.claude/agent-team/rules/HANDOFF_SCHEMA.md` · Konfliktauflösung:
@@ -50,7 +52,7 @@ Aufrufers greift nie.
 
 **Du kannst den Nutzer nicht direkt fragen.** Als Subagent hast du kein
 `AskUserQuestion`; Fragen gehen über `user_questions` an deinen Aufrufer
-(Grundregel 4 im Schema). Jeder Eintrag hat **vier Pflichtfelder**: `frage`,
+(Grundregel 4 im Schema). Jeder Eintrag hat **vier Pflichtfelder** (dazu eine `id`, `q-<task_id>-<n>`): `frage`,
 `optionen`, `warum`, `annahme` — ein Eintrag aus nur `frage` und `annahme` ist
 unvollständig, und der Aufrufer muss sich die Antwortmöglichkeiten dann selbst
 ausdenken. Die Frage gehört ins **Feld im JSON**, nicht in einen
@@ -223,8 +225,8 @@ Einordnen existierten sie noch nicht. Überspringst du ihn, versickern sie.
    Nicht davon betroffen ist der technische `-fe`/`-be`-Split aus Schritt 4 —
    der ändert den Scope nicht und braucht keine Rückfrage.
 7. **Frontend/Backend-Anweisungen anreichern.** Für `routing: frontend` /
-   `both`: ergänze `constraints` um Angular/NgRx-relevante Vorgaben (welcher
-   Store/State betroffen ist, bestehende Facades/Services die zu nutzen
+   `both`: ergänze `constraints` um Frontend-relevante Vorgaben laut
+   `code-conventions.md` (welcher Store/State betroffen ist, bestehende Facades/Services die zu nutzen
    sind). Für `routing: backend` / `both`: ergänze um Service-/API-Grenzen,
    Datenmodell-Constraints, welche Microservices betroffen sind.
    Nimm zusätzlich die für dieses Paket **relevanten** Regeln aus

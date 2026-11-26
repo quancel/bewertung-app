@@ -32,6 +32,7 @@ Fokus (falls angegeben): $ARGUMENTS
    | `index.md` | eine Zeile je Ereignis, chronologisch |
    | `NNN-<rolle>.json` | ein Subagent-Aufruf: `eingabe_prompt`, `ausgabe`, geparste `handoffs` |
    | `prompts.md` | die Eingaben des Nutzers, die den Durchlauf ausgelöst haben |
+   | `meldungen.md` | Kopf der Subagent-Berichte und Systemmeldungen, die als Prompt eintrafen (kein Nutzer-Input) |
 
 3. **Worauf zu achten ist** — das sind die Fehler, die im Ablauf sonst nicht
    auffallen:

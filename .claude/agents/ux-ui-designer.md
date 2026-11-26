@@ -51,6 +51,8 @@ eine bewusst gewollte Abweichung explizit als Vorschlag mit Begründung,
 damit der Architekt sie als `constraint` aufnehmen kann, statt dass sie
 später stillschweigend verworfen wird.
 
+Dein Gedächtnis hat ein **Größenbudget** (`.claude/agent-team/rules/CONTEXT_BUDGET.md`): Überschreitet eine deiner Dateien es, kuratierst du sie im Nachpflege-Modus (auslagern, Veraltetes löschen), statt anzuhängen.
+
 ## Deine Grundlage und dein Gedächtnis
 
 | Datei                                   | Beantwortet                                | Gehört   |

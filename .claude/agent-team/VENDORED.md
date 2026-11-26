@@ -7,13 +7,13 @@ ersetzt.
 
 - **Quelle**: https://github.com/quancel/agent-team-marketplace
 - **Ref**: main
-- **Commit**: 8c340b1b358d93d3fa088c7896ea6f1902bd8896
+- **Commit**: b45f30c272da73588fcbdaa74224feb70eaecbea
 - **Synchronisiert am**: 2026-11-26
 
 ## Was beim Kopieren geaendert wurde
 
 In `.claude/agents/*.md` wurde `${CLAUDE_PLUGIN_ROOT}/` durch
-`.claude/agent-team/` ersetzt (34 Verweise). Grund: Die
+`.claude/agent-team/` ersetzt (39 Verweise). Grund: Die
 Platzhalter-Ersetzung greift nur bei Plugin-Agents, nicht bei Projekt-Agents
 unter `.claude/agents/`. Ohne das Umschreiben laeden die Agents ihre Regel-
 und Vorlagendateien nicht und arbeiten stillschweigend ohne Regelwerk weiter.
