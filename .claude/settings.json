@@ -6,9 +6,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/agent-team/scripts/log-agent-run.py\" 2>/dev/null || true",
+            "command": "PYTHONDONTWRITEBYTECODE=1 python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/agent-team/scripts/log-agent-run.py\" 2>/dev/null || true",
             "timeout": 15,
             "statusMessage": "Protokolliere Agent-Aufruf"
+          },
+          {
+            "type": "command",
+            "command": "PYTHONDONTWRITEBYTECODE=1 python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/agent-team/scripts/validate-handoff.py\" 2>/dev/null || true",
+            "timeout": 10,
+            "statusMessage": "Pruefe Handoff-Schema"
           }
         ]
       }
@@ -18,8 +24,25 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/agent-team/scripts/log-agent-run.py\" 2>/dev/null || true",
+            "command": "PYTHONDONTWRITEBYTECODE=1 python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/agent-team/scripts/log-agent-run.py\" 2>/dev/null || true",
             "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PYTHONDONTWRITEBYTECODE=1 python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/agent-team/scripts/log-agent-run.py\" 2>/dev/null || true",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "PYTHONDONTWRITEBYTECODE=1 python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/agent-team/scripts/validate-handoff.py\"",
+            "timeout": 10,
+            "statusMessage": "Pruefe Handoff-Schema"
           }
         ]
       }

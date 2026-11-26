@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Protokolliert jeden Agent-Team-Durchlauf im Ziel-Repo unter .claude/runs/.
 
-Haengt als Hook an zwei Ereignissen (siehe ../hooks/hooks.json):
+Haengt als Hook an drei Ereignissen (siehe ../hooks/hooks.json):
 
-  PostToolUse (Task|Agent)  ein Subagent-Aufruf ist fertig -> Ein- und
-                            Ausgabe vollstaendig wegschreiben
+  PostToolUse (Task|Agent)  ein Subagent wurde aufgerufen -> Eingabe wegschreiben;
+                            bei synchronen Agents auch die Ausgabe
+  SubagentStop              ein Subagent ist fertig -> sein finaler Text.
+                            Bei asynchronen Agents die einzige Stelle, an der
+                            das Ergebnis strukturiert ankommt
   UserPromptSubmit          der Ausloeser des Durchlaufs (z.B. /orchestrate)
 
 Warum ein Hook und nicht "der Orchestrator schreibt eine Zusammenfassung":
@@ -26,6 +29,9 @@ import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from handoff_parse import handoffs, response_text  # noqa: E402
 
 MAX_CHARS = 200_000  # Kappung pro Feld, damit ein Ausreisser das Repo nicht sprengt
 
@@ -59,71 +65,6 @@ def next_index(d):
     return max(used, default=0) + 1
 
 
-def response_text(resp):
-    """Aus der Tool-Antwort den Text des Subagenten ziehen (Form variiert)."""
-    if isinstance(resp, str):
-        return resp
-    if isinstance(resp, dict):
-        for key in ("content", "output", "result", "text"):
-            if key in resp:
-                return response_text(resp[key])
-        return json.dumps(resp, ensure_ascii=False, indent=2)
-    if isinstance(resp, list):
-        parts = []
-        for item in resp:
-            if isinstance(item, dict) and "text" in item:
-                parts.append(str(item["text"]))
-            else:
-                parts.append(response_text(item))
-        return "\n".join(parts)
-    return "" if resp is None else str(resp)
-
-
-def handoffs(text):
-    """Handoff-Objekte aus dem Text fischen — fuer die Zeile im Index.
-
-    Gesucht wird nach Objekten mit task_id; erst in ```json-Bloecken, sonst in
-    allen balancierten {...}-Kandidaten. Findet nichts: auch in Ordnung, der
-    volle Text steht ohnehin in der JSON-Datei.
-    """
-    found = []
-    blocks = re.findall(r"```(?:json)?\s*(.*?)```", text, re.S)
-    for raw in blocks + ([text] if not blocks else []):
-        for start in (m.start() for m in re.finditer(r"\{", raw)):
-            depth, in_str, esc = 0, False, False
-            for i, ch in enumerate(raw[start:start + 100_000]):
-                if in_str:
-                    if esc:
-                        esc = False
-                    elif ch == "\\":
-                        esc = True
-                    elif ch == '"':
-                        in_str = False
-                    continue
-                if ch == '"':
-                    in_str = True
-                elif ch == "{":
-                    depth += 1
-                elif ch == "}":
-                    depth -= 1
-                    if depth == 0:
-                        try:
-                            obj = json.loads(raw[start:start + i + 1])
-                        except ValueError:
-                            pass
-                        else:
-                            if isinstance(obj, dict) and "task_id" in obj:
-                                found.append(obj)
-                        break
-    seen, unique = set(), []
-    for obj in found:
-        key = json.dumps(obj, sort_keys=True)
-        if key not in seen:
-            seen.add(key)
-            unique.append(obj)
-    return unique
-
-
 def append_index(d, line):
     idx = d / "index.md"
     if not idx.exists():
@@ -132,12 +73,30 @@ def append_index(d, line):
             "Automatisch erzeugt vom `agent-team`-Hook `log-agent-run.py`.\n"
             "Je Zeile ein Ereignis; die vollstaendigen Ein-/Ausgaben liegen in\n"
             "den JSON-Dateien daneben.\n\n"
-            "| Zeit (UTC) | Nr. | Rolle | task_id | status | offene Fragen | Datei |\n"
-            "|---|---|---|---|---|---|---|\n",
+            "| Zeit (UTC) | Nr. | Rolle | task_id | status | offene Fragen | "
+            "Schleifen (d/b/r) | Datei |\n"
+            "|---|---|---|---|---|---|---|---|\n",
             encoding="utf-8",
         )
     with idx.open("a", encoding="utf-8") as fh:
         fh.write(line + "\n")
+
+
+def loops(objs):
+    """Schleifenzaehler je Paket als d/b/r, damit Ueberschreitungen der
+    Obergrenzen im Protokoll sichtbar sind statt nur im Handoff."""
+    out = []
+    for o in objs:
+        r = o.get("roundtrips")
+        if isinstance(r, dict):
+            out.append("/".join(str(r.get(k, 0)) for k in ("design", "blocked", "review")))
+    return ", ".join(out) or "—"
+
+
+def ist_start_quittung(text):
+    """Ein asynchron gestarteter Agent meldet an PostToolUse nur den Start.
+    Das echte Ergebnis kommt spaeter ueber SubagentStop (siehe on_stop)."""
+    return '"async_launched"' in text or '"isAsync": true' in text
 
 
 def on_tool(base, payload):
@@ -166,9 +125,41 @@ def on_tool(base, payload):
 
     task_ids = ", ".join(str(o.get("task_id", "")) for o in objs) or "—"
     status = ", ".join(str(o.get("status", "")) for o in objs if o.get("status")) or "—"
+    if ist_start_quittung(text):
+        status = "gestartet (Ergebnis folgt)"
     fragen = sum(len(o.get("user_questions") or []) for o in objs)
     append_index(d, f"| {now()} | {n:03d} | `{role}` | {task_ids} | {status} | "
-                    f"{fragen or '—'} | `{n:03d}-{safe_role}.json` |")
+                    f"{fragen or '—'} | {loops(objs)} | `{n:03d}-{safe_role}.json` |")
+
+
+def on_stop(base, payload):
+    """Ein Subagent ist fertig: sein finaler Text ist das eigentliche Ergebnis.
+
+    Bei asynchron gestarteten Agents sieht PostToolUse nur die Start-Quittung;
+    ohne diesen Zweig enthielte das Protokoll zwar jede Eingabe, aber keine
+    einzige Ausgabe im strukturierten Teil."""
+    role = payload.get("agent_type") or "unbekannt"
+    d = run_dir(base, payload.get("session_id"))
+    n = next_index(d)
+    text = str(payload.get("last_assistant_message") or "")
+    objs = handoffs(text)
+    record = {
+        "zeit": now(),
+        "session_id": payload.get("session_id"),
+        "ereignis": "SubagentStop",
+        "rolle": role,
+        "agent_id": payload.get("agent_id"),
+        "ausgabe": clip(text),
+        "handoffs": objs,
+    }
+    safe_role = re.sub(r"[^A-Za-z0-9_-]", "_", str(role))[:40]
+    name = f"{n:03d}-{safe_role}-ergebnis.json"
+    (d / name).write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+    task_ids = ", ".join(str(o.get("task_id", "")) for o in objs) or "—"
+    status = ", ".join(str(o.get("status", "")) for o in objs if o.get("status")) or "—"
+    fragen = sum(len(o.get("user_questions") or []) for o in objs)
+    append_index(d, f"| {now()} | {n:03d} | `{role}` (Ergebnis) | {task_ids} | {status} | "
+                    f"{fragen or '—'} | {loops(objs)} | `{name}` |")
 
 
 def on_prompt(base, payload):
@@ -188,8 +179,11 @@ def main():
         return
     base = runs_base(payload)
     try:
-        if payload.get("hook_event_name") == "UserPromptSubmit":
+        ereignis = payload.get("hook_event_name")
+        if ereignis == "UserPromptSubmit":
             on_prompt(base, payload)
+        elif ereignis == "SubagentStop":
+            on_stop(base, payload)
         else:
             on_tool(base, payload)
     except Exception as exc:  # nie die Session blockieren

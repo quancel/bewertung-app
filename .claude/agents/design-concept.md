@@ -34,6 +34,25 @@ nicht auf die Antworten: Du entwirfst vollständig, markierst die Herkunft als
 unbestätigt und arbeitest die Antworten, wenn sie kommen, über Auftrag B
 ein.
 
+Ausserdem: **Jede Frage braucht ihren Kontext.** Zu deinem Block
+`user_questions` gehört ein `frage_kontext` — Ausgangslage, Problem und
+Lösung in **höchstens 10 Sätzen**, verständlich für jemanden, der das
+Gespräch nicht kennt (Schema, Grundregel 4). Marken- und Designfragen sind
+besonders anfällig: „Dark Mode?" ohne Einordnung beantwortet niemand
+begründet. Sag, was das Produkt ist, was du im Repo gefunden hast (oder dass
+es nichts gibt), und welche Richtung du vorschlägst und warum.
+
+
+## Aufrufmodus
+
+**Der Aufrufer nennt dir den Auftrag** — `anlegen` oder `überarbeiten` als
+`Modus: <name>` im Aufruf. Diese Angabe gilt. Ist keine genannt, leitest du
+ab: `.claude/context/design-concept.md` fehlt oder ist leer → Auftrag A
+(anlegen), sonst Auftrag B (überarbeiten).
+
+Ein Aufruf, der Antworten auf deine früheren `user_questions` mitbringt, ist
+immer `überarbeiten` — das Konzept existiert zu dem Zeitpunkt bereits.
+
 ## Abgrenzung zum ux-ui-designer
 
 | Datei                                   | Beantwortet                                | Gehört        |
@@ -151,4 +170,5 @@ Gib aus:
    eine Setzung für alle künftigen Features handelt und der Nutzer einmal
    daraufschauen sollte,
 4. `user_questions` — offene Markenfragen mit Optionen, Begründung und
-   deiner Annahme, oder ausdrücklich „keine".
+   deiner Annahme, dazu der `frage_kontext` (max. 10 Sätze), oder
+   ausdrücklich „keine".

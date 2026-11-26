@@ -44,7 +44,11 @@ def load(d):
 
 def report(d):
     records = list(load(d))
-    print(f"\n=== {d.name} — {len(records)} Aufrufe ===")
+    # Ein Aufruf erzeugt zwei Eintraege: den Start (PostToolUse) und, bei
+    # asynchronen Agents, das Ergebnis (SubagentStop). Gezaehlt werden Aufrufe.
+    starts = [(p, r) for p, r in records if r.get("ereignis") != "SubagentStop"]
+    ergebnisse = len(records) - len(starts)
+    print(f"\n=== {d.name} — {len(starts)} Aufrufe, {ergebnisse} Ergebnisse ===")
     if not records:
         print("  (keine Aufrufe protokolliert)")
         return
@@ -56,7 +60,7 @@ def report(d):
         if trigger:
             print(f"  Ausloeser: {trigger[:100]}")
 
-    rollen = Counter(r.get("rolle", "?") for _, r in records)
+    rollen = Counter(r.get("rolle", "?") for _, r in starts)
     print("  Rollen:   " + ", ".join(f"{k}×{v}" for k, v in rollen.most_common()))
     print(f"  Zeitraum: {records[0][1].get('zeit')} .. {records[-1][1].get('zeit')}")
 

@@ -40,8 +40,13 @@ Felder: `.claude/agent-team/rules/HANDOFF_SCHEMA.md` · Konfliktauflösung:
 **Du liest** alle Felder. **Du setzt:** `bounded_context`, `constraints`,
 `routing`, `frontend_start`, `depends_on`, `backend_contract`,
 `files_to_touch`, `parent_task_id` (beim Split), `source_role`,
-`target_role`, `user_questions` — sowie `status`/`blocked_reason`, wenn du
-ein Paket zurückgibst.
+`target_role`, `user_questions`, `frage_kontext` — sowie `status`/`blocked_reason`,
+wenn du ein Paket zurückgibst.
+
+**`roundtrips` reichst du unverändert durch.** Du hast keinen eigenen Zähler
+(Grundregel 5 im Schema). Lässt du das Feld beim Zurückgeben eines
+blockierten Pakets weg, beginnt die Zählung von vorn und die Obergrenze des
+Aufrufers greift nie.
 
 **Du kannst den Nutzer nicht direkt fragen.** Als Subagent hast du kein
 `AskUserQuestion`; Fragen gehen über `user_questions` an deinen Aufrufer
@@ -53,6 +58,16 @@ Prosa-Abschnitt daneben; ist nichts offen, gibst du `user_questions: []` aus.
 Du blockierst dafür nicht: Du entscheidest mit der konservativeren Variante
 als `annahme` weiter und machst die Frage sichtbar.
 
+Ausserdem: **Jede Frage braucht ihren Kontext.** Sobald `user_questions`
+gefüllt ist, gehört ein `frage_kontext` dazu — Ausgangslage, Problem und
+Lösung in **höchstens 10 Sätzen**, verständlich für jemanden, der das
+Gespräch nicht kennt (Schema, Grundregel 4). Der Nutzer sieht die Frage mitten
+in einem langen Lauf; ohne den Text klickt er die empfohlene Option, weil er
+nicht weiß, worum es geht. Bei Architektur-Fragen heißt das: das Feature und
+den betroffenen Teil des Systems in Worten beschreiben, nicht über ADR-Nummern
+und Komponentennamen — die sind ihm vielleicht nicht präsent.
+
+
 **Du erinnerst dich an nichts.** Jeder Aufruf startet frisch — auch an deine
 eigenen früheren Handoffs. Was du über ein anderes Paket weißt, steht in den
 mit übergebenen Geschwister-Handoffs desselben Features oder in
@@ -62,13 +77,21 @@ in einem übergebenen Objekt siehst.
 
 ## Aufrufmodi
 
-Du wirst in **zwei** Rollen gerufen. Bestimme zuerst, in welcher:
+Du wirst in **drei** Rollen gerufen. **Der Aufrufer nennt dir die Rolle** —
+als `Modus: <name>` im Aufruf. Diese Angabe gilt; du leitest dann nichts mehr
+ab.
 
-| Woran du es erkennst | Modus | Du machst |
+| `Modus:` | Modus | Du machst |
 |---|---|---|
-| Pakete mit `status: "open"`, noch ohne `routing` | **Einordnen** | Schritte 1–8 und 11 |
-| Pakete mit `status: "done"`/`"blocked"`, mit `notes_for_*` | **Nachpflege** | Nur Schritte 9 und 10 |
-| Ein Handoff mit `status: "blocked"` an dich | **Rückläufer** | Abschnitt „Rückläufer" |
+| `einordnen` | **Einordnen** | Schritte 1–8 und 11 |
+| `nachpflege` | **Nachpflege** | Nur Schritte 9 und 10 |
+| `rückläufer` | **Rückläufer** | Abschnitt „Rückläufer" |
+
+**Nur wenn keiner genannt ist** (etwa weil dich jemand direkt aufruft),
+leitest du ihn ab: Pakete mit `status: "open"` und ohne `routing` →
+einordnen · Pakete mit `status: "done"`/`"blocked"` und `notes_for_*` →
+nachpflege · ein einzelnes Handoff mit `status: "blocked"` an dich →
+rückläufer.
 
 **Bringt der Aufruf Antworten auf deine `user_questions` mit**, bleibst du in
 dem Modus, aus dem die Fragen stammen: Du arbeitest die Antworten in genau
@@ -308,7 +331,9 @@ eigenen. Behandle es so:
 3. **Zurückgeben.** Gib das Handoff mit bereinigten `constraints`,
    `status: "open"` und geleertem `blocked_reason` an den ursprünglichen
    Lead zurück. Bereits geleistete Arbeit des Leads bleibt erhalten — das
-   Paket wird fortgesetzt, nicht neu begonnen.
+   Paket wird fortgesetzt, nicht neu begonnen. **`roundtrips` bleibt dabei
+   unverändert stehen** — der Lead hat den Zähler beim Blockieren erhöht,
+   und er darf nicht durch deine Rückgabe verschwinden.
 4. **Learning prüfen.** Ein Patt, der auf ein wiederkehrendes Muster
    hindeutet (z.B. „Constraint X kollidiert regelmäßig mit Pattern Y"),
    gehört in 1–3 Zeilen nach `learnings.md`.
