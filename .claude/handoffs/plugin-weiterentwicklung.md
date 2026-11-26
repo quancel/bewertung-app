@@ -18,6 +18,46 @@ Probedurchlauf fahren.
 
 ---
 
+## 0. Vorab: Stand im Plugin-Repo ist weiter als die Kopie hier — [belegt]
+
+Beim Ablegen dieses Dokuments im Plugin-Repo (`quancel/agent-team-marketplace`,
+Commit `8c340b1` „Rueckfragen mit Kontext und Demo; Hooks fuer asynchrone Agents
+und Plugin-Praefix") zeigte sich: Das Plugin enthält bereits Teile der unten
+geforderten Lösung.
+
+- `agent-team/hooks/hooks.json` hat einen **`SubagentStop`-Hook**, der das Ergebnis
+  schreibt, und `log-agent-run.py` erkennt asynchrone Starts (`async_launched`).
+- Es gibt `validate-handoff.py` und `handoff_parse.py` (Schema-Prüfung beim Ende
+  eines Agents).
+- Die Kopie in `bewertung-app/.claude/agent-team/` stammt dagegen von **2026-09-07**
+  (Commit `87256cf`, `VENDORED.md`), `log-agent-run.py` weicht von der Plugin-Version
+  ab, und `bewertung-app/.claude/settings.json` deklariert nur `PostToolUse` und
+  `UserPromptSubmit`, **keinen `SubagentStop`**.
+
+**Folge für dieses Dokument:** Die Ursache von Befund 2.1 liegt nach diesem Stand
+(zumindest teilweise) **nicht im Plugin, sondern im Ziel-Repo**: veraltete
+Vendor-Kopie plus fehlender Hook-Eintrag. [Vermutung, solange kein Probedurchlauf
+mit aktueller Kopie vorliegt.] Der Agent, der dieses Dokument bearbeitet, soll
+**zuerst**
+1. im Ziel-Repo `./.claude/scripts/sync-agent-team.sh` laufen lassen und den
+   `hooks`-Block in `.claude/settings.json` um `SubagentStop` (und
+   `validate-handoff.py`) ergänzen,
+2. einen Probedurchlauf mit Hintergrund-Agents fahren,
+3. danach die Befunde 2.1 und 2.9 sowie Paket P1 und Option A (Abschnitt 5) gegen
+   das Ergebnis neu bewerten: Was bleibt offen, was ist erledigt?
+4. prüfen, ob die README des Plugins den Eintrag in `settings.json` ausreichend
+   beschreibt, denn der Weg dorthin war im Ziel-Repo offenbar nicht zwingend
+   (die Kopie wurde nach dem Erstimport nie nachgezogen: eigener Befund, zu klären,
+   wie ein Ziel-Repo auf veraltete Vendor-Kopien aufmerksam wird, z. B. Stand-Prüfung
+   im `/orchestrate`-Start).
+
+Die Befunde 2.2 bis 2.8 und 2.10 bis 2.12, die Token-Analyse und die
+Logging-Bewertung hängen davon nicht ab, solange sie nicht gegen die aktuelle
+Plugin-Version widerlegt werden. Jeder Befund ist vor der Umsetzung gegen den
+Plugin-Stand zu prüfen.
+
+---
+
 ## 1. Auftrag in einem Absatz
 
 Die Kommunikationsstruktur zwischen Orchestrator und Rollen ist feinzuschleifen,
@@ -32,7 +72,7 @@ ausrichten.
 
 ## 2. Befunde zur Kommunikationsstruktur
 
-### 2.1 Das Protokoll hält die Ergebnisse nicht fest — [belegt]
+### 2.1 Das Protokoll hält die Ergebnisse nicht fest — [belegt, Ursache siehe Abschnitt 0]
 
 - Der Hook `log-agent-run.py` hängt an `PostToolUse` mit Matcher `Task|Agent`.
   Bei **Hintergrund-Agents** feuert er beim *Start*. Die Datei enthält nur die
@@ -119,7 +159,7 @@ das Feld `accepted: true` unterscheidet nicht zwischen „geprüft" und „über
 - **Auftrag:** Im Handoff je Kriterium `status` (`geprueft` | `uebernommen` |
   `nicht_beurteilbar`) und `beleg` (Datei:Zeile oder Verweis auf Vorabnahme).
 
-### 2.9 Handoff-Felder werden uneinheitlich benutzt — [Beobachtung, zu prüfen]
+### 2.9 Handoff-Felder werden uneinheitlich benutzt — [Beobachtung, zu prüfen; `validate-handoff.py` existiert im Plugin, siehe Abschnitt 0]
 
 In den Berichten der Leads stand teils `source_role: "architekt"`, teils
 `target_role: "product-owner"` oder `null`, `bounded_context` wechselte zwischen
