@@ -25,6 +25,10 @@ import re
 import sys
 
 ERLAUBT = ("runs-report.py", "runs-query.py")
+# Git-Befehle, die Dateien verwalten, ohne Inhalt auszugeben: das Protokoll wird
+# mitcommittet (RESUME.md, Commit-Regel). `git diff`/`show`/`log -p` geben
+# Inhalt aus und bleiben gesperrt.
+GIT_VERWALTUNG = re.compile(r"^\s*git\s+(-C\s+\S+\s+)?(add|commit|status|rm|ls-files|restore\s+--staged)\b")
 PFAD = re.compile(r"(^|[\\/\s'\"=:])\.?claude[\\/]runs([\\/\s'\"]|$)|(^|[\s'\"])runs[\\/]")
 GRUND = ("Zugriff auf .claude/runs/ verweigert: Das Durchlauf-Protokoll ist nur fuer die "
          "Auswertung gedacht. Nutze /lauf-analyse oder "
@@ -40,7 +44,8 @@ def verweigern():
 
 def bash_betroffen(cmd):
     for teil in re.split(r"&&|\|\||;|\||\n", cmd):
-        if PFAD.search(teil) and not any(s in teil for s in ERLAUBT):
+        if (PFAD.search(teil) and not any(s in teil for s in ERLAUBT)
+                and not GIT_VERWALTUNG.search(teil)):
             return True
     return False
 
