@@ -7,7 +7,7 @@ ersetzt.
 
 - **Quelle**: https://github.com/quancel/agent-team-marketplace
 - **Ref**: main
-- **Commit**: dd9a15516a1b41a15113057728bec2cab9be4a96
+- **Commit**: 6bc954917eb65d9b9d9b185befea29681b5258ef
 - **Synchronisiert am**: 2026-11-26
 
 ## Was beim Kopieren geaendert wurde

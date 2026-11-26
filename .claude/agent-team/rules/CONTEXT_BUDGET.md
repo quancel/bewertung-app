@@ -9,19 +9,27 @@ auf 1641 Zeilen — obwohl dort „< 150 Zeilen" stand. Eine Regel ohne Prüfung
 mit jedem Paket. Jeder Aufruf zahlt diese Größe, und jede Änderung an `CLAUDE.md`
 entwertet den gemeinsamen Anfang aller Aufrufe für den Prompt-Cache.
 
-## Budget (Zeilen der Hauptdatei)
+## Budget — zwei Arten
 
-| Datei | Soll | Schreibt |
-|---|---|---|
-| `CLAUDE.md` | 150 | Nutzer / Leads nur nach Absprache |
-| `.claude/context/context-map.md` | 100 | `architekt` |
-| `.claude/context/code-conventions.md` | 120 | `architekt` |
-| `.claude/context/learnings.md` | 120 | `architekt` |
-| `.claude/context/design-concept.md` | 120 | `design-concept` |
-| `.claude/context/design-conventions.md` | 150 | `ux-ui-designer` |
+**Hart: `CLAUDE.md`, 150 Zeilen.** Der Harness lädt sie vollständig bei jeder Sitzung und
+jedem Subagent; selektives Lesen gibt es dort nicht. Jede Zeile wird immer bezahlt.
 
-`scripts/check-context-size.py` meldet Überschreitungen (Soll) und starke Überschreitungen
-(das Doppelte). Es informiert nur.
+**Richtwert: Dateien unter `.claude/context/`, ca. 12 KB je Hauptdatei.** Sie werden nicht
+automatisch geladen, sondern von den Rollen gelesen. Entscheidend ist deshalb nicht die
+Gesamtgröße, sondern **was ein Aufruf tatsächlich liest**: Ist jede Themendatei im
+Register der Hauptdatei verlinkt und liest die Rolle nur, was zum Paket gehört, kostet ein
+großes Gesamtvolumen nichts. Gemessen wird in KB, weil Zeilen unterschiedlich lang sind.
+
+| Datei | Maß | Wert | Schreibt |
+|---|---|---|---|
+| `CLAUDE.md` | Zeilen, **hart** | 150 | Nutzer / Leads nur nach Absprache |
+| `.claude/context/*.md` (Hauptdatei) | KB, Richtwert | 12 | die jeweilige schreibende Rolle |
+
+`scripts/check-context-size.py` meldet: für `CLAUDE.md` **WARNUNG** über 150 und
+**DRINGEND** über 300 Zeilen; für die Dateien unter `.claude/context/` **HINWEIS** über
+12 KB und **WARNUNG** über 24 KB. Außerdem **WARNUNG**, wenn eine Themendatei in der
+Hauptdatei nicht verlinkt ist — das **Register ist Pflicht**, es macht den Richtwert
+erst tragfähig. Das Skript informiert nur.
 
 ## Was bei Überschreitung gilt
 

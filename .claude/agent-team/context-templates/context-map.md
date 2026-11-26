@@ -8,7 +8,7 @@
 > Single-Writer: Nur der `architekt`-Agent aktualisiert diese Datei.
 > Andere Agents lesen sie nur.
 
-Halte diese Datei kompakt (Faustregel: < 100 Zeilen). Sie ist ein Register,
+Halte diese Datei kompakt (Richtwert: ca. 12 KB, Details in Themendateien mit Register). Sie ist ein Register,
 kein Design-Dokument — Details gehören in ADRs.
 
 ## Bounded Contexts

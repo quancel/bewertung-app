@@ -12,7 +12,7 @@
 > Sub-Handoff — ohne diese Datei haben ausgerechnet sie die geringste
 > Kenntnis der Projektkonventionen.
 >
-> Kompakt halten (Faustregel: < 120 Zeilen). Hier steht nur die **Regel**;
+> Kompakt halten (Richtwert: ca. 12 KB, Details in Themendateien mit Register). Hier steht nur die **Regel**;
 > die Begründung gehört ins ADR.
 
 - **Modus**: `analysiert` (aus bestehendem Code abgeleitet) | `vorgegeben`
