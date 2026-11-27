@@ -69,9 +69,6 @@
   ihre Nachweise stehen in `docs/pakete/<task_id>.md`
   (`.claude/agent-team/rules/CONTEXT_BUDGET.md`). Zeilenangaben zu
   `scripts/` gehören weder nach `CLAUDE.md` noch in die Konventionen.
-  Solange `CLAUDE.md` noch Zeilenangaben zu `scripts/smoke.mjs` trägt (bis
-  zur Kuratierung durch PO-2026-11-26-001), zieht sie nach, wer davor
-  einfügt.
 
 ## Engines
 
