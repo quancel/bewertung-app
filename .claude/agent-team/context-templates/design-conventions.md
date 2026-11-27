@@ -16,7 +16,7 @@
 > Eintrag und aktualisiere das Datum, statt einen zweiten danebenzustellen.
 > Zwei widersprüchliche Konventionen in dieser Datei erzeugen beim
 > `frontend-lead` einen Patt auf gleicher Rangstufe und blockieren das
-> Paket. Faustregel: < 150 Zeilen.
+> Paket. Richtwert: ca. 12 KB, Details in Themendateien mit Register.
 
 - **Zuletzt kuratiert**: YYYY-MM-DD
 

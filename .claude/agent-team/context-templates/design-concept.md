@@ -32,7 +32,7 @@
 > höherrangig —, hinterlässt aber falsche Konventionen, die beim nächsten
 > Feature wieder gelesen werden.
 >
-> **Kompakt halten (Faustregel: < 120 Zeilen).** Diese Datei wird bei jedem
+> **Kompakt halten (Richtwert: ca. 12 KB, Details in Themendateien mit Register).** Diese Datei wird bei jedem
 > Frontend-Paket mitgelesen — vom `ux-ui-designer` und vom `frontend-lead`.
 > Jede überflüssige Zeile kostet dauerhaft. Wo die Tokens im Code stehen,
 > gehört hierher das **System** und der Verweis auf die Quelle, nicht die

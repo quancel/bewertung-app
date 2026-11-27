@@ -1,82 +1,40 @@
 # Code Conventions — bewertung-app
 
-> **Single-Writer: Nur der `architekt`-Agent schreibt hierhin.** Die Leads
-> liefern Vorschläge über `notes_for_conventions`. Hier steht nur die
-> **Regel**; die Begründung gehört ins ADR. Kompakt halten
-> (Faustregel: < 120 Zeilen) — Paket-Historie gehört in `adr/INDEX.md`,
-> nicht hierhin.
+> **Single-Writer: Nur der `architekt`-Agent schreibt hierhin** (auch in
+> `code-conventions/`). Die Leads liefern Vorschläge über
+> `notes_for_conventions`. Hier steht je Regel **eine Zeile**; Wortlaut,
+> Ausnahmen und Vorbilder stehen in der Themendatei, die Begründung im ADR.
+> Budget: Richtwert 12 KB für diese Datei, Register Pflicht
+> (`.claude/agent-team/rules/CONTEXT_BUDGET.md`). Nachweise, Messwerte,
+> Paket-Chronik → `docs/pakete/<task_id>.md`, nicht hierhin.
+>
+> **Lesen**: diese Datei, dann **nur** die Themendatei zum Paket. Eine Kurzzeile
+> ist keine vollständige Regel — wer sie als `constraint` übernimmt, übernimmt
+> die Fassung der Themendatei samt Ausnahmen (learnings.md, 2026-09-14).
 
 - **Modus**: `vorgegeben` (Greenfield, ADR-0002)
-- **Zuletzt geprüft**: 2026-11-25, Nachpflege PO-2026-11-24-001…007
-  (nach Umsetzung, vor der Abnahme, am Code gegengelesen). Hinzugekommen
-  sind: `shared/ui/Regler.vue`, das Gewichts-Gate in
-  `orte/lib/gewichtung.ts`, drei Sortiergruppen, Marker- und
-  Balken-Hooks, Rauchtest-Bauformen `aufraeumen`/`eigenerKontext`, das
-  Ausnahmen-Register (ADR-0040) und Mutationsreste. Korrigiert ist die
-  Route-Namen-Regel (`ort-detail`). Die offene `watch`-Stelle in
-  `useLeafletKarte.ts` ist gestrichen, `IconInfo.vue` ist zur Löschung
-  vorgemerkt.
-  Davor 2026-11-24, Einordnen PO-2026-11-24-001…007.
-  Hinzugekommen sind: gewichtete Gesamtnote mit Pflichtparameter und
-  gemeinsamem Zehntelwert (ADR-0037), Adressform `ort` (ADR-0039),
-  Verlaufseintrag ohne Adresse (ADR-0036), Sitzungszustand in `karte`
-  (ADR-0038), `[inert]`-Ausnahme mit Gegen-Zusicherung und Marker-Tokens.
-  Davor 2026-09-28, Nachpflege zu PO-2026-09-27-003 (nach
-  der Abnahme): `container-type` sitzt auf einem Vorfahren. Das `clip`-Muster
-  bleibt lokal, es gibt kein globales Utility. Rauchtest-Ansichten
-  hinterlassen keine verstellten Einstellungen. Davor 2026-09-28, Rückläufer
-  PO-2026-09-27-003: Ein
-  Scroll-Container im Grid/Flex ist ein abgeschlossener Scroll-Bereich (Spur,
-  `min-height: 0` als Paar zu `min-width: 0`, `position: relative`; ADR-0011
-  Nachtrag P6). Davor 2026-09-28, Nachpflege zu PO-2026-09-27-002 (nach
-  der Abnahme): Import-Regel für begrenzten Freitext ist endgültig (unverändert
-  übernehmen). Davor 2026-09-27, Nachpflege zu PO-2026-09-27-004 (nach
-  der Abnahme): Rauchtest-Bauformen für gleichzeitig offene Entwürfe
-  (`setzeEingabenOhneFokus`) und für Felder, deren Existenz selbst der Befund
-  ist (`wertOderLeer`); Doku-Änderungen im Bericht mit Beleg; veraltete
-  Aussage „Neulade-Zusicherung deckt nur den Anlege-Fall" korrigiert. Davor
-  2026-09-27, Nachpflege zu PO-2026-09-27-001 (nach
-  der Abnahme): Ein DOM-messender `watch` läuft mit `flush: 'post'`. Davor
-  2026-09-27, Einordnen von PO-2026-09-27-003: Dazu
-  kamen die Zonen- und Hervorhebungs-Auswertung in `features/orte/lib/`
-  (ADR-0034), die Tokens `--color-zone-*` und `--shadow-hervorhebung-*`, der
-  CSS-Hook über eine Custom Property statt `:deep()` und mehrere Signale in
-  einer `box-shadow`-Deklaration. Davor 2026-09-27, Einordnen von PO-2026-09-27-002:
-  Freitext mit Obergrenze ohne Zeilenumbruch (Gate im Store-Setter, kein
-  neues ADR). Davor 2026-09-27, Einordnen von PO-2026-09-27-001:
-  mitwachsende mehrzeilige Textfelder als geteiltes Composable (Anwendung
-  von ADR-0024, kein neues ADR). Davor 2026-09-27, Nachpflege zu PO-2026-09-26-002 und
-  Einordnen von PO-2026-09-26-003: `CSS_TARGET` als Kompatibilitätsvorgabe
-  (ADR-0032 Nachtrag), veraltete Aussage „`base` bleibt `/`" korrigiert
-  (`BASE` ist `/bewertung-app/`), Scroll-Versatz gehört dem Baustein
-  (ADR-0033). Davor 2026-09-27, beim Einordnen von PO-2026-09-26-002:
-  breitenabhängige Sichtbarkeit wird begrenzt statt überschrieben
-  (ADR-0032), plus die akzeptierte Abweichung im Chrome von
-  `Ortebereich.vue`. Davor 2026-09-17, Nachpflege nach der Abnahme von
-  PO-2026-09-16-001/-002: die Bauform für Trefferflächen an selbst
-  gezeichneten Bedienelementen (transparenter `border` + inset `box-shadow`,
-  aus zwei Abnahmebefunden), der permanente Rahmen ohne
-  `:not(:focus-visible)`-Bindung, die Bildschirmfotos als Teil der
-  Darstellungs-Verifikation, die offene Tokenfrage am Reglerdaumen.
-  Davor 2026-09-16, beim Einordnen von PO-2026-09-16-001/-002:
-  was `pruefeReglerGreifbarkeit` prüft und was nicht, die Grenze
-  „engine-abhängige Darstellung" und der Ausfallpfad einer
-  Darstellungsregel (ADR-0029). Davor 2026-09-15, Nachpflege nach der Reglerrunde
-  PO-2026-09-13-001…-003: der korrigierte Prüfweg für UA-Pseudo-Elemente und
-  der Rot-Nachweis für neue Zusicherungen (ADR-0027 P5/P8), die beiden
-  `vitest.config.ts`-Zutaten der Component-Tests, der Wrapper beim
-  Umschalten eines gemeinsam genutzten Bausteins. Davor 2026-09-14, beim
-  Einordnen derselben Runde: Component-Tests und die Zusicherung
-  „Bedienelement ist greifbar" (ADR-0027), das Kriterium `@media` gegen
-  `@container` (ADR-0028), ein Gate für jeden Achsen-Eingabepfad
-  (ADR-0007 P7). Davor
-  2026-09-13, Nachpflege nach der Korrekturrunde PO-2026-09-12-001…-005:
-  von 624 auf 366 Zeilen kuratiert — Paket-Historie, ADR-Begründungen und
-  Einzelfall-Anekdoten entfernt, die Regeln selbst vollständig erhalten.
+- **Zuletzt geprüft**: 2026-11-27, Nachpflege PO-2026-11-26-002 (Umbau auf
+  Register + Themendateien). Frühere Stände: Anhang „Änderungschronik" in
+  `docs/pakete/PO-2026-11-26-002.md`.
 
 **Stapel**: Vue 3 · TypeScript · Vite · Pinia · vue-router. Ein Projekt, ein
 Bundle, kein Monorepo. **Kein Backend** (ADR-0001) — `src/persistence/`
 übernimmt dessen Rolle. Ein Proxy/BFF bräuchte ein eigenes ADR.
+
+## Register
+
+| Thema | Themendatei |
+|---|---|
+| Imports, Besitz, Gesamtnote, Komponenten/Views, Composables, `watch`, `app/dev/` | `code-conventions/struktur-regeln.md` |
+| Tokens, Zonen-/Marker-/Schatten-Tokens, CSS-Hooks, `box-shadow`-Signale, Icons | `code-conventions/styles-und-tokens.md` |
+| Fremdnetz, Netzzustand, Leaflet | `code-conventions/fremdnetz-und-karte.md` |
+| Namenskonventionen; Routen, Query-Parameter, Verlaufseinträge | `code-conventions/namen-und-routen.md` |
+| Rahmen, `@media`/`@container`, Sichtbarkeit, Scroll-Bereiche, Bedienelemente | `code-conventions/layout-und-breitenlogik.md` |
+| Formatversion, IndexedDB, Migrationsschritte, Lesen und Schreiben | `code-conventions/persistenz.md` |
+| Statisches Bundle, `BASE`, `CSS_TARGET`, Service Worker | `code-conventions/build-und-auslieferung.md` |
+| Testebenen, Component-Specs, neue Zusicherungen, Engines | `code-conventions/tests-und-verifikation.md` |
+| Bauformen in `scripts/smoke.mjs` | `code-conventions/rauchtest-bauformen.md` |
+| Bewusst akzeptierte Stellen | `code-conventions/abweichungen.md` |
 
 ## Ordnerstruktur
 
@@ -101,7 +59,7 @@ src/
     schema.ts                   # SCHEMA_VERSION + OrtDatensatz
     db.ts                       # IndexedDB öffnen, Object Stores, IDB-Version
     <context>-repository.ts · einstellungen-repository.ts · bestand-repository.ts
-    sichere-kopie.ts            # Pflicht-Wrapper vor jedem Schreiben (s.u.)
+    sichere-kopie.ts            # Pflicht-Wrapper vor jedem Schreiben
     migrations/index.ts · NNN-<kurzname>.ts · __fixtures__/vN-<kurzname>.json
   shared/ui/ · composables/ · lib/   # erst ab zwei Nutzern
   styles/tokens.css · semantic.css · base.css
@@ -110,792 +68,114 @@ src/
 
 ## Regeln, die die Struktur tragen
 
-- **Ein Feature importiert nicht aus einem anderen Feature.** Drei enge
-  Ausnahmen:
-  1. `bewertungen`, `tags`, `medien` dürfen den `orte`-Store über sein
-     öffentliches API nutzen — nur in diese Richtung. **`karte` nicht**: der
-     Context fasst gar keinen Store an (ADR-0019 P8).
-  2. Eine **View** in `orte` darf Komponenten und reine
-     `features/<context>/lib/`-Funktionen fremder Contexts importieren und
-     über Props/Emits anbinden (ADR-0013/0022). Geprüft wird am **Zyklus**,
-     nicht am Wort „Store": verboten ist der Import eines Moduls, das
-     seinerseits den `orte`-Store oder `persistence/` anfasst, Zustand über
-     Aufrufe hält oder aus dem importierenden Context zurückimportiert.
-     `medien` darf seinen **eigenen** Store anfassen, solange es nichts aus
-     `orte` importiert (ADR-0016 P9/10). Store-gebundene Exporte gibt es
-     genau zwei, `Bilderbereich.vue` und `Bildstreifen.vue` (ADR-0039 P6).
-     Ein dritter braucht ein ADR. `Bildstreifen.vue` bindet nicht die
-     View, sondern die **Komponente** `orte/components/Schnellansicht.vue`
-     ein. Das ist die einzige `components/`-Datei mit einem
-     store-gebundenen Kind, und sie gilt nicht als Vorbild für „Komponente
-     kennt Store". `karte` importiert aus keinem Feature,
-     auch nicht aus `medien`.
-  3. `datensicherung` darf nach einem Import `useOrteStore`/`useMedienStore`
-     **zum Neuladen** anstoßen — nur das, ohne Rückrichtung (ADR-0017 P9).
+→ `code-conventions/struktur-regeln.md`, `code-conventions/styles-und-tokens.md`,
+`code-conventions/fremdnetz-und-karte.md`
 
-  Alles andere läuft über `shared/` bzw. `persistence/schema.ts`, nie quer.
-  Nach `shared/` erst **ab zwei Nutzern**; ein zweiter Nutzer zählt, sobald
-  er in einem freigegebenen Paket steht. `app/` und `features/` importieren
-  nicht voneinander — was beide brauchen, liegt von Anfang an in `shared/`.
-- **Reicht ein anderer Context in einen Baustein hinein, bekommt er einen
-  benannten Slot statt eines Imports** (ADR-0013; `Werkzeugleiste.vue`,
-  Slot `zeile-2`). Leerer Slot = Zeile wird nicht gerendert.
-  `Werkzeugleiste.vue` bleibt store- und routerfrei. Was sie anzeigt,
-  bekommt sie als Pflicht-Prop (`gewichtungName`), was sie auslöst,
-  meldet sie per Emit (`gewichtung-oeffnen`).
-- **Der Ort-Datensatz hat genau einen Besitzer im Arbeitsspeicher:
-  `useOrteStore`** (ADR-0008). Contexts, die Felder darin bearbeiten
-  (`bewertungen`, `tags`), führen **keinen eigenen Store** und rufen
-  `persistence/` nicht selbst auf. Einen eigenen Store hat nur, wer einen
-  eigenen Object Store hat (`medien`). Ableitungen auf Ort-Feldern
-  (Gesamtnote, Tag-Prädikat, Sortierung) liegen in `shared/lib/` und liefern
-  alles mit, was die Ansicht sonst zweimal formulieren müsste (ADR-0009 P9).
-  Das gilt für Ableitungen mit zwei Nutzern. Eine Darstellungsregel, die
-  **nur die Ortsliste** kennt, liegt in `features/orte/lib/`. Beispiel ist
-  `zonen.ts` (ADR-0034).
-- **Gesamtnote nur über `berechneGesamtnote(bewertungen, gewichte)`**
-  (ADR-0037). Die Gewichte sind ein Pflichtparameter ohne Default, Quelle
-  ist `useOrteStore` (`orte.gewichtung`). Das Ergebnis unterscheidet `wert`
-  (`roh`, `zehntel`), `unbewertet` und `ohne-gewicht`, also kein
-  `number | null`. **Anzeige und Zone lesen `zehntel`** (ganzzahlig,
-  `Math.round(10 · Zähler / Nenner)`). **Sortierung, Gleichstand und
-  Vorrang lesen `roh`.** Komponenten und `karte` rechnen nicht selbst,
-  sie bekommen das Ergebnis bzw. primitive Felder von `Ortebereich.vue`
-  (`gesamtnoteVon`, die einzige rechnende Stelle; `Ortszeile.vue` hat die
-  Pflicht-Prop `gesamtnote`, `KartenOrt` die Felder `notentext`/`rohwert`/
-  `ohneNoteGrund`). `SortierErgebnis` hat **drei** Gruppen: `mitWert`,
-  `ohneWert` und `ohneGewicht`. Die dritte ist nur bei Kriterium
-  Gesamtnote gefüllt. Jeder Konsument muss alle drei behandeln.
-- **`model/*.types.ts` importiert nichts** und enthält nur den Anteil seines
-  Contexts; `persistence/schema.ts` setzt daraus `OrtDatensatz` zusammen. Ein
-  Import von `persistence/` dorthin dreht die Richtung um und ist ein Fehler.
-- **Nur `persistence/` spricht mit dem Gerätespeicher** — kein
-  `localStorage`/`indexedDB` in Komponenten, Stores, Composables; auch kein
-  zweiter Weg „nur für Kleinigkeiten" (ADR-0006).
-- **`components/` kennt keinen Store** (Props rein, Emits raus); `views/`
-  sind die einzige Stelle, die Stores anbinden.
-  - **Einzige Ausnahme vom „nur Emits raus": unbestätigte Eingabe abgeben**
-    (ADR-0030). Hält eine Komponente im Ortsdetail einen Entwurf lokal,
-    exponiert sie per `defineExpose` genau eine synchrone Methode, die ihn
-    über ihren normalen Commit-Weg und ihr normales Emit abgibt. Die View
-    ruft sie bei Route verlassen, `visibilitychange`→`hidden` und `pagehide`
-    **vor** dem Persistieren auf — über eine Hilfsfunktion, nicht je Auslöser
-    nachgebaut. Die Komponente registriert dafür keinen eigenen
-    `document`/`window`-Listener. Der Emit-Handler in der View bindet die
-    Ort-ID des gerenderten Ortes, nicht die reaktive `ortId`; die Komponente
-    wird per `:key` auf der `ortId` eingebunden. Bei **mehreren**
-    Entwurfsbesitzern (seit PO-2026-09-27-004: `TagEingabe` und die vier
-    `Bewertungsachse`-Instanzen) holt die Hilfsfunktion **alle** ab. Während
-    des Abholens persistieren die Emit-Handler nicht selbst, danach wird
-    genau einmal persistiert (ADR-0035). Ein zweiter Aufruf ohne neue Eingabe
-    emittiert nichts. Verglichen wird dafür mit dem zuletzt übernommenen
-    Stand, nicht mit den möglicherweise veralteten Props.
-- **Eine projektweit entschiedene Interaktionsregel steht einmal in
-  `shared/composables/`**, nicht je Feature nachgebaut (ADR-0024; Bauform wie
-  `useNetzzustand.ts`). `shared/` ist kein Bounded Context — ein Baustein
-  dort erzeugt keinen Feature-zu-Feature-Import. Ein Paket darf zum Anbinden
-  die Datei eines fremden Contexts anfassen, **nur** dafür.
-  - **„Blur" und „Tap außerhalb" sind zwei Mechanismen, nicht einer**
-    (`useSchliesseBeiAussenaktion.ts`): `focusout` mit
-    `relatedTarget`-Containment fürs Wegtabben, `document`-`pointerdown` für
-    Touch/Maus. Ein `@blur` auf dem Input allein zerstört das Tabben in die
-    eigene Vorschlagsliste.
-  - **Mehrzeilige Textfelder wachsen über
-    `shared/composables/useMitwachsendesTextfeld.ts`**. Das Composable entsteht
-    mit PO-2026-09-27-001, der zweite Nutzer ist die Anfangsnotiz aus -002. Die
-    Höhe setzt **nur JavaScript**, **kein `field-sizing: content`**, auch
-    nicht zusätzlich: Sonst prüft der Rauchtest in Chromium einen anderen Weg
-    als den, der in WebKit läuft. Ausgelöst wird durch den **Wert und die
-    Breite** des Feldes, nicht durch das `input`-Ereignis: beim Mount, bei
-    jeder Wertänderung (auch von außen), bei Breitenänderung
-    (`ResizeObserver`, nur bei geänderter Breite) und nach dem Laden der
-    Schrift. Die Mindesthöhe kommt allein aus `rows`. Dazu `resize: none`,
-    keine Höhen-Transition und `overflow-wrap: break-word`. Die Messung
-    verschiebt keinen Scroll-Versatz und sucht keinen scrollbaren Vorfahren.
-- **Ein `watch` auf ein abgeleitetes Array feuert bei jeder Neuberechnung**,
-  nicht erst bei inhaltlicher Änderung — `computed` + `filter`/`map` liefert
-  jedes Mal ein neues Array. Soll eine Wirkung nur bei **Inhalts**änderung
-  eintreten, vergleicht der Watcher selbst (stabile Kennung der Menge).
-  Vorbild: `bildeMengenKennung()` in `karte/lib/kartenausschnitt.ts`,
-  benutzt von `useLeafletKarte.ts` (ADR-0038 P5).
-- **Ein `watch`, der das DOM misst oder liest** (`scrollHeight`,
-  `getBoundingClientRect`, `offsetHeight`, `feld.value` …), läuft mit
-  `{ flush: 'post' }`, nicht mit dem Vue-Standard `pre`. Template-Bindungen,
-  auch `v-model`, schreiben den neuen Wert erst im Render-Effekt des
-  Aufrufers ins DOM, und ein `pre`-Watcher misst noch den alten Inhalt. Das
-  fällt nur auf, wenn die Komponente beim Wertwechsel **nicht** neu gemountet
-  wird. Vorbild: `shared/composables/useMitwachsendesTextfeld.ts`.
-- **Rohwerte nur in `styles/tokens.css`.** Kein Hex-Wert, kein freier Abstand
-  außerhalb der Skalen aus `design-concept.md` in Feature-Stylesheets;
-  Komponenten binden an semantische Tokens. Muss ein Tokenwert
-  ausnahmsweise in JavaScript stehen (CSS kann keine Farbskala
-  interpolieren), dann als benannte Konstante **mit dem Tokennamen im
-  Kommentar** — wer eine Farbe ändert, greppt nach ihrem Namen. Siehe
-  „Abweichungen".
-  - **Zonenfarben** (nur Ortsliste): `--color-zone-8`, `--color-zone-8-5`,
-    `--color-zone-9`, `--color-zone-9-5` und `--color-zone-10`. Das Suffix
-    ist der Zonenschlüssel, das Komma wird zum Bindestrich. Die Namen tragen
-    ihre Bedeutung wie `--color-primary-*`, deshalb gibt es keinen Alias in
-    `semantic.css`. Die Zuordnung Zone → Tokenname steht wörtlich und genau
-    einmal in `features/orte/lib/zonen.ts` (ADR-0034 P2). Die Zone
-    vergleicht ganzzahlige Zehntel (ADR-0037 P5): `ZONEN[].untergrenzeZehntel`
-    (80/85/90/95/100), `bestimmeZone(zehntel)`. Ein Einzelachsenwert geht als
-    `wert × 10` hinein.
-  - **Kartenmarker** (ab PO-2026-11-24-004): Maße als Tokens mit Präfix
-    `--karte-marker-*` in `tokens.css`, analog `--karte-hoehe`. Das sind
-    Scheibe 40/48px, Ring 3/4px, Punkt 16/24px, Außenring 3px,
-    Trefferfläche 44px und die Etikettbreite 120/240px. `L.divIcon` braucht
-    `iconSize`/`iconAnchor` als Zahl in JS, dort steht eine benannte
-    Konstante mit Tokennamen im Kommentar (`MARKER_TREFFERFLAECHE`,
-    `ETIKETT_RANDABSTAND` = `--space-8`). Farben nur semantisch
-    (`--surface`, `--color-accent-500`, `--text`, `--border`), keine
-    Zonenfarbe.
-  - **Hervorhebungs-Schatten**: `--shadow-hervorhebung-schwach` und
-    `--shadow-hervorhebung-stark`, Farbbasis `--color-neutral-900`, im
-    Kommentar genannt. Das sind **keine** Elevation-Tokens. Die sechs
-    Schatten-Literale unter „Abweichungen" bleiben davon unberührt.
-- **Ein Elternteil passt einen geteilten Baustein über eine dokumentierte
-  Custom Property an, nie über `:deep()`**. Der Baustein liest
-  `var(--<baustein>-<eigenschaft>, <bisherige Vorgabe>)`, der Default bleibt
-  also für alle anderen Nutzer unverändert. Der Elternteil setzt die Property
-  auf seinem eigenen Wrapper, und die Vererbung trägt sie über die
-  Scoped-Grenze. Vorbild: `Intensitaetsbalken.vue` mit
-  `--intensitaetsbalken-zahl-{farbe,padding,radius,flaeche,gewicht,ziffern}`
-  und `--intensitaetsbalken-fuellung-farbe` (ab PO-2026-09-27-003/-11-24-007).
-  Ein Hook ist kein Prop. Gesetzt wird er nur auf dem Wrapper des Nutzers,
-  nie global (`body`, `:root`), sonst leckt er in andere Nutzer. Die bestehende `:deep()`-Stelle in
-  `ImportEntscheidenSheet.vue` nicht nebenbei umbauen.
-- **Mehrere unabhängige Signale auf derselben Eigenschaft (`box-shadow`)
-  bekommen je Signal eine lokale Custom Property mit neutralem Fallback**
-  (`0 0 0 0 transparent`). Sie werden in **einer** Deklaration kombiniert, nie
-  über eine zweite Regel, die die erste ersetzt. Vorbild: `.ortszeile`
-  (Auswahlkante + Hervorhebung, ab PO-2026-09-27-003).
-- **Schriften und Icons unter `src/assets/`** — kein Fremd-Host, kein
-  Icon-CDN (Offline-Zusage, ADR-0001). Icons je Paket nachziehen: SVG nach
-  `assets/icons/<kurzname>.svg` + Wrapper `shared/ui/icons/Icon<Name>.vue`,
-  Quelle Lucide Outline. Nie ein ganzes Set auf Vorrat. Dieselbe Regel gilt
-  rückwärts: Wer den letzten Nutzer eines Icons entfernt, löscht SVG und
-  Wrapper im selben Paket. **Offen**: `shared/ui/icons/IconInfo.vue` und
-  `assets/icons/info.svg` sind seit PO-2026-11-24-007 ungenutzt. Löschen
-  wird der `frontend-lead` im nächsten Paket, das er umsetzt; Nachweis ist
-  ein leerer `grep` und ein grüner Build. Danach diesen Satz streichen.
-- **Fremdnetz-Zugriffe** nur für drei Zwecke (Kartenkacheln, Ortssuche,
-  Versionsauslieferung), im Feature, das sie braucht, jeder mit Ausfallpfad
-  (ADR-0018/0020):
-  - **Genau ein Modul kennt den Anbieter** (`features/<context>/lib/<dienst>.ts`);
-    kein Anbieter-Feldname außerhalb.
-  - **Ausdrückliches Ergebnis statt Ausnahme**: Treffer · keine Treffer ·
-    kein Netz · Fehler/Timeout sind unterscheidbar; jede Anfrage mit
-    `AbortController` und Zeitüberschreitung.
-  - **Datensparsam**: nur die Nutzereingabe, keine Bestandsdaten, keine IDs,
-    kein Standort-Bias (`lat`/`lon`/`bbox`), keine Telemetrie. Antworten
-    werden nicht gespeichert.
-  - **Kein API-Schlüssel im Bundle** — ein Anbieter, der einen verlangt, ist
-    nicht wählbar. **Referer nicht unterdrücken** (einzige Identifikation
-    gegenüber OSM/Photon). **Attribution ist Pflicht**, sichtbar.
-- **Netzzustand** (ADR-0021): `navigator.onLine` und `online`/`offline` nur
-  **im Feature**, für einen gemuteten Hinweis an der netzabhängigen
-  Bedienstelle und zum Wiederholen eines dort sichtbar fehlgeschlagenen
-  Abrufs. Nie Reload, Navigation, Toast, globaler Offline-Balken,
-  `disabled`, Store-Zustand. `onLine === false` ist verlässlich, `true` ist
-  keine Zusage. Gemeinsame Stelle: `shared/composables/useNetzzustand.ts`.
-- **Leaflet nur in `features/karte/`** (ADR-0018), Bibliothek **und** CSS.
-  `Kartenflaeche.vue` wird asynchron eingebunden (`defineAsyncComponent`), da
-  die Karte an der Startroute hängt. Karteninstanz in `shallowRef`, beim
-  Unmount `map.remove()`. Marker als `L.divIcon`; ihre Styles nicht in
-  `<style scoped>` (Leaflet-DOM trägt kein `data-v-`). Den Ausschnitt für
-  die Sitzung hält ein nicht-reaktives Modul in `karte/composables/`, mit
-  Mitte und Zoom, ohne Ort-Daten und ohne Store (ADR-0038). Bestehende
-  Marker werden bei Inhaltsänderung aktualisiert (Note, Name, Label) statt
-  nur verschoben. Das geschieht in-place und idempotent (`befuelleElement`),
-  der Fokus bleibt dabei und es wird nicht eingepasst. Ein Etikett, das
-  ausgeblendet werden kann, bleibt im Layout (`opacity`, nicht `display`).
-  Nur so lassen sich Kollisionen am gerenderten Rechteck messen. Reine
-  Geometrie liegt in `karte/lib/` (`etikettKollision.ts`, `verdeckung.ts`),
-  nicht im Composable. `.karte-wrapper` trägt `isolation: isolate`. Ohne
-  diesen Stapelkontext liegen Leaflets Bedienelemente (z-index 800/1000)
-  über der festen App-Chrome und fangen deren Klicks ab.
-- **`app/dev/`** ist Dev-Werkzeug: Routen nur unter `import.meta.env.DEV`,
-  importiert nichts aus `features/`. `Tokenschau.vue` **bleibt dauerhaft**.
+- Ein Feature importiert nicht aus einem anderen, mit genau drei Ausnahmen: Store-Nutzung von `orte` (nicht `karte`), Views in `orte` mit fremden Komponenten/`lib/` (Zyklus-Prüfung), `datensicherung` stößt Neuladen an.
+- Alles andere über `shared/` bzw. `persistence/schema.ts`; nach `shared/` erst ab zwei Nutzern; `app/` und `features/` importieren nicht voneinander.
+- Fremder Inhalt in einem Baustein über einen benannten Slot, nicht über einen Import; `Werkzeugleiste.vue` bleibt store- und routerfrei.
+- Der Ort-Datensatz hat genau einen Besitzer, `useOrteStore`; einen eigenen Store hat nur, wer einen eigenen Object Store hat (`medien`) — also kein globaler App- oder Ansichts-Store.
+- Ableitungen mit zwei Nutzern in `shared/lib/`; eine Darstellungsregel nur der Ortsliste in `features/orte/lib/` (`zonen.ts`).
+- Gesamtnote nur über `berechneGesamtnote(bewertungen, gewichte)`; Anzeige/Zone lesen `zehntel`, Sortierung/Gleichstand/Vorrang `roh`; `SortierErgebnis` hat drei Gruppen, jeder Konsument behandelt alle drei.
+- `model/*.types.ts` importiert nichts; `persistence/schema.ts` setzt `OrtDatensatz` daraus zusammen.
+- Nur `persistence/` spricht mit dem Gerätespeicher — kein `localStorage`/`indexedDB` anderswo, kein zweiter Weg.
+- `components/` kennt keinen Store, `views/` binden an; einzige Ausnahme: `defineExpose` für die Abgabe einer unbestätigten Eingabe, abgeholt von allen Entwurfsbesitzern, danach genau ein Persistieren (ADR-0030/0035).
+- Eine projektweite Interaktionsregel steht einmal in `shared/composables/`; „Blur" und „Tap außerhalb" sind zwei Mechanismen; mehrzeilige Felder wachsen über `useMitwachsendesTextfeld.ts`, nur per JS.
+- Ein `watch` auf ein abgeleitetes Array vergleicht selbst (stabile Kennung); ein DOM-messender `watch` läuft mit `flush: 'post'`.
+- Rohwerte nur in `styles/tokens.css`; Tokenwert in JS nur als benannte Konstante mit Tokennamen im Kommentar; Zonen-, Marker- und Hervorhebungs-Tokens nach Themendatei.
+- Ein geteilter Baustein wird über eine dokumentierte Custom Property angepasst, nie über `:deep()`; der Hook sitzt am Wrapper des Nutzers, nie global.
+- Mehrere Signale auf `box-shadow`: je Signal eine lokale Custom Property, kombiniert in einer Deklaration.
+- Schriften und Icons lokal unter `src/assets/` (Lucide Outline, je Paket nachziehen); wer den letzten Nutzer eines Icons entfernt, löscht SVG und Wrapper.
+- Fremdnetz nur für Kacheln, Ortssuche, Versionsauslieferung: ein Modul kennt den Anbieter, ausdrückliches Ergebnis, datensparsam, kein API-Schlüssel, Referer bleibt, Attribution sichtbar.
+- Netzzustand nur im Feature für einen gemuteten Hinweis und Wiederholen; nie Reload, Toast, globaler Balken, `disabled`, Store-Zustand.
+- Leaflet nur in `features/karte/`: asynchron eingebunden, `shallowRef`, Marker in-place aktualisiert, Etikett per `opacity`, Geometrie in `karte/lib/`, `.karte-wrapper` mit `isolation: isolate`.
+- `app/dev/` ist Dev-Werkzeug (nur `import.meta.env.DEV`, importiert nichts aus `features/`); `Tokenschau.vue` bleibt.
 
 ## Namenskonventionen
 
-**Framework-Vokabular englisch, Domänen-Vokabular deutsch** (ADR-0002).
+→ `code-conventions/namen-und-routen.md`
 
-- Ordner kebab-case; Feature-Ordner heißt **exakt** wie der `bounded_context`.
-- SFC: PascalCase mit deutschem Domänenwort (`Ortsliste.vue`). **Einteilige
-  deutsche Komposita sind erlaubt** — die Vue-Regel „multi-word" schützt vor
-  HTML-Kollisionen, `Ortsliste` kollidiert mit keiner. Nicht „korrigieren".
-- Typen: PascalCase deutsch (`Ort`, `Bewertung`). Stores:
-  `<context>.store.ts` / `use<Context>Store`. Composables: `use<Name>()`.
-  Sonstige TS-Dateien kebab-case. Tests: `*.spec.ts` neben der Datei.
+- Framework-Vokabular englisch, Domänen-Vokabular deutsch; einteilige deutsche Komposita (`Ortsliste.vue`) sind erlaubt, nicht „korrigieren".
+- Ordner kebab-case, Feature-Ordner exakt wie der `bounded_context`; Stores `<context>.store.ts`/`use<Context>Store`; Tests `*.spec.ts` neben der Datei.
 
 ## Routen, Ansichten, neue Bereiche
 
-- **Adressschema** `/<bereich>` und `/<bereich>/:<id>`; `/` leitet auf
-  `/orte`. Route-Name einer **neuen** flachen Route = Pfad ohne
-  Schrägstrich. Die ausgelieferten Namen sind eingefroren, wie sie sind:
-  `orte`, `ort-detail` (für `/orte/:ortId`), `daten`, `adresse-ohne-ziel`.
-  Navigiert wird per Name, nie per zusammengesetztem Pfad aus einem Namen. **Routen bleiben flach**,
-  keine Elternroute als Layout-Träger; die Sammelroute `/:pfad(.*)*` steht
-  als **letzter** Eintrag in `app/router/routes.ts`. `path` und `name` einer
-  ausgelieferten Route werden **nie** geändert (ADR-0010/0011).
-- **Beide Routen eines Bereichs zeigen auf dieselbe Bereichsansicht** in
-  `features/<context>/views/`, die den Parameter aus der Route liest. Kein
-  zweiter „ausgewählt"-Zustand neben `route.params` (ADR-0011).
-- **Neuer Bereich**: flache Route **vor** der Sammelroute + **angehängter**
-  Eintrag im Register von `app/layout/Bereichsnavigation.vue` (nie einfügen
-  oder umsortieren, ADR-0010) + Icon. Nicht jeder Bereich ist zweispaltig.
-- **Zweite Ansicht eines bestehenden Bereichs**: kein Routen-Eintrag, keine
-  Navigation, sondern ein Query-Parameter (`/orte?ansicht=karte`, ADR-0019).
-  Die Ansicht leitet sich allein daraus ab — kein Store-Flag, keine
-  Anzeigeeinstellung. Unbekannter/fehlender Wert = Standardansicht **ohne**
-  `replace`. Parametername und -wert sind ab Auslieferung eingefroren.
-- **Eingefrorene Query-Parameter**: `ansicht` (Wert `karte`, ADR-0019) und
-  `ort` (Ort-ID, nur zusammen mit `ansicht=karte`, ADR-0039). Bei `ort`
-  gilt: Öffnen ist `push`, Wechsel ist `replace`, Schließen ist
-  `back()` **nur**, wenn `history.state.back` auf die Karte **ohne** `ort`
-  auflöst (`router.resolve`), sonst `replace` ohne `ort` (ADR-0039
-  Nachtrag zu P1). Eine
-  unbekannte oder nicht sichtbare ID wird **erst nach dem Laden des
-  Stores** per `replace` entfernt. Das ist die einzige Ausnahme von „ohne
-  `replace`".
-- **Modaler Zustand, der über Zurück schließen soll, bekommt einen
-  Verlaufseintrag ohne eigene Adresse** (ADR-0036), keinen neuen
-  Query-Parameter. Er wird über den Router angelegt, nie über rohes
-  `history.pushState`. Eine Vorwärts-Navigation oder ein Neuladen öffnet
-  ihn nie, und `scrollBehavior` scrollt bei gleicher `fullPath` nicht.
-  Bauform: `medien/composables/useVorschauVerlaufseintrag.ts`
-  (`router.push({ …, state: { bildvorschau: true }, force: true })`, ohne
-  `force` entsteht kein Eintrag; Schließerkennung über `popstate`). Der
-  Esc-Handler sitzt am Dialog selbst mit `stopPropagation`, damit die
-  `document`-Listener darunterliegender Sheets nicht mitschließen. Der
-  Fokus wird mit `focus({ preventScroll: true })` zurückgegeben.
+→ `code-conventions/namen-und-routen.md`
+
+- Routen flach; `path` und `name` ausgelieferter Routen nie ändern (`orte`, `ort-detail`, `daten`, `adresse-ohne-ziel`); Sammelroute als letzter Eintrag; navigiert wird per Name.
+- Beide Routen eines Bereichs zeigen auf dieselbe Bereichsansicht; kein zweiter „ausgewählt"-Zustand neben `route.params`.
+- Neuer Bereich: Route vor der Sammelroute, angehängter Eintrag in `Bereichsnavigation.vue`, Icon.
+- Zweite Ansicht eines Bereichs ist ein Query-Parameter, kein Routen-Eintrag; unbekannter Wert = Standardansicht ohne `replace`.
+- Eingefrorene Query-Parameter `ansicht`/`ort`: Öffnen `push`, Wechsel `replace`, Schließen `back()` nur auf die Karte ohne `ort`, sonst `replace`.
+- Modaler Zustand über Zurück bekommt einen Verlaufseintrag ohne eigene Adresse, über den Router, nie rohes `history.pushState`.
 
 ## Layout und Breitenlogik (ADR-0010/0011/0012)
 
-- **Der App-Rahmen ist eine Komponente, keine Route.** `App.vue` verzweigt
-  vor dem `<router-view>`: Sperrzustand aus `persistence/` → vollflächige
-  Meldung ohne Rahmen; sonst Rahmen (Skip-Link, Bereichsnavigation,
-  `<main id="main-content">`). Kein `route.meta`-Flag, kein `<keep-alive>`.
-- **Breitenabhängige Layouts fragen ihren Container ab, nicht das Fenster**:
-  eigener Block mit `container-type: inline-size`, `@container (min-width: …)`.
-  Kein `container-name` als Contract zwischen Contexts. `@media` bleibt für
-  den Rahmen selbst und Nicht-Breiten-Abfragen (`prefers-reduced-motion`).
-  **`container-type` sitzt auf einem Vorfahren** der Elemente, deren Regeln
-  im `@container`-Block stehen, nie auf dem umgeschalteten Element selbst:
-  Die Abfrage sucht den nächsten Container unter den **Vorfahren**, auf sich
-  selbst greift sie nie, und das ohne Fehlermeldung. Zuerst einen vorhandenen
-  Vorfahren nehmen, erst dann einen Wrapper einziehen. Vorbild:
-  `.ortebereich__liste-spalte` ist Container für `.ortebereich__kopf`
-  (`Ortebereich.vue`, ab PO-2026-09-27-003). Nicht so: `container-type`
-  direkt auf `.ortebereich__kopf`, das blieb wirkungslos.
-- **Welche der beiden Abfragen, entscheidet die Frage, nicht der Ort im Baum**
-  (ADR-0028): „welches Navigationsmuster ist aktiv" (ein-/zweispaltig,
-  Bottom-Tabs/Nav-Rail, Chrome das an „ist die Liste daneben sichtbar" hängt)
-  → `@media`. „wie viel Platz hat dieser Inhalt" (Raster, Kurz-/Langform,
-  Zeilenumbruch) → `@container`. **Bedienelemente, die einander ersetzen**
-  („Zurück" ↔ „×", „Fertig"), stehen in **einem** `@media`-Block je Datei mit
-  wörtlich derselben Bedingung — sonst gibt es ein Breitenfenster mit beiden
-  oder keinem. „Ab `lg` nicht vorhanden" ist `display: none` (nimmt Bild,
-  Tabfolge und Accessibility-Baum in einem), nie `visibility`/`opacity`.
-- **Breitenabhängige Sichtbarkeit wird auf ihren Bereich begrenzt, nicht
-  überschrieben** (ADR-0032). Eine Ein- oder Ausblendung, die nur unterhalb
-  `lg` gelten soll, steht in `@media not all and (min-width: 1024px)
-  /* --breakpoint-lg */`. Sie steht also weder ohne Bedingung noch in einem
-  Block, den eine `lg`-Regel wieder aufheben muss. Die wörtliche Negation in
-  derselben Datei gilt als „dieselbe Bedingung" und als „eine Stelle". Nie
-  `max-width: 1023px` (Lücke an der Grenze), nie `(width < 1024px)` (WebKit
-  < 16.4). Zustandsabhängige Regeln im selben Bereich sind **disjunkt**: Im
-  selben Zustand trifft höchstens eine auf ein Element zu. Kein
-  `!important`, kein Selektor nur für Spezifität, kein Verlass auf die
-  Reihenfolge. Vorbild: `shared/ui/MasterDetail.vue` (ab PO-2026-09-26-002).
-  Nicht gemeint sind Layoutwerte (Abstände, Richtung), die mobile-first
-  überschrieben werden.
-- **Schaltet ein Elternteil die Sichtbarkeit eines gemeinsam genutzten
-  Bausteins um, bekommt der Baustein einen eigenen Wrapper** — das
-  `display: none` liegt auf dem Wrapper, nie auf einer Klasse am
-  Wurzelelement des Kind-Bausteins. Grund: Vue hängt an das eigenständige
-  Root-Element eines Kindes **beide** scoped-CSS-Attribute (seins und das des
-  Elternteils); Elternregel und die eigene Regel des Bausteins
-  (`.primaer-button { display: inline-flex }`) haben dann dieselbe
-  Spezifität, und wer gewinnt, hängt an der Bündelungs-/Importreihenfolge
-  statt an der Quelle. Der Wrapper umgeht das strukturell. Vorbilder:
-  `shared/ui/MasterDetail.vue`, `.ortsdetail__fertig` in `Ortebereich.vue`.
-  Layoutangaben für den Baustein selbst (z. B. `width: 100%`) bleiben an
-  seiner eigenen Klasse — die kollidieren nicht.
-- **Ein Baustein, der in zwei verschieden breiten Containern steht, wird
-  selbst zum Container** und schaltet zwischen Kurz- und Langform um, statt
-  die Elternbreite anzunehmen. Vorbild: `orte/components/Werkzeugleiste.vue`.
-- **Ab `lg` scrollt die Listen-Spalte selbst, nicht das Fenster** (ADR-0011
-  P6). Was kleben soll, klebt **innerhalb** des scrollenden Spaltenelements.
-- **Ein Scroll-Container in einem Grid-/Flex-Elternteil mit fester Höhe ist
-  ein abgeschlossener Scroll-Bereich** (ADR-0011 Nachtrag P6). Das gilt für
-  jeden Layout-Container, nicht nur in `shared/ui/`. Drei Teile gehören
-  zusammen:
-  - In der Scroll-Achse ist die **Spur** begrenzt:
-    `grid-template-rows: minmax(0, …)`, nie eine implizite `auto`-Zeile und
-    nie ein nacktes `1fr`, das `minmax(auto, 1fr)` bedeutet.
-  - Das **Item** trägt `min-width: 0` **und** `min-height: 0` als Paar. Das
-    gilt auch für jedes Grid-/Flex-Item zwischen der festen Höhe und dem
-    Scroll-Container.
-  - Neben `overflow-y: auto|scroll` steht `position: relative`, ohne
-    `z-index`. Sonst entkommt ein absolut positionierter Nachfahre ohne
-    eigenen positionierten Vorfahren (typisch: Screenreader-Text mit
-    `clip`-Muster) dem Abschneiden und verlängert das Dokument.
-  Vorbild ist `shared/ui/MasterDetail.vue` (ab PO-2026-09-27-003). Im
-  Anlassfall trug **allein** `position: relative`, das hat der Differenzlauf
-  gezeigt. Die beiden anderen Teile sind trotzdem **nicht** überflüssig: Jeder
-  schließt eine eigene Art ab, auf die eine Spalte das Dokument verlängern
-  kann. Nicht als „wirkungslos" entfernen.
-- **Visuell versteckter Text nutzt das `clip`-Muster lokal im scoped Style**
-  (`position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0`),
-  wörtlich und vollständig. Klassenname `<block>__sr-<zweck>`, Vorbild
-  `.ortszeile__sr-hervorhebung`. Es gibt **kein globales Utility**, weil ein
-  solches den Anlassfall nicht verhindert hätte: Das Risiko liegt nicht in
-  der Klasse, sondern im **Containing Block**. Abgesichert wird deshalb der
-  Scroll-Container (Regel oben), nicht jede Kopie. Wer das Muster in einen
-  scrollenden Bereich setzt, prüft, ob der Scroll-Container oder ein
-  Vorfahre dazwischen positioniert ist.
-- **Den Versatz eines Scroll-Containers setzt der Baustein zurück, dem der
-  Container gehört** (ADR-0033). Bei `MasterDetail.vue` geschieht das über
-  `defineExpose({ setzeDetailVersatzZurueck })`: synchron, nur
-  `scrollTop = 0` am eigenen Spalten-Wrapper, keine Breitenprüfung. Die
-  Bereichsansicht ruft die Methode über eine typisierte Template-Ref auf. Sie
-  greift **nie** über `querySelector`/`closest`/`parentElement` oder eine
-  Suche nach dem „nächsten scrollbaren Vorfahren" in das DOM des Bausteins.
-  Eigene Elemente im Slot (z. B. Listenzeilen) darf sie per
-  `scrollIntoView({ block: 'nearest' })` sichtbar machen.
-- **Alles, was in Grid/Flex schrumpfen soll, bekommt `min-width: 0`** — nicht
-  nur Layout-Spalten, sondern **jedes Flex-Item mit eigener Inhaltsbreite**,
-  besonders `input` (Standard-`size`, Spinner bei `type="number"`). Sonst
-  misst die Container-Abfrage eine Breite, die es nie gibt, oder das Element
-  läuft aus dem Bildschirm. **Vertikal scrollen ist normal, horizontal nie** —
-  aus dem Bildschirm ragen darf nichts.
-- **Ein selbst gezeichnetes Bedienelement wächst auf seine Trefferfläche über
-  einen transparenten `border`, nicht über `padding`** (Vorbild:
-  `shared/ui/Regler.vue`, die gemeinsame Regler-Bauform für
-  `Bewertungsachse.vue` und `GewichtungSheet.vue` — 8px Bahn +
-  `border-width: 18px 0` = 44px). `Regler.vue` ist ein einziges `<input>`
-  mit den Props `wert`, `min`, `max`, `leer`. Ereignisse, `id`, `class` und
-  `aria-*` fallen per Attribut-Fallthrough durch. Das Layout (`flex`,
-  `min-width: 0`, `grid-area`) setzt der Nutzer, nicht der Baustein. Drei
-  Teile, die nur zusammen funktionieren:
-  - **Lokale Ausnahme `box-sizing: content-box`** vom globalen `border-box`
-    (`base.css`) — sonst verdrängt der Rahmen die deklarierte Höhe der
-    sichtbaren Fläche, statt sie zu ergänzen.
-  - **`background-clip: content-box`** — sonst färbt der Hintergrund die
-    gesamte Trefferfläche statt nur die sichtbare Fläche.
-  - **Der sichtbare Rahmen ist ein inset `box-shadow` (`inset 0 0 0 Npx`),
-    kein `outline`.** `outline-offset` kennt **einen** Versatz für alle vier
-    Seiten und zieht ihn auch auf der Achse ohne Abstand nach innen (Befund:
-    die Bahn endete sichtbar 18px vor beiden Enden). Der inset-Schatten
-    beginnt immer an der Innenkante des Rahmens (Padding-Box) und passt sich
-    damit pro Achse von selbst an. Das ist zugleich der Grund für `border`
-    statt `padding`: mit `padding` läge die Padding-Box an der falschen Kante.
-- **Ein permanenter Rahmen wird nicht an `:not(:focus-visible)` gehängt.**
-  `box-shadow` und `outline` sind verschiedene CSS-Eigenschaften und bleiben
-  gleichzeitig sichtbar — der Fokusring **ergänzt** einen permanenten Rahmen,
-  statt ihn zu ersetzen. Die Ausnahme-Bindung ließ den Rahmen bei
-  Tastaturfokus komplett verschwinden (zweiter Abnahmebefund
-  PO-2026-09-16-001).
-- **Custom Properties funktionieren nicht in `@media`/`@container`** — dort
-  steht die Zahl wörtlich, mit Tokennamen im Kommentar. `var(--breakpoint-lg)`
-  in einer Bedingung trifft stillschweigend nie zu.
-- **Layoutmaße sind Tokens** (Container-Höchstbreite, Nav-Rail, Listen-Spalte,
-  Höhe der Bottom-Tab-Leiste) — kein freier Pixelwert im Feature-Stylesheet.
+→ `code-conventions/layout-und-breitenlogik.md`
+
+- Der App-Rahmen ist eine Komponente, keine Route; kein `route.meta`-Flag, kein `<keep-alive>`.
+- Breitenabhängige Layouts fragen den Container ab; `container-type` sitzt auf einem Vorfahren, nie auf dem umgeschalteten Element.
+- Navigationsmuster → `@media`, Platz für Inhalt → `@container`; einander ersetzende Bedienelemente in einem `@media`-Block mit wörtlich derselben Bedingung.
+- Sichtbarkeit unterhalb `lg` über `@media not all and (min-width: 1024px)`, nie überschrieben, nie `max-width: 1023px`; Zustandsregeln disjunkt.
+- Custom Properties wirken nicht in `@media`/`@container`; Layoutmaße sind Tokens.
+- Umschalten eines geteilten Bausteins über einen eigenen Wrapper; ein Baustein in zwei Breiten wird selbst Container.
+- Ab `lg` scrollt die Spalte, nicht das Fenster; ein Scroll-Container mit fester Höhe ist abgeschlossen (Spur `minmax(0, …)`, `min-width`/`min-height: 0`, `position: relative`) — alle drei Teile bleiben.
+- Visuell versteckter Text: `clip`-Muster lokal, `<block>__sr-<zweck>`, kein globales Utility.
+- Den Scroll-Versatz setzt der Baustein zurück, dem der Container gehört (`defineExpose`), nie per DOM-Suche.
+- Alles, was schrumpfen soll, bekommt `min-width: 0`; horizontal scrollt nie etwas.
+- Selbst gezeichnetes Bedienelement: Trefferfläche über transparenten `border` mit `content-box`, `background-clip` und inset-`box-shadow`; ein permanenter Rahmen hängt nie an `:not(:focus-visible)`.
 
 ## Persistenz und Formatversion (ADR-0003/0004)
 
-- Eine ganzzahlige `SCHEMA_VERSION` für den **gesamten** Bestand, identisch im
-  Gerätespeicher und in der Exportdatei. Lesen: gleiche Version → direkt;
-  **neuere** → ablehnen, nichts überschreiben; **ältere** → Migrationskette.
-  Ein älterer Bestand wird nie abgelehnt. Import nutzt dieselbe Kette.
-  Kein `if (version < N)` außerhalb von `persistence/migrations/`.
-- **IndexedDB über `idb`** — kein `localStorage`, kein Dexie/localForage.
-  **Zwei Versionen, nie vermischt**: `IDB_STRUKTUR_VERSION` beschreibt nur
-  Struktur (nur in `onupgradeneeded`, dort kein Inhalt), `SCHEMA_VERSION` den
-  Inhalt (nach dem Öffnen über `migrations/`).
-- Object Stores: `meta` · `orte` · `einstellungen` · `bilder` (Index `ortId`).
-  **Kein Rückverweis vom Ort auf seine Bilder** — die Zuordnung steht genau
-  einmal, im Bild-Datensatz. **Ein Ort ist ein Datensatz**; Bewertungen,
-  Kommentare, Tags sind Felder darin. **Binärdaten nie im Ort-Datensatz**,
-  nie als Base64. IDs sind `crypto.randomUUID()`. **Löschen kaskadiert in
-  einer Transaktion**; eine leere Datenbank ist ein Erststart.
-- **Zwei Zustände sperren die App vollflächig und verbieten jeden
-  Schreibzugriff**: unbekannt-neuere `SCHEMA_VERSION` und nicht verfügbarer
-  Gerätespeicher. Beide aus `persistence/`, gleiche Bauform: vollflächig,
-  nicht schließbar, ohne Navigationschrome, kein Zurücksetzen-Knopf.
+→ `code-conventions/persistenz.md`
+
+- Eine `SCHEMA_VERSION` für den Bestand; neuere ablehnen, ältere migrieren; kein `if (version < N)` außerhalb von `persistence/migrations/`.
+- IndexedDB über `idb`, kein `localStorage`; `IDB_STRUKTUR_VERSION` (Struktur) getrennt von `SCHEMA_VERSION` (Inhalt).
+- Ein Ort ist ein Datensatz; kein Rückverweis auf Bilder; keine Binärdaten im Ort; Löschen kaskadiert in einer Transaktion.
+- Zwei Sperrzustände (neuere Version, kein Speicher) sperren vollflächig und verbieten jedes Schreiben.
 
 ### Migrationsschritte
 
-- **Dateinummer = Zielversion** (`002-bewertungen.ts` führt v1 → v2); die
-  Zielversion ist immer die **aktuelle** `SCHEMA_VERSION` + 1, nicht eine im
-  Handoff genannte Zahl. Ein Schritt ist eine **reine Funktion**, eine Datei
-  je Schritt, und wird nach Veröffentlichung **nie geändert**.
-- **Ein Schritt importiert nichts aus `schema.ts`** — er deklariert Ein- und
-  Ausgangsform lokal (nur die Felder, die er anfasst). Ein neues Feld in
-  `RohBestand` wird **optional** deklariert, damit veröffentlichte Schritte
-  zuweisbar bleiben; der neue Schritt füllt es aktiv.
-- **Jede Formaterweiterung liefert Schritt und Fixture des alten Formats mit**
-  (`__fixtures__/vN-bestand.json`) — ohne Fixture-Test nicht fertig. Ein
-  vorhandenes Fixture wird nie geändert. **Binärdaten stehen nie im Fixture**,
-  sondern nur in seinem Test (Base64 → `Blob` vor dem Kettenlauf). Ein Schritt
-  fasst Binärinhalt nicht an: weiterreichen ja, dekodieren/messen nein.
+- Dateinummer = Zielversion (aktuelle + 1), reine Funktion, eine Datei je Schritt, nach Veröffentlichung nie geändert; importiert nichts aus `schema.ts`.
+- Jede Formaterweiterung bringt Schritt und Fixture mit; ein Fixture wird nie geändert, Binärdaten nie im Fixture.
 
 ### Lesen und Schreiben (ADR-0005)
 
-- **Kein stiller Ersatzwert beim Lesen** (`?? 0`, `|| []`). Fehlt ein Feld,
-  füllt es ein Migrationsschritt — fehlender und gesetzter Nullwert bleiben
-  unterscheidbar.
-- **Eine Gültigkeitsregel, eine Stelle** (ADR-0007 P7): **Jeder** Eingabepfad
-  eines Achsenwertes läuft durch `rundenUndKlemmen()` — auch der native
-  `<input type="range">` mit `min`/`max`/`step`. Dessen Zusage ist
-  Browserverhalten über einen String (`Number(el.value)`), keine Eigenschaft
-  des Datenmodells; ein zweiter Pfad ohne Gate macht die Zusicherung
-  „ganze Zahl 0–10, unabhängig vom Weg" zur Konvention statt zur Struktur.
-  Ausgenommen bleibt nur das **Leeren** — es führt direkt zu `null` und wird
-  nie geklemmt.
-- **Dasselbe Muster für die eigenen Gewichte** (ADR-0037): Das Gate sind
-  reine Funktionen in `features/orte/lib/gewichtung.ts` (klemmen 0–10,
-  runden, die letzte zählende Achse bleibt auf 1). Einziger Schreibpfad ist
-  `useOrteStore.setzeEigenesGewicht(achse, roh)`, über ihn laufen Regler und
-  Zahlenfeld. `eigeneGewichte` ist additiv in `OrteGewichtung`, gelesen
-  über `liesOrteGewichtung()`. Ungültiges fällt auf die Erstbelegung
-  zurück.
-- **Freitext mit Zeichenobergrenze und ohne Zeilenumbruch** (erstmals
-  Anfangsnotiz, PO-2026-09-27-002; UI-Seite: `design-conventions.md`
-  „Kurztextfeld mit Zeichenobergrenze"). Die Regel ist **eine** reine
-  Funktion in `features/<context>/lib/`: Läufe von Zeilenumbruchzeichen
-  werden zu einem Leerzeichen, dann wird auf die Grenze gekürzt, ohne ein
-  Surrogatpaar zu zerschneiden. Leer oder nur Leerraum wird zu `null`.
-  „Zeichen" ist die UTF-16-Codeeinheit (`String.length`), also dieselbe
-  Zählung wie bei `maxlength` und beim Zähler. Das **Gate sitzt im
-  Store-Setter** des besitzenden Contexts. Das Feld ist per Typ aus
-  `aktualisiereFeld` ausgenommen, damit es keinen zweiten Pfad ohne Gate
-  gibt (Struktur statt Konvention). `maxlength` ist Komfort und nicht das
-  Gate. Die Komponente ruft dieselbe Funktion auf, um das DOM nachzuziehen,
-  schreibt aber nur zurück, wenn sich der Text dadurch ändert (Caret, IME).
-  Der Import übernimmt den Wert unverändert, ohne Normalisierung und ohne
-  Kürzung. Ein Datenstand ohne das Feld (ältere Container-Version) bekommt
-  `null`.
-- **Ergebnisse statt Ausnahmen**: Lade-/Schreibfunktionen geben ein
-  ausdrückliches Ergebnis zurück, das der Aufrufer auswerten muss.
-- **Geschrieben wird der vollständige Datensatz aus dem Store**, nie
-  Lesen-Ändern-Zurückschreiben gegen die Datenbank. **Keine Entprellung**;
-  Auslöser: Feld verlassen, Route verlassen, `visibilitychange` → `hidden`,
-  `pagehide`.
-- **Jeder `put()`, dessen Wert auch nur teilweise aus einem Pinia-Store
-  stammt, läuft durch `sichereKopie()`** (`persistence/sichere-kopie.ts`).
-  Ein `ref`/`reactive`-Objekt ist ein `Proxy`, und der strukturierte Klon der
-  HTML-Spezifikation lehnt `Proxy` ab — eine echte IndexedDB scheitert
-  synchron mit `DataCloneError`, **engine-unabhängig**. Ein flacher `toRaw()`
-  genügt **nicht**: Wer ein Objekt per Spread teilweise neu zusammensetzt,
-  reicht die unveränderten Geschwisterfelder als tiefe Proxys durch. Der
-  Schutz muss rekursiv sein und darf nichts aus `vue` importieren.
-  **Heute ist das eine Aufrufkonvention, keine Struktur** — `put()` ist in
-  `bilder-repository.ts`, `bestand-repository.ts` und `init.ts` ohne Wrapper
-  erreichbar; dort kommen derzeit keine Store-Werte an. Wer das ändert,
-  wrappt.
-- **Der Schreibweg eines inline bearbeiteten Datensatzes schickt `put()` ohne
-  Task-Grenze ab und committet danach ausdrücklich** (ADR-0031 Punkt 2,
-  `tx.commit()` mit Laufzeitprüfung). Er läuft auch aus `pagehide` heraus;
-  ohne `commit()` braucht der Auto-Commit einen Rückweg ins Dokument, den es
-  beim Entladen nicht mehr gibt. Vor dem `put()` steht deshalb kein `await`
-  auf etwas anderes als die gecachte Verbindung. Zugesichert ist das
-  Ankommen trotzdem nur, solange das Dokument weiterlebt.
-- **Serialisiert wird nur, wo derselbe Datensatz mehrfach geschrieben wird.**
-  Die Schreib-Warteschlange je ID gehört zum Inline-Autosave auf dem
-  **Ort**-Datensatz. Ein Repository, dessen Datensätze nach dem Anlegen nie
-  geändert werden, braucht sie nicht (`bilder-repository.ts`). Wer ein neues
-  Repository baut, entscheidet an der Frage „konkurrierende Änderungen auf
-  **einem** Datensatz?" und sagt im Modulkommentar, warum so.
-- **Anzeigeeinstellungen sind kein Bestandsinhalt** (ADR-0006/0009): Store
-  `einstellungen`, keine `SCHEMA_VERSION`, keine Migration, kein Export. Typ,
-  Voreinstellung und Prüffunktion zusammen in
-  `features/<context>/model/ansicht.ts`; der Zustand lebt im Store des
-  Contexts, dem die **konfigurierte Ansicht** gehört. Schlüssel mit
-  Context-Präfix (`orte.sortierung`, `orte.tagfilter`, `orte.gewichtung`).
-  Eine Wertform wird additiv erweitert. Die Prüffunktion akzeptiert den
-  älteren Stand und füllt fehlende Teile mit der Voreinstellung. Fehlt eine, gilt die Voreinstellung —
-  ohne Meldung; ein fehlgeschlagenes Schreiben bricht nichts ab.
-- **Export/Import**: Bestand als Einheit in `persistence/bestand-repository.ts`
-  (lesen, ersetzen, ergänzen — je eine Transaktion, ausdrückliches Ergebnis).
-  Ein-/Auspacken in `features/datensicherung/lib/`, **`fflate` nur dort**.
-  `persistence/` kennt kein Dateiformat, `datensicherung` kein IndexedDB.
+- Kein stiller Ersatzwert beim Lesen; jeder Achsen-Eingabepfad durch `rundenUndKlemmen()`, eigene Gewichte durch das Gate in `gewichtung.ts`.
+- Begrenzter Freitext ohne Umbruch: eine reine Funktion, Gate im Store-Setter, Import übernimmt unverändert.
+- Ergebnisse statt Ausnahmen; geschrieben wird der vollständige Datensatz aus dem Store, ohne Entprellung, auf vier Auslösern.
+- Jeder `put()` mit Store-Anteil durch `sichereKopie()`; der Inline-Schreibweg committet mit `tx.commit()`; Warteschlange nur bei mehrfach geschriebenen Datensätzen.
+- Anzeigeeinstellungen sind kein Bestandsinhalt (`model/ansicht.ts`, Schlüssel mit Context-Präfix, additiv erweitert).
+- Export/Import über `bestand-repository.ts`; `fflate` nur in `datensicherung/lib/`.
 
 ## Build und Auslieferung (ADR-0001/0015)
 
-- **Rein statisches Bundle über HTTPS**, kein Server-Laufzeitanteil, kein SSR.
-  Der Unterpfad der Auslieferung (GitHub Pages) steht **nur** in der
-  Konstante `BASE` in `vite.config.ts`. Router (`import.meta.env.BASE_URL`),
-  `navigateFallback` sowie `scripts/smoke.mjs` und
-  `scripts/verify-precache.mjs` beziehen ihn von dort. Sonst verdrahtet
-  nichts im Code einen absoluten Pfad. Damit ist ein sicherer Kontext
-  gegeben. Ein Versionswechsel leert **Caches, niemals IndexedDB**.
-- **`build.cssTarget` ist eine Kompatibilitätsvorgabe und kein
-  Vorgabewert** (ADR-0032 Punkt 2, Nachtrag). Die Konstante `CSS_TARGET` in
-  `vite.config.ts` hält Safari/iOS bewusst unter 16.4 (`safari15`/`ios15`),
-  alle anderen Browser bleiben auf der Baseline-Version. Der Grund:
-  LightningCSS schreibt `@media`-Bedingungen in Bereichssyntax um, sobald
-  alle Ziele sie beherrschen, und in WebKit < 16.4 trifft diese Syntax still
-  nie zu. Ein Bump von `build.target` oder ein Vite-Update zieht
-  `CSS_TARGET` **nicht** mit, und niemand soll den Wert „angleichen". Wer
-  `CSS_TARGET` oder `build.cssMinify` ändert oder Vite hebt, prüft
-  `grep -o "@media[^{]*" dist/assets/*.css` auf `width <`/`>=`. Das ist heute
-  eine Konvention ohne automatischen Check.
-- **Service Worker generiert, nicht handgeschrieben**: `vite-plugin-pwa`,
-  Modus `generateSW`, `manifest: false`. **`globPatterns` werden
-  überschrieben, nicht übernommen** (der Vorgabewert enthält kein `woff2`) —
-  jedes Paket, das ein neues Dateiformat ins Bundle bringt, prüft die Liste.
-  **Adressen stehen nicht im Service Worker** (`navigateFallback`), ein Paket
-  mit neuer Route fasst den `pwa`-Block nicht an. **`registerType: 'prompt'`,
-  nie `autoUpdate`** — kein Reload aus `controllerchange` (Inline-Autosave).
-  **Kein Runtime-Caching für Fremd-Hosts**; `scripts/verify-precache.mjs`
-  prüft, dass in `dist/sw.js` kein Fremd-Host vorkommt.
+→ `code-conventions/build-und-auslieferung.md`
+
+- Statisches Bundle über HTTPS (sicherer Kontext); Unterpfad nur in `BASE` (`vite.config.ts`); Versionswechsel leert Caches, nie IndexedDB.
+- `CSS_TARGET` ist eine Kompatibilitätsvorgabe, nicht „angleichen"; bei Vite-Update oder Änderung den Prüf-Grep auf `dist/assets/*.css` laufen lassen.
+- Service Worker generiert; `globPatterns` überschrieben; `registerType: 'prompt'`, nie `autoUpdate`; kein Runtime-Caching für Fremd-Hosts.
 
 ## Tests und Verifikation (ADR-0023)
 
-- **Drei Ebenen, keine ersetzt die andere**: Vitest (`environment: 'node'` +
-  `fake-indexeddb/auto`) prüft Logik und Verträge · `npm run smoke` prüft am
-  echten Build in einer echten Engine, ob es benutzbar ist · die Abnahme
-  prüft die Kriterien.
-- **Komponentenverhalten** (ADR-0027): Zuerst prüfen, ob die Regel als reine
-  Funktion nach `lib/` gehört (billigste Ebene, Vorbild `rundenUndKlemmen.ts`).
-  Ist der **Handler- oder Emit-Weg selbst** der Gegenstand, entsteht eine
-  Component-Spec mit `@vue/test-utils`: `environment: 'node'` bleibt die
-  Vorgabe, die Spec setzt in Zeile 1 `// @vitest-environment jsdom` — die
-  globale Umgebung wird **nicht** umgestellt. Gemountet wird die
-  präsentationale Komponente mit Props, gelesen werden Emits; kein Store.
-  `vitest.config.ts` trägt dafür zweierlei, das zur Infrastruktur gehört und
-  nicht je Paket neu gefunden werden soll: **`plugins: [vue()]`** (ohne den
-  SFC-Transform „Failed to parse source … Install @vitejs/plugin-vue") und
-  **denselben `@assets`-Resolve-Alias wie `vite.config.ts`** (sonst scheitert
-  jede Spec, die einen Icon-Wrapper mitmountet, z. B. `IconKreuz.vue`).
-  Wer einen Alias in `vite.config.ts` ergänzt, zieht ihn hier mit.
-  **Nicht** in jsdom zusichern: Sichtbarkeit, Trefferfläche, Verdeckung,
-  Pseudo-Element- oder `accent-color`-Wirkung, „überlebt ein Neuladen" —
-  jsdom hat kein Layout und keine Pseudo-Element-Stile.
-- **„Bedienelement ist greifbar" ist eine Rauchtest-Zusicherung** (ADR-0027
-  P5): Sichtbarkeit und 44×44px-Trefferfläche werden am berechneten Stil in
-  einer echten Engine geprüft, inklusive `::-webkit-slider-thumb`, und als
-  Eigenschaft formuliert — nie als Prüfung auf eine bestimmte Klasse.
-  **Was `pruefeReglerGreifbarkeit()` deckt, steht ausgeschrieben** (ADR-0029
-  P3), weil die Lücke genau dort lag, wo man sie für gedeckt hielt:
-  - *Geprüft*: 44×44px am `<input>`; Thumb-Knoten vorhanden und nicht durch
-    `opacity: 0`, `visibility: hidden` oder Größe < 4px unbedienbar.
-  - *Nicht geprüft*: Kontrast/Farbe des Thumbs gegen seine Umgebung · ob eine
-    Autoren-Regel auf dem Thumb in der Ziel-Engine überhaupt **greift** ·
-    `::-moz-range-thumb` · jede Darstellung in WebKit · WebKit-Touchverhalten.
-- **Stile eines UA-Pseudo-Elements (`::-webkit-*`) werden über das Chrome
-  DevTools Protocol gelesen, nie über `getComputedStyle(el, '::-webkit-…')`**
-  (ADR-0027 P5, korrigiert): Letzteres liefert in Chromium die UA-Vorgabe
-  statt des Autoren-Stils — zweifach nachgewiesen, die Zusicherung wäre
-  dauerhaft grün geblieben. Bauform in `pruefeReglerGreifbarkeit()`
-  (`scripts/smoke.mjs`): `DOM.getDocument({ pierce: true })` →
-  Knoten über **matchende Selektoren** finden
-  (`CSS.getMatchedStylesForNode`, nicht über interne `id`-Namen) →
-  `CSS.getComputedStyleForNode`. Wirkt umständlich, ist es nicht — nicht
-  „vereinfachen".
-- **Eine neue Zusicherung ist erst eingerichtet, wenn sie gegen einen
-  verletzenden Stand rot wird** (ADR-0027 P8) — Vor-Korrektur-Stand aus der
-  Historie oder eine Wegwerf-Änderung; der Nachweis steht im Bericht. Ein
-  Prüfweg, der die Eigenschaft gar nicht erreicht, sieht aus wie ein
-  erfülltes Kriterium.
-  - **Eine Mutation muss bauen.** Ein Typfehler (`noUnusedLocals`,
-    `noUnusedParameters`, Narrowing etwa bei `false && x`) färbt den Lauf
-    vor dem Rauchtest rot, und das aus dem falschen Grund. Den Zielzweig
-    umlenken (anderer Schlüssel, anderer Text, anderer Event-Name), statt
-    einen Ausdruck zu entfernen. Eine Textersetzung prüft vorher, dass der
-    alte Text vorkommt, sonst bleibt die Mutation still wirkungslos.
-  - **Gekürzte Rauchtest-Kopie**: Für Mutationsläufe ist eine temporäre
-    Kopie von `scripts/smoke.mjs` mit gefilterten Ansichten zulässig
-    (ca. 1,5 statt 7,5 min). Der letzte Lauf vor `done` ist der volle.
-  - **Keine Reste**: Backups und Wegwerf-Skripte liegen im Scratchpad,
-    nicht im Repo. Vor `done` zeigt `git status` nur die beabsichtigten
-    Dateien, also keine `*.orig`, `*.bak`, `*.rej` und keine Smoke-Kopien.
-  - Lange Läufe im Hintergrund mit `setsid nohup` starten und auf das
-    Prozessende prüfen. Ein abgebrochener Lauf endet ohne Meldung mitten im
-    Ablauf.
-- **Jede Dokumentations-Änderung steht im Bericht mit Beleg** — Datei plus
-  Zeilenbereich oder Diff-Auszug, nie nur „aktualisiert". Das betrifft vor
-  allem den Abschnitt „Rauchtest" in `CLAUDE.md`, der mit **jeder** neuen
-  Zusicherung einen Absatz bekommt. Maßstab ist `git diff`, nicht die
-  Absicht: Eine Änderung, die dort fehlt, ist nicht gemacht (Anlass:
-  PO-2026-09-27-004, die gemeldete `CLAUDE.md`-Ergänzung fehlte im Diff).
-  Die Zeilenangaben zu `scripts/smoke.mjs` in `CLAUDE.md` veralten mit
-  jeder Einfügung davor. Wer dort einfügt, zieht alle betroffenen Angaben
-  nach.
-- **Grün gegen `fake-indexeddb` heißt nicht, dass der Browser schreibt** — es
-  bildet den strukturierten Klon in JavaScript nach. Jede Zusicherung „Daten
-  überleben ein Neuladen" gehört in den Rauchtest. Für die Klonbarkeit selbst
-  ist `structuredClone()` der brauchbare Vitest-Nachweis; die Begründung
-  dafür trägt die **Spezifikation** (`sichere-kopie.ts:6-13`), nicht Node/V8
-  — V8 *ist* Chromiums Klon-Implementierung und belegt über WebKit nichts.
-  Diesen Kommentar nicht eindampfen.
-- **Die Naht Store → Repository wird nicht vollständig wegmockt.** Je Store
-  bleibt ein Test, der das **echte** Repository benutzt und den Wert übergibt,
-  den der Store im Betrieb übergibt.
-- **Der Rauchtest fährt genau eine Engine: Chromium** (ADR-0023 P5).
-  **WebKit prüft kein Automatismus** — obwohl der Datenverlust aus -001 dort
-  auftrat. Ein Akzeptanzkriterium, das eine nicht gefahrene Engine nennt, ist
-  **nur manuell prüfbar**, wird im Handoff so markiert und bleibt bei der
-  Abnahme offen, bis der Nutzer bestätigt hat. Ist eine Ursache
-  engine-spezifisch, ist ein grüner Chromium-Lauf kein Nachweis.
-  **Das gilt auch für Darstellung, nicht nur für Verhalten** (ADR-0029):
-  Pseudo-Element-Stile (`::-webkit-*`/`::-moz-*`), `appearance`,
-  `accent-color` und native Bedienelement-Darstellung greifen zwischen
-  Engines unterschiedlich. Ein erfolgreicher Lauf weist solche Zusicherungen
-  **im Lauf selbst** als „auf WebKit ungeprüft" aus — als Eigenschaft
-  benannt, nicht als Funktions-/Klassenliste.
-- **Eine Darstellungsregel für die ungeprüfte Engine benennt ihren
-  Ausfallpfad — und prüft ihn gegen den realen Befund** (ADR-0029 P5). Ein
-  Ausfallpfad, der in den gemeldeten Fehlerzustand zurückführt, ist keine
-  Degradation: Sichtbarkeit darf nicht an einer einzelnen, zwischen Engines
-  uneinheitlich umgesetzten Eigenschaft hängen. Anlassfall: „fällt unsere
-  Thumb-Regel aus, zeigt die Engine ihren nativen, sichtbaren Thumb" — genau
-  der war auf iOS bei Position 0 nicht erkennbar.
-- **Greift eine vorgeschriebene Bauform in einer Engine nicht, ist das ein
-  `blocked` an den `architekt`** — nie eine stille Abweichung im Code und nie
-  eine abgeschwächte Zusicherung (ADR-0023 P6, ADR-0029 P6).
-- **Neue Ansicht, neue Breite, neuer Zustand?** In die zentralen Listen oben
-  in `scripts/smoke.mjs` eintragen — sonst prüft sie niemand. Ausnahmen von
-  einer Zusicherung stehen als **benannte Bedingung** (Bauform), nie als
-  Liste von IDs oder Klassennamen. **Das Register aller gültigen Ausnahmen
-  steht in ADR-0040**, eine neue Ausnahme kommt über den Architekten dort
-  hinein. Jede Ausnahme hat in `pruefeAusnahmenGegenprobe()` zwei Fälle am
-  synthetischen DOM: einen, in dem sie greift, und einen Gegenfall, in dem
-  die Prüfung weiter anschlägt. Beide werden rot nachgewiesen. Ob ein
-  Vorfahr ein Element abschneidet, entscheidet der **Containing Block**,
-  nicht der DOM-Baum: Ein `fixed`-Element oder ein absolutes ohne
-  positionierten Vorfahren im Abschneider entkommt ihm (ADR-0040 P4; im
-  heutigen `pruefeUeberlauf()` noch nicht umgesetzt, benannte Lücke). Die
-  `[inert]`-Ausnahme gilt nur zusammen mit der harten Gegen-Zusicherung
-  „genau die überdeckten Marker sind `inert`" (ADR-0039 P7). Eine nicht
-  modale Überlagerung ist **nicht** `position: fixed`, sonst verschluckt die
-  Ausnahme „fixierte Chrome" ihre Befunde.
-- **Die Ansichten aus `ANSICHTEN` teilen sich Seite, Bestand und persistierte
-  Einstellungen** (Sortierung, Filter, Gewichtung). Das gilt über die
-  gesamte Laufzeit. Zwei Bauformen schützen davor, eine fremde, spätere
-  Zusicherung zu verfälschen:
-  - **`aufraeumen`** an der Ansicht: Wer eine persistierte Einstellung
-    verstellt, stellt sie dort zurück. Das gilt **samt Unterzustand**,
-    nicht nur den Schalter: `setzeGewichtungZurueck` setzt erst die eigenen
-    Gewichte auf 1:1:1:1, dann Ausgewogen. Ein älterer Reset steht noch
-    beim Nachfolger `oeffneZonenLegende()`. Wer die Reihenfolge in
-    `ANSICHTEN` ändert, zieht ihn mit.
-  - **`eigenerKontext: true`** an der Ansicht (frischer Browser-Kontext,
-    eigene IndexedDB): für einen Bestand mit Koordinaten oder vielen
-    zusätzlichen Orten. Auf der gemeinsamen Seite verlängert er die Liste,
-    und spätere Ansichten melden Fehlbefunde.
-  Rauchtest-Daten legen **kurze** Tag-Namen an (`ka`, `kb`). Tags bleiben im
-  Bestand, und lange Filter-Pillen ragen in jeder späteren Ansicht aus dem
-  Bildschirm. Braucht eine Zusicherung einen bestimmten Bestand als
-  **Vorbedingung**, läuft sie auf einer frischen Seite und legt ihn selbst an.
-  Der zufällig angesammelte Bestand eines Laufs zählt nicht als Vorbedingung.
-  Vorbild: `pruefeSpaltenAbgeschlossenerScrollBereich()`.
-- **Wer eine Zusicherung auf eine neue Dimension ausweitet, grenzt zuerst die
-  falschen Befunde ab** — generisch, nicht am Einzelfall: Prüfpunkte jenseits
-  der Viewport-**Höhe** sind normales Scrollen; eine fixierte Bottom-Tab-Leiste
-  überdeckt bei einem nicht scrollenden Test zwangsläufig die Unterkante,
-  obwohl `AppRahmen.vue` `padding-bottom` reserviert. Und die Prüfumgebung
-  meldet sich selbst: Chromium protokolliert jeden abgefangenen `fetch`/`xhr`
-  als Konsolenfehler.
-- **Mehrere gleichzeitig offene Entwürfe werden ohne Fokuswechsel
-  hergestellt** (ADR-0035): `locator.fill()`/`.click()` auf ein zweites Feld
-  löst am ersten dessen eigenes „Feld verlassen" aus und committet es, bevor
-  der geprüfte externe Auslöser (Route, `visibilitychange`, `pagehide`)
-  feuert — die Zusicherung prüft dann einen Zustand, den es nicht mehr gibt.
-  Bauform: `setzeEingabenOhneFokus()` in `scripts/smoke.mjs` (`el.value` +
-  synthetisches `input`-Ereignis, `document.activeElement` bleibt). Umgekehrt
-  bleibt `.fill()` richtig, wo „Feld verlassen" **selbst** der geprüfte
-  Auslöser ist. Die synthetische Eingabe überspringt Playwrights
-  Bedienbarkeitsprüfung — dass das Feld sichtbar und bedienbar ist, belegt
-  sie nicht.
-- **Ein Feld, dessen Existenz selbst Teil des geprüften Zustands ist, wird
-  über `locator.count()` gelesen, nicht direkt über `inputValue()`**:
-  Letzteres wartet bei fehlendem Element den vollen Timeout (30s) ab und
-  wirft; außerhalb von `try`/`catch` bricht das den ganzen Lauf ab und kostet
-  den Bericht der übrigen Zusicherungen. Bauform: `wertOderLeer()` in
-  `scripts/smoke.mjs` — fehlt das Feld, ist das der Befund. Jede
-  `pruefe…`-Funktion läuft zusätzlich in `try`/`catch` und meldet ihren
-  Fehler, statt ihn zu werfen.
-- **Die Bildschirmfotos in `.smoke/` gehören zur Verifikation einer
-  Darstellungsänderung, nicht zum Beiwerk.** Der Rauchtest prüft **benannte
-  Eigenschaften** (Trefferfläche, Greifbarkeit, Verdeckung, Überstand) — die
-  **Geometrie** einer selbst gezeichneten Fläche prüft keine davon. Beide
-  Abnahmebefunde aus PO-2026-09-16-001 waren in Chromium sichtbar und standen
-  im Bildschirmfoto; der Lauf war trotzdem grün, zu Recht. Wer eine
-  Darstellung ändert, sieht das Bildschirmfoto der betroffenen Ansicht **je
-  Breite** an und sagt im Bericht, dass er es getan hat. Das ist die zweite
-  Hälfte der Grenze aus ADR-0029: dort die ungeprüfte **Engine**, hier die
-  ungeprüfte **Eigenschaft in der geprüften Engine**. Kein Ersatz für eine
-  Zusicherung — wo sich die Eigenschaft als solche formulieren lässt, wird sie
-  zugesichert.
-- **Ein roter Rauchtest, der einen bekannten, bereits geschnittenen Befund
-  meldet, wird nicht abgeschwächt** — er wird durch das zugehörige Paket
-  grün. Fehlt Playwright: überspringen, Exit-Code 0, im Bericht ausdrücklich
-  „ungeprüft" sagen.
-- **„Überlebt ein Neuladen" ist nur für bestimmte Felder zugesichert**: den
-  Anlege-Fall, Tags (ADR-0030) sowie Kommentar und Zahlenwert je
-  Bewertungsachse (ADR-0035), jeweils am weiterlebenden Dokument. Für alle
-  übrigen Felder des Ortsdetails ist es **nicht** zugesichert; das nächste
-  Paket, das an einem davon arbeitet, erweitert die Zusicherung. Das echte
-  Entladen mit Fokus im Feld bleibt für jedes Feld nur gemeldet (ADR-0031).
+→ `code-conventions/tests-und-verifikation.md`, `code-conventions/rauchtest-bauformen.md`
+
+- Drei Ebenen (Vitest, Rauchtest, Abnahme), keine ersetzt die andere.
+- Component-Spec nur, wenn der Handler-/Emit-Weg selbst Gegenstand ist; Docblock `// @vitest-environment jsdom`, global bleibt `node`.
+- Neue Zusicherung erst eingerichtet, wenn sie gegen einen verletzenden Stand rot wird; die Wegwerf-Änderung muss bauen; keine Reste im Repo.
+- Doku-Änderung im Bericht mit Beleg; neue Rauchtest-Zusicherung: ein Satz in `CLAUDE.md`, Nachweise in `docs/pakete/`.
+- `fake-indexeddb` belegt kein Schreiben im Browser; die Naht Store → Repository wird nicht vollständig wegmockt.
+- Der Rauchtest fährt nur Chromium; engine-abhängige Darstellung wird als „auf WebKit ungeprüft" ausgewiesen; greift eine Bauform nicht, ist das ein `blocked` an den `architekt`.
+- Greifbarkeit ist eine Rauchtest-Zusicherung; UA-Pseudo-Element-Stile nur über CDP lesen.
+- Neue Ansicht/Breite/Zustand in die Listen in `scripts/smoke.mjs`; Ausnahmen als benannte Bedingung, Register in ADR-0040, je mit Gegenprobe.
+- Ansichten teilen Bestand und Einstellungen: `aufraeumen`, `eigenerKontext`, kurze Tag-Namen, Vorbedingungen auf frischer Seite.
+- Offene Entwürfe ohne Fokuswechsel herstellen; Existenz-Felder über `locator.count()`.
+- Bildschirmfotos je Breite ansehen; ein roter Rauchtest mit bekanntem Befund wird nicht abgeschwächt; „überlebt ein Neuladen" gilt nur für benannte Felder.
 
 ## Abweichungen und bewusst akzeptierte Stellen
 
-Damit sie niemand bei nächster Gelegenheit „korrigiert" oder als neuen
-Befund meldet.
-
-- `src/app/dev/`: außerhalb von `features/`, ohne Tests — Dev-Werkzeug.
-- **Schatten als Literal an sechs Stellen** (`shared/ui/Sheet.vue`,
-  `Toast.vue`, `tags/TagEingabe.vue`, `orte/Ortssuche.vue`,
-  `karte/Kartenflaeche.vue` 2×), Werte bereits abweichend, obwohl
-  `design-concept.md` nur zwei Elevation-Stufen kennt. Die einzige
-  Token-Lücke. **Kein Einzelfall-Aufräumen** — das Auflösen braucht die zwei
-  Tokenwerte aus `design-concept.md` und geht in einem Zug. Nicht betroffen:
-  Scrims hinter Sheets/Dialogen und Bildkacheln.
-- **Zwei Tokenwerte als Hex-Konstanten in JS**
-  (`shared/ui/Intensitaetsbalken.vue`) — CSS kann keine Farbskala
-  interpolieren. Bei einer Token-Änderung mitziehen, nicht aufräumen.
-- **Ortsdetail, Koordinatenfelder** (Nutzerentscheidung 2026-09-13,
-  „akzeptabel so"): Leert man bei einem Ort **mit** hinterlegten Koordinaten
-  beide Felder, klappt der Abschnitt zu und der Reveal-Button muss erneut
-  gedrückt werden. Im Browser bestätigt, bewusst so gelassen — **kein
-  unentdeckter Fehler**, nicht nebenbei reparieren.
-- **Die Maße des Reglerdaumens stehen als Literale in `Bewertungsachse.vue`**
-  (24px Durchmesser, 2px Rahmen; dazu 18px/8px an der Bahn) statt als Tokens.
-  `design-conventions.md` gibt bewusst keinen Absolutwert vor, nur Gleichheit
-  zwischen den Zuständen — 24px ist die Bemessungswahl des Leads, im
-  Dateikommentar begründet. **Nicht nebenbei tokenisieren**: Ob daraus ein
-  benannter Wert wird, entscheidet der `ux-ui-designer` in
-  `design-conventions.md` (Single-Writer). Bis dahin: bei einer Änderung beide
-  Pseudo-Element-Regeln (`::-webkit-slider-thumb`, `::-moz-range-thumb`)
-  mitziehen.
-- **`istOffeneAuswahlliste()` in `scripts/smoke.mjs` ist ungeprüft**
-  (Nutzerentscheidung 2026-09-13): `ORTSSUCHE_ZUSTAENDE` kennt keinen
-  `treffer`-Zustand, die Ausnahme wird von keinem Testzustand durchlaufen.
-  Dokumentiert, bewusst so.
-- **`Ortebereich.vue` schaltet „Zurück", „×" und „Fertig" noch per
-  reihenfolgeabhängigem Override um** (eine Klasse, gleiche Spezifität, der
-  `@media`-Block steht später), nicht nach ADR-0032. Das ist bewusst
-  akzeptiert: Es hängt keine Zustandsklasse daran, und
-  `pruefeAbschlussKombination` deckt die Stelle hart ab. Umgestellt wird,
-  wenn der Chrome-Block dieser Datei aus eigenem Grund angefasst wird. Kein
-  Einzelfall-Aufräumen.
-- **`Schnellansicht.vue` liest das `padding-bottom` des nächsten `<main>`**
-  (`messe()`), um sich über die feste Tab-Leiste anzuheben, wenn die
-  480px-Karte darunter reicht (ADR-0039 Nachtrag). Das ist ein lesender
-  Griff aus `orte` in das Layout von `app-shell`. Er ist bewusst
-  akzeptiert, weil `pruefeSchnellansicht()` (9) ihn bei 320×700 hart
-  abdeckt. Wer in `AppRahmen.vue` ändert, wie Platz für feste Leisten
-  reserviert wird, zieht ihn mit. Ob die Kartenhöhe stattdessen der
-  verfügbaren Höhe folgt, ist eine offene Nutzerfrage, nicht nebenbei
-  umbauen.
-- **`.datenbereich__datei-input`** (`Datenbereich.vue`) nutzt das `clip`-Muster
-  für ein Datei-Input und nicht für Screenreader-Text. Deshalb heißt es nicht
-  `__sr-…`. Nicht umbenennen.
-- Bewusste Abweichung von der Greenfield-Referenz des Plugins (Angular/NgRx,
-  Microservices): ADR-0001/0002.
+→ `code-conventions/abweichungen.md` — Stellen, die niemand nebenbei „korrigiert": `app/dev/` ohne Tests ·
+sechs Schatten-Literale · zwei Hex-Konstanten in `Intensitaetsbalken.vue` · Koordinatenfelder klappen zu ·
+Reglerdaumen-Literale · `istOffeneAuswahlliste()` ungeprüft · Override in `Ortebereich.vue` ·
+`Schnellansicht.vue` liest `padding-bottom` von `<main>` · `.datenbereich__datei-input` · Abweichung von der
+Greenfield-Referenz (ADR-0001/0002).

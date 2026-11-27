@@ -18,6 +18,60 @@ Führe den Workflow als Hauptthread, der die folgenden Agents
 nacheinander/parallel aufruft (via `Agent`-Tool bzw. Subagent-Aufruf mit dem
 jeweiligen `name` aus dem Frontmatter):
 
+## Zwei Dinge, die du bei **jedem** Aufruf mitgibst
+
+### 1. Den Modus — nenne ihn, lass ihn nicht erraten
+
+Vier Rollen arbeiten in mehreren Modi. **Du weißt bei jedem Aufruf, welcher
+es ist** — du rufst ja bewusst Schritt 3 oder Schritt 7 auf. Sag es dazu,
+als erste Zeile des Aufrufs:
+
+```
+Modus: abnahme
+```
+
+| Rolle | Modi | Wo im Ablauf |
+|---|---|---|
+| `product-owner` | `zerlegen` · `design-fragen` · `freigeben` · `abnahme` | Schritt 1 · 2 · 3 · 7 |
+| `architekt` | `einordnen` · `nachpflege` · `rückläufer` | Schritt 4 · 7b · 6 |
+| `design-concept` | `anlegen` · `überarbeiten` | Schritt 1b · 6 |
+| `ux-ui-designer` | `runde-1` · `runde-2` · `konventions-nachpflege` | Schritt 2 · 2 · 7b · 6 |
+
+Bei einem Rückläufer aus Schritt 6 nimmst du den Modus, der zur **Ursache**
+passt: kollidierende Konventionseinträge → `konventions-nachpflege`;
+unfertiges Design → die nächste Designrunde, sofern `roundtrips.design` sie
+noch zulässt; ein widersprüchliches Konzept → `überarbeiten`.
+
+Die Agents können ihren Modus zur Not aus der Form der übergebenen Objekte
+ableiten — aber diese Ableitung ist mehrdeutig, und eine falsch geratene
+Runde kostet einen vollen Durchlauf. Der Modus im Aufruf **gewinnt** immer
+gegen das, was der Agent selbst vermuten würde.
+
+**Bei einer Antwortrunde** (du rufst denselben Agenten mit beantworteten
+`user_questions` erneut auf) nennst du **denselben** Modus wie beim
+ursprünglichen Aufruf — Antworten arbeiten die Annahmen ein, sie schieben
+niemanden in den nächsten Abschnitt.
+
+### 2. Den Schleifenzähler — lies ihn, zähle nicht mit
+
+Jede Rückschleife hat eine Obergrenze. Die prüfst du am Feld `roundtrips`
+des Pakets, **nicht** aus dem Gedächtnis:
+
+| Zähler | Obergrenze | Erreicht ⇒ |
+|--------|-----------|------------|
+| `roundtrips.design` | 2 | Designschleife beenden, Rest an den Nutzer (Schritt 3) |
+| `roundtrips.blocked` | 1 | Paket an den Nutzer, nicht erneut zurückreichen |
+| `roundtrips.review` | 1 | Befunde an den Nutzer, keine weitere Abnahmerunde |
+
+Erhöht werden die Zähler von den Agents selbst (Designer, blockierender
+Lead, `product-owner` bei `accepted: false`) — du liest sie nur. Über einen
+Lauf mit mehreren Paketen und drei Schleifenarten ist Mitzählen im Kopf
+genau die Stelle, an der ein langer Ablauf kippt.
+
+Fehlt das Feld in einem eingehenden Objekt, behandle es als
+`{"design":0,"blocked":0,"review":0}` — und notiere die Lücke für die
+Zusammenfassung, denn dann zählt eine Rolle nicht mit.
+
 ## Rückfragen laufen über dich — sonst gar nicht
 
 **Kein Agent kann den Nutzer fragen.** `AskUserQuestion` wird aus jedem
@@ -27,12 +81,39 @@ hier, der es hat.
 Die planenden Rollen (`product-owner`, `architekt`, `design-concept`) geben
 Fragen deshalb im Feld `user_questions` zurück — je Eintrag mit `frage`,
 `optionen`, `warum` und der `annahme`, unter der sie weitergearbeitet haben.
+Dazu je Objekt ein `frage_kontext`: die kurze Einordnung (Ausgangslage, Problem,
+Lösung), die der Nutzer vor der Frage zu sehen bekommt.
 
 **Nach jedem Aufruf einer dieser Rollen prüfst du dieses Feld.** Ist es nicht
 leer:
 
-1. Lege die Fragen dem Nutzer per `AskUserQuestion` vor — gebündelt, in einem
-   Aufruf, mit den gelieferten `optionen`.
+1. **Erst den Kontext, dann die Frage.** Der Nutzer sieht deine Rückfrage
+   mitten in einem langen Lauf und kennt das Gespräch davor nicht. Ohne
+   Einordnung klickt er die empfohlene Option, weil er nicht weiß, worum es
+   geht — das ist der häufigste Weg, auf dem eine echte Entscheidung als
+   Zufall endet. Deshalb gilt für **jedes** Objekt mit gefülltem
+   `user_questions`: Schreibe **unmittelbar vor** dem `AskUserQuestion`-Aufruf,
+   im selben Zug und als normalen Text, diesen Block:
+
+   ```
+   **Rückfrage zu „<titel>" (<task_id>)** — Schritt <n>, <Rolle>
+
+   <frage_kontext, unverändert>
+
+   Demo zum Ansehen: <design_demo>      ← nur wenn gesetzt
+   ```
+
+   Danach **ein** Dialog mit den Fragen dieses Objekts und den gelieferten
+   `optionen`. Mehrere Objekte mit Fragen: je Objekt ein Block und ein Dialog,
+   nacheinander — so steht der Kontext direkt bei den Fragen, zu denen er
+   gehört, statt in einem gemeinsamen Vorspann zu verschwimmen.
+
+   Den `frage_kontext` gibst du **unverändert** wieder; du kürzt ihn nicht und
+   schmückst ihn nicht aus. Fehlt `titel`, nimm die `task_id` allein. Fehlt der
+   `frage_kontext` (das Schema-Gate meldet es), gib das Paket einmal zurück;
+   fehlt er danach immer noch, schreib **keinen** eigenen — nenne stattdessen
+   Paket, Schritt und die `warum`-Angaben der Fragen, denn die sind der
+   Kontext, den der Agent schon geliefert hat.
 2. Rufe **denselben Agenten** mit den Antworten erneut auf, damit er sie
    einarbeitet — und sag dabei, aus welchem Schritt die Fragen stammen. Die
    Antworten ersetzen seine Annahmen; sie schieben ihn nicht in den nächsten
@@ -40,8 +121,10 @@ leer:
    überarbeiteten Zerlegung, nicht zur Freigabe.
 3. Erst danach geht es weiter.
 
-**Zwei Formfehler, die du nicht selbst ausbügelst:**
+**Drei Formfehler, die du nicht selbst ausbügelst:**
 
+- **Kein `frage_kontext`**, obwohl `user_questions` gefüllt ist, oder einer mit
+  mehr als 10 Sätzen. Siehe oben: einmal zurück an den Agenten.
 - **Ein Eintrag ohne `optionen` oder `warum`** ist unvollständig. Ergänze ihn
   **nicht** selbst — dann erfindest du die Antwortmöglichkeiten, also genau
   die Vorstrukturierung der Entscheidung, die beim Agenten liegt. Gib das
@@ -62,6 +145,30 @@ Ein Agent, der ein Ergebnis liefert und dabei `user_questions` füllt, hat
 nichts falsch gemacht: Er blockiert bewusst nicht.
 
 ## Ablauf
+
+0. **Stand der Vendor-Kopie prüfen** — nur zur Information, blockiert nichts.
+   Hält das Ziel-Repo die Rollen als Projekt-Agents unter `.claude/`, kann die
+   Kopie veraltet oder ohne die Protokoll-Hooks eingerichtet sein. Lauf einmal:
+
+   ```bash
+   python3 .claude/agent-team/scripts/check-vendor-stand.py 2>/dev/null
+   ```
+
+   Danach, ebenfalls nur zur Information:
+
+   ```bash
+   python3 .claude/agent-team/scripts/check-context-size.py 2>/dev/null
+   ```
+
+   Es meldet Gedächtnisdateien über ihrem Größenbudget (`rules/CONTEXT_BUDGET.md`).
+   Gib `DRINGEND`-Zeilen mit weiter und schlag vor, den `architekt` bzw.
+   `ux-ui-designer` im Nachpflege-Modus kuratieren zu lassen — als eigenes Paket,
+   nicht mitten im Feature.
+
+   Gibt es keine Ausgabe (oder das Skript nicht, etwa im Plugin-Betrieb),
+   fahre fort. Gibt es `WARNUNG:`-Zeilen, gib sie dem Nutzer in der ersten
+   Antwort wörtlich weiter und mach dann **ohne Rückfrage** weiter: Ein Sync
+   ändert `.claude/` und gehört nicht in einen laufenden Feature-Durchlauf.
 
 1. **`product-owner`** mit dem Feature-Request aufrufen (sein **Modus A**).
    Ergebnis: Entwurfspakete mit gesetztem `ui_impact` — **noch nicht** die
@@ -99,7 +206,9 @@ nichts falsch gemacht: Er blockiert bewusst nicht.
    Du fährst die Schleife, weil der `product-owner` selbst keine Agents
    aufrufen kann:
    - **`ux-ui-designer`** mit dem Entwurfspaket aufrufen → liefert
-     `design_notes` + `design_open_questions`.
+     `design_notes` + `design_open_questions` und, wenn es etwas Sichtbares zu
+     entscheiden gibt, eine `design_demo` (Wegwerf-HTML zur Anschauung).
+     Übernimm sie ins Paketobjekt: Beim Fragenblock nennst du sie dem Nutzer.
    - Sind Fragen offen: **`product-owner`** mit diesen Fragen erneut
      aufrufen (**Modus B**) → er beantwortet sie und schärft die
      `acceptance_criteria`. Was er nicht selbst entscheiden darf, kommt als
@@ -107,8 +216,11 @@ nichts falsch gemacht: Er blockiert bewusst nicht.
      Designer seine zweite Runde bekommt.
    - **`ux-ui-designer`** ein zweites Mal aufrufen, um die Antworten
      einzuarbeiten.
-   - **Nach spätestens zwei Designer-Runden ist Schluss.** Bleiben Fragen
-     offen, gehen sie in Schritt 3 an den Nutzer — nicht weiter iterieren.
+   - **Schluss bei `roundtrips.design >= 2`** — der Designer erhöht den
+     Zähler je Runde selbst. Bleiben Fragen offen, gehen sie in Schritt 3 an
+     den Nutzer; nicht weiter iterieren. Ist `design_open_questions` schon
+     nach Runde 1 leer, endet die Schleife dort — der Zähler ist eine
+     Obergrenze, kein Soll.
    - Wie der Architekt läuft auch der Designer als **Einzelinstanz**: Er
      schreibt `design-conventions.md` und würde sich parallel selbst
      überschreiben. Pakete also nacheinander durch die Schleife geben.
@@ -181,10 +293,11 @@ nichts falsch gemacht: Er blockiert bewusst nicht.
      Schritt 2 war nicht abgeschlossen. Führe sie für dieses Paket zu Ende —
      `product-owner`, dann `ux-ui-designer` — und rufe anschließend den
      `architekt` erneut auf. Auch das zählt als der eine Roundtrip.
-   - Bleibt das Paket auch nach diesem Roundtrip blockiert, oder liegt eine
-     andere Blockade vor, fasse sie dem Nutzer kurz zusammen. Nicht
-     stillschweigend überspringen und **nicht mehr als einen Roundtrip pro
-     Paket** automatisch fahren.
+   - **Prüfe vor dem Zurückreichen `roundtrips.blocked`.** Steht der Zähler
+     schon auf 1 oder höher, hatte das Paket seinen Roundtrip: Dann geht es
+     an den Nutzer, nicht erneut an eine Rolle. Nicht stillschweigend
+     überspringen — und nicht nachverhandeln, weil die zweite Blockade
+     „diesmal anders" aussieht.
 
 7. **Abnahme.** Rufe den **`product-owner`** ein letztes Mal auf
    (**Modus D**) — mit allen Handoff-Objekten des Features. Er prüft am
@@ -202,10 +315,10 @@ nichts falsch gemacht: Er blockiert bewusst nicht.
    `done` heißt implementiert und validiert, nicht abgenommen.
 
    - **Alle `accepted: true`** → weiter zu Schritt 8.
-   - **Befunde vorhanden** → das betroffene Paket **einmal** an den Lead
-     zurückgeben, der es umgesetzt hat; danach erneut abnehmen lassen. Wie
-     bei den übrigen Roundtrips: **nicht mehr als eine Runde** automatisch.
-     Bleiben danach Befunde offen, gehen sie an den Nutzer.
+   - **Befunde vorhanden** → das betroffene Paket an den Lead zurückgeben,
+     der es umgesetzt hat; danach erneut abnehmen lassen. Die Grenze liest du
+     an `roundtrips.review`: Steht er bei 1 oder höher, gehen die
+     verbliebenen Befunde an den Nutzer statt in eine weitere Runde.
    - Ist ein Befund nur über eine Änderung an `constraints` oder der
      Architektur behebbar, meldet der Lead ihn als `blocked` an den
      `architekt` — nicht an den `product-owner` zurück.
@@ -231,7 +344,9 @@ nichts falsch gemacht: Er blockiert bewusst nicht.
    welche ADRs der Architekt beim Einordnen angelegt hat, was in Schritt 7b
    an Learnings und Konventionen dazugekommen ist, und was noch
    offen/blockiert ist. **Nenne dabei ausdrücklich, was der
-   `product-owner` bei der Abnahme *nicht* am Code beurteilen konnte** — das
+   `product-owner` bei der Abnahme *nicht* am Code beurteilen konnte** — und welche
+   Kriterien er nur `uebernommen` statt neu `geprueft` hat (`abnahme.status`),
+   sowie jede `criteria_changes` eines Leads — das
    ist der Rest, den nur ein Mensch oder ein Testlauf prüfen kann, und darf
    nicht in einer Erfolgsmeldung untergehen. Wurde in Schritt 1b ein
    Design-Konzept **neu entworfen**, weise ebenfalls darauf hin — es ist eine
@@ -239,6 +354,38 @@ nichts falsch gemacht: Er blockiert bewusst nicht.
 
 ## Hinweise
 
+- **Abbruch eines Leads** (Neustart, Rate-Limit, Fehler; gestartet, aber kein
+  Ergebnis und keine Antwort mehr): nie von vorn beginnen. Lauf
+  ```bash
+  python3 .claude/agent-team/scripts/resume-status.py 2>/dev/null \
+    || python3 "$(find ~/.claude/plugins -name resume-status.py 2>/dev/null | head -1)"
+  ```
+  Es zeigt je Paket die `progress.md` des Leads (`.claude/progress/<task_id>.md`:
+  erledigt, nächster Schritt, Offenes) und `git status`. Lebt der Agent noch,
+  setz ihn per `SendMessage` fort; sonst ruf dieselbe Rolle neu auf, mit dem
+  Handoff-Objekt und dem Satz „Fortsetzung: lies `.claude/progress/<task_id>.md`
+  und prüfe den Arbeitsbaum, bevor du etwas änderst." Eine Fortsetzung ist kein
+  Roundtrip, `roundtrips` bleibt unverändert. Fehlt die Datei, gilt der
+  Arbeitsbaum als einzige Wahrheit — sag das im Auftrag. Nach der Abnahme des
+  Pakets löschst du die `progress.md`.
+- **Commits, solange ein Lead läuft.** Committe nur Dateien, die keine laufende
+  Rolle schreibt (praktisch `.claude/runs/`), nie mit `git add -A` oder
+  `commit -a`, nie `.claude/progress/`. Verlangt ein Hook trotzdem „committe und
+  pushe": antworte kurz, dass ein Lead läuft und der Code-Commit zurückgestellt
+  ist. Ein Commit mitten im Lauf bringt halbfertigen Code ins Remote oder
+  zerreißt die Dateien des Leads.
+- **Antworten des Nutzers gehören ins Objekt.** Beim erneuten Aufruf einer Rolle
+  trägst du die Antworten in `user_answers` ein (je Frage `id`, `antwort`, `art`
+  — Schema). Kam keine Antwort und gilt die `annahme`, steht dort `annahme_gilt`.
+  Ohne das lässt sich später nicht sagen, wer eine Entscheidung getroffen hat.
+- **Behauptungen im Auftrag belegen.** Gibst du einer Rolle einen Ist-Stand mit
+  (Wortlaut, Dateistruktur, „gibt es schon"), nenne die Fundstelle `Datei:Zeile`
+  oder schreib „unverifiziert". Übernimm nichts aus dem Bericht einer anderen Rolle
+  als Tatsache, das du nicht selbst am Code gesehen hast. Ein erfundener Wortlaut
+  ging so schon einmal als Ist-Stand an den Designer (Handoff 2.6).
+- **Pfade statt Auszüge.** Lange Texte (Berichte, Begründungen, Nachweise) gibst du
+  als Dateipfad und Abschnittsname weiter, nicht als Zitat. Die Rolle liest, was sie
+  braucht. Das gilt auch für `docs/pakete/<task_id>.md`.
 - Reiche zwischen den Aufrufen ausschließlich die Handoff-JSON-Objekte
   durch, keinen vollen Gesprächsverlauf.
 - `TodoWrite` nutzen, um den Fortschritt über mehrere Agent-Wechsel hinweg
